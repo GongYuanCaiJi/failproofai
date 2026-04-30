@@ -63,7 +63,7 @@ export async function resolveTargetClis(
       // claude so removeHooks operates over Claude's scopes (no-op if no settings file).
       console.log(
         style.yellow(
-          "Warning: no agent CLI binary found in PATH (claude, codex, copilot). " +
+          "Warning: no agent CLI binary found in PATH (claude, codex, copilot, cursor-agent). " +
             "Defaulting to Claude Code; nothing will be removed if no settings file exists.",
         ),
       );
@@ -71,7 +71,7 @@ export async function resolveTargetClis(
     }
     console.log(
       style.yellow(
-        "Warning: no agent CLI binary found in PATH (claude, codex, copilot). " +
+        "Warning: no agent CLI binary found in PATH (claude, codex, copilot, cursor-agent). " +
           "Defaulting to Claude Code; hooks will activate when an agent is installed.",
       ),
     );

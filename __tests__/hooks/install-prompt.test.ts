@@ -146,7 +146,7 @@ describe("hooks/install-prompt", () => {
         );
         return {
           ...actual,
-          detectInstalledClis: () => ["claude", "codex", "copilot"],
+          detectInstalledClis: () => ["claude", "codex", "copilot", "cursor"],
         };
       });
       vi.resetModules();
@@ -155,8 +155,8 @@ describe("hooks/install-prompt", () => {
       const uninstallResult = await resolveTargetClis(undefined, "uninstall");
       vi.doUnmock("../../src/hooks/integrations");
       vi.resetModules();
-      expect(installResult).toEqual(["claude", "codex", "copilot"]);
-      expect(uninstallResult).toEqual(["claude", "codex", "copilot"]);
+      expect(installResult).toEqual(["claude", "codex", "copilot", "cursor"]);
+      expect(uninstallResult).toEqual(["claude", "codex", "copilot", "cursor"]);
     });
 
     it("NO_COLOR warning output contains no ANSI sequences", async () => {
@@ -181,7 +181,7 @@ describe("hooks/install-prompt", () => {
       vi.doUnmock("../../src/hooks/integrations");
       vi.resetModules();
       expect(logs[0]).toMatchInlineSnapshot(
-        "\"Warning: no agent CLI binary found in PATH (claude, codex, copilot). Defaulting to Claude Code; hooks will activate when an agent is installed.\"",
+        "\"Warning: no agent CLI binary found in PATH (claude, codex, copilot, cursor-agent). Defaulting to Claude Code; hooks will activate when an agent is installed.\"",
       );
       expect(logs[0]).not.toContain("\\u001b[");
     });
