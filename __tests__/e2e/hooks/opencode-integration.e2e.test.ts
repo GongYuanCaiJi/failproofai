@@ -63,7 +63,7 @@ function writeConfig(cwd: string, enabledPolicies: string[]): void {
 function installInto(env: { home: string; cwd: string }, scope: "project" | "user", extraArgs: string[] = []): void {
   execSync(`bun ${BINARY_PATH} policies --install --cli opencode --scope ${scope} ${extraArgs.join(" ")}`, {
     cwd: env.cwd,
-    env: { ...process.env, HOME: env.home, FAILPROOFAI_TELEMETRY_DISABLED: "1" },
+    env: { ...process.env, HOME: env.home, FAILPROOFAI_TELEMETRY_DISABLED: "1", FAILPROOFAI_BINARY_OVERRIDE: BINARY_PATH },
     stdio: "pipe",
   });
 }
@@ -71,7 +71,7 @@ function installInto(env: { home: string; cwd: string }, scope: "project" | "use
 function uninstallFrom(env: { home: string; cwd: string }, scope: "project" | "user"): void {
   execSync(`bun ${BINARY_PATH} policies --uninstall --cli opencode --scope ${scope}`, {
     cwd: env.cwd,
-    env: { ...process.env, HOME: env.home, FAILPROOFAI_TELEMETRY_DISABLED: "1" },
+    env: { ...process.env, HOME: env.home, FAILPROOFAI_TELEMETRY_DISABLED: "1", FAILPROOFAI_BINARY_OVERRIDE: BINARY_PATH },
     stdio: "pipe",
   });
 }
