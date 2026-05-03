@@ -998,7 +998,7 @@ export const opencode: Integration = {
 // ── Pi (pi-coding-agent) integration ───────────────────────────────────────
 //
 // Pi loads TypeScript extension packages registered in `.pi/settings.json`.
-// Schema (verified empirically against pi-coding-agent v0.71.1):
+// Schema (verified empirically against pi-coding-agent v0.72.1):
 //
 //   {"packages": ["./relative/path", "/abs/path", "npm:@scope/name"]}
 //

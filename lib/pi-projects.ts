@@ -1,7 +1,7 @@
 /**
  * Pi (pi-coding-agent) project discovery.
  *
- * Empirically verified against pi-coding-agent v0.71.1 (Phase 0.7 of plan):
+ * Empirically verified against pi-coding-agent v0.72.1 (Phase 0.7 of plan):
  *
  *   • Session-state root: `~/.pi/agent/sessions/` (NOT `~/.pi/sessions/`).
  *   • Per-cwd subdirs are encoded with `/` → `-` and wrapped in `--…--`,

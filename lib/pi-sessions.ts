@@ -1,7 +1,7 @@
 /**
  * Pi (pi-coding-agent) session transcript discovery + JSONL parser.
  *
- * Empirically verified against pi-coding-agent v0.71.1 (Phase 0.7 of plan):
+ * Empirically verified against pi-coding-agent v0.72.1 (Phase 0.7 of plan):
  *
  * Session files live at
  *   `~/.pi/agent/sessions/<encoded-cwd>/<ISO-timestamp>_<UUID>.jsonl`
