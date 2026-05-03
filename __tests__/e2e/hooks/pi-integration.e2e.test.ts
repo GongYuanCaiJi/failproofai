@@ -142,6 +142,72 @@ describe("E2E: Pi integration — hook protocol (handler-only)", () => {
     }
   });
 
+  it("session_shutdown → SessionEnd: exit 0 (observation-only on Pi)", () => {
+    const env = createPiEnv();
+    try {
+      writeConfig(env.cwd, []);
+      const result = runHook(
+        "session_shutdown",
+        PiPayloads.sessionShutdown(env.cwd, "quit"),
+        { homeDir: env.home, cli: "pi" },
+      );
+      expect(result.exitCode).toBe(0);
+    } finally {
+      env.cleanup();
+    }
+  });
+
+  it("tool_result → PostToolUse: sanitize-jwt fires on tool output containing a JWT", () => {
+    const env = createPiEnv();
+    try {
+      // sanitize-jwt is enabled by default; pin it explicitly to ensure the
+      // PostToolUse path is exercised regardless of default-enabled drift.
+      writeConfig(env.cwd, ["sanitize-jwt"]);
+      // A syntactically valid JWT (3 base64url segments). Embed inside Bash
+      // tool output so sanitize-jwt's PostToolUse pattern match fires.
+      const jwt =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
+        "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ." +
+        "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+      const result = runHook(
+        "tool_result",
+        PiPayloads.toolResult(
+          "Bash",
+          { command: "echo $TOKEN" },
+          [{ type: "text", text: `token: ${jwt}` }],
+          env.cwd,
+        ),
+        { homeDir: env.home, cli: "pi" },
+      );
+      // PostToolUse + sanitize-jwt → deny (the policy treats secret-leak as a
+      // hard fail). Pi flat-shape emits {permission: "deny", reason}.
+      // Confirms tool_result → PostToolUse canonicalization works AND that
+      // the Pi-flat shape is emitted instead of Claude's hookSpecificOutput.
+      assertPiDeny(result);
+      expect(String(result.parsed?.reason ?? "")).toMatch(/JWT|jwt|sanitize-jwt|secret/i);
+    } finally {
+      env.cleanup();
+    }
+  });
+
+  it("agent_end → Stop: handler runs and exits 0 (Pi cannot veto stop)", () => {
+    const env = createPiEnv();
+    try {
+      // No Stop policies are default-enabled; with empty config we just
+      // confirm the canonicalization path works end-to-end (snake_case
+      // 'agent_end' → PascalCase 'Stop') and the binary exits cleanly.
+      writeConfig(env.cwd, []);
+      const result = runHook(
+        "agent_end",
+        PiPayloads.agentEnd(env.cwd),
+        { homeDir: env.home, cli: "pi" },
+      );
+      expect(result.exitCode).toBe(0);
+    } finally {
+      env.cleanup();
+    }
+  });
+
   it("agent-settings guard: Bash read of .pi/settings.json is denied", () => {
     const env = createPiEnv();
     try {

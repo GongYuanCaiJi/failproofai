@@ -173,6 +173,30 @@ which writes a `.pi/settings.json` referencing failproofai's bundled
 pi-extension. Same self-reference caveat applies — do **not** install the
 standard `npx` form from inside this repo.
 
+**Pi limitations vs. Claude semantics** (verified against pi-coding-agent
+v0.72.1 d.ts; the `pi-extension/` shim subscribes to 7 events but Pi's API
+caps what each handler can do):
+
+| Pi event           | → Claude event   | Veto / mutate? | Notes |
+|--------------------|------------------|----------------|-------|
+| `tool_call`        | PreToolUse       | ✅ block      | Full deny support via `{block, reason}`. |
+| `user_bash`        | PreToolUse       | ✅ block      | Full deny support. |
+| `input`            | UserPromptSubmit | ✅ block      | Full deny support. |
+| `session_start`    | SessionStart     | observation   | No return-value effect on Pi. |
+| `tool_result`      | PostToolUse      | observation   | `ToolResultEventResult` exposes `{content, details, isError}` for mutation but no `block`. PostToolUse is observation/sanitize anyway, matching Claude semantics. |
+| `agent_end`        | Stop             | observation   | Pi's agent loop has already exited; we cannot keep Pi running the way Claude's exit-2-from-Stop can. `require-*-before-stop` policies still RUN — their findings land in the activity store + stderr — but the stop is not vetoed. |
+| `session_shutdown` | SessionEnd       | observation   | Symmetry only. |
+
+**Instruct (`additionalContext`) on Pi `tool_call`** — Pi's
+`ToolCallEventResult` shape is `{block?, reason?}` only; there's no
+first-class additional-context channel back to the agent. `policy-evaluator.ts`
+emits the right Pi-flat shape (`{permission: "allow", reason: "Instruction
+from failproofai: ..."}`), and the shim logs it to stderr, but Pi does NOT
+inject the instruction into the next LLM turn. A `context`-event injection
+workaround (queue the instruction in `tool_call`, drain in the next `context`
+handler by inserting a system message into `event.messages`) is feasible
+but deferred until upstream Pi adds a first-class channel.
+
 ## Workflow rules
 
 ### One PR per branch

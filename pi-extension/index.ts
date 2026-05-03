@@ -140,6 +140,35 @@ interface PiSessionStartEvent {
   sessionId?: string;
 }
 
+interface PiSessionShutdownEvent {
+  type?: string;
+  /** "quit" | "reload" | "new" | "resume" | "fork" per pi-coding-agent v0.72.1 */
+  reason?: string;
+  targetSessionFile?: string;
+  cwd?: string;
+  sessionId?: string;
+}
+
+interface PiToolResultEvent {
+  type?: string;
+  toolCallId?: string;
+  toolName?: string;
+  input?: Record<string, unknown>;
+  /** TextContent | ImageContent — opaque to us; forwarded as-is. */
+  content?: unknown[];
+  isError?: boolean;
+  cwd?: string;
+  sessionId?: string;
+}
+
+interface PiAgentEndEvent {
+  type?: string;
+  /** AgentMessage[] — opaque; not forwarded (Stop policies don't need it). */
+  messages?: unknown[];
+  cwd?: string;
+  sessionId?: string;
+}
+
 interface PiExtensionApi {
   on(event: string, handler: (event: unknown) => unknown): void;
 }
@@ -197,6 +226,53 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
       cwd: resolveCwd(e.cwd),
       reason: e.reason,
       hook_event_name: "SessionStart",
+    });
+    return undefined;
+  });
+
+  // tool_result → PostToolUse. Observation-only on Pi: ToolResultEventResult
+  // exposes {content, details, isError} for mutation but no `block`. We
+  // forward to the failproofai binary so PostToolUse builtins (sanitize-jwt,
+  // sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-
+  // content, sanitize-bearer-tokens) run and get their decisions logged to
+  // the activity store + stderr — but Pi keeps the original tool result.
+  pi.on("tool_result", (event: unknown): unknown => {
+    const e = event as PiToolResultEvent;
+    callPolicy("tool_result", {
+      tool_name: canonicalizeToolName(e.toolName),
+      tool_input: e.input ?? {},
+      tool_response: { content: e.content, isError: e.isError },
+      session_id: e.sessionId,
+      cwd: resolveCwd(e.cwd),
+      hook_event_name: "PostToolUse",
+    });
+    return undefined;
+  });
+
+  // agent_end → Stop. Observation-only on Pi: the agent loop has already
+  // exited when this fires, so a deny decision cannot keep Pi running the
+  // way Claude's exit-2-from-Stop can. We still forward so the 5
+  // require-*-before-stop builtins run and log their findings (visible in
+  // the dashboard's activity feed and stderr) — best-effort visibility.
+  pi.on("agent_end", (event: unknown): unknown => {
+    const e = event as PiAgentEndEvent;
+    callPolicy("agent_end", {
+      session_id: e.sessionId,
+      cwd: resolveCwd(e.cwd),
+      hook_event_name: "Stop",
+    });
+    return undefined;
+  });
+
+  // session_shutdown → SessionEnd. Observation-only; emits a SessionEnd
+  // record so per-session telemetry has a clean close.
+  pi.on("session_shutdown", (event: unknown): unknown => {
+    const e = event as PiSessionShutdownEvent;
+    callPolicy("session_shutdown", {
+      session_id: e.sessionId,
+      cwd: resolveCwd(e.cwd),
+      reason: e.reason,
+      hook_event_name: "SessionEnd",
     });
     return undefined;
   });

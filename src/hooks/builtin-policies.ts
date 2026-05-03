@@ -767,7 +767,7 @@ function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
     for (const p of paths) {
       const resolved = resolve(cwd, p);
       if (isClaudeSettingsFile(resolved)) {
-        return deny(`Reading Claude settings file blocked: ${resolved}`);
+        return deny(`Reading agent settings file blocked: ${resolved}`);
       }
       if (isClaudeInternalPath(resolved)) continue; // Whitelist ~/.claude/
       if (resolved === "/dev/null") continue; // Harmless special file
@@ -790,7 +790,7 @@ function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
 
   // Block settings files in any .claude directory before whitelisting
   if (isClaudeSettingsFile(resolved)) {
-    return deny(`Reading Claude settings file blocked: ${resolved}`);
+    return deny(`Reading agent settings file blocked: ${resolved}`);
   }
 
   // Whitelist ~/.claude/ — Claude Code's own config, plans, memory, and settings

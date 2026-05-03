@@ -492,4 +492,32 @@ export const PiPayloads = {
       hook_event_name: "SessionStart",
     };
   },
+  sessionShutdown(cwd: string, reason: "quit" | "reload" | "new" | "resume" | "fork" = "quit"): Record<string, unknown> {
+    return {
+      session_id: PI_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      reason,
+      hook_event_name: "SessionEnd",
+    };
+  },
+  toolResult(toolName: string, toolInput: Record<string, unknown>, content: unknown[], cwd: string, isError = false): Record<string, unknown> {
+    return {
+      session_id: PI_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "PostToolUse",
+      tool_name: toolName,
+      tool_input: toolInput,
+      tool_response: { content, isError },
+    };
+  },
+  agentEnd(cwd: string): Record<string, unknown> {
+    return {
+      session_id: PI_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "Stop",
+    };
+  },
 };

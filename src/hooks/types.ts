@@ -169,26 +169,50 @@ export const OPENCODE_EVENT_MAP: Record<OpenCodeHookEventType, HookEventType> = 
 //
 // Pi events arrive in camelCase (like Cursor): `event.toolName`,
 // `event.toolCallId`, `event.input`, `event.text`, `event.cwd`. The handler
-// canonicalizes Pi's underscore_lower_snake_case event names
-// (session_start / input / tool_call / user_bash) to PascalCase via
-// PI_EVENT_MAP before policy lookup.
+// canonicalizes Pi's underscore_lower_snake_case event names to PascalCase
+// via PI_EVENT_MAP before policy lookup.
+//
+// **Veto capability per event** (verified against pi-coding-agent v0.72.1
+// d.ts; relevant ResultEvent shape in parens):
+//   • `tool_call`        → PreToolUse  · CAN veto via {block, reason}
+//                          (ToolCallEventResult)
+//   • `user_bash`        → PreToolUse  · CAN veto (UserBashEventResult)
+//   • `input`            → UserPromptSubmit · CAN veto (InputEventResult)
+//   • `session_start`    → SessionStart · observation only
+//   • `tool_result`      → PostToolUse · OBSERVATION only — Pi's
+//                          ToolResultEventResult exposes {content, details,
+//                          isError} for mutation but not block. PostToolUse
+//                          policies are observation/sanitize anyway, so this
+//                          matches Claude semantics.
+//   • `agent_end`        → Stop · OBSERVATION only — Pi's agent loop has
+//                          already exited by the time this fires; we cannot
+//                          keep Pi running the way Claude's exit-2-from-Stop
+//                          can. Stop-policy violations land in the activity
+//                          log + stderr but do not veto the stop.
+//   • `session_shutdown` → SessionEnd · observation only.
 
 export const PI_HOOK_SCOPES = ["user", "project"] as const;
 export type PiHookScope = (typeof PI_HOOK_SCOPES)[number];
 
 export const PI_HOOK_EVENT_TYPES = [
   "session_start",
+  "session_shutdown",
   "input",
   "tool_call",
   "user_bash",
+  "tool_result",
+  "agent_end",
 ] as const;
 export type PiHookEventType = (typeof PI_HOOK_EVENT_TYPES)[number];
 
 export const PI_EVENT_MAP: Record<PiHookEventType, HookEventType> = {
   session_start: "SessionStart",
+  session_shutdown: "SessionEnd",
   input: "UserPromptSubmit",
   tool_call: "PreToolUse",
   user_bash: "PreToolUse",
+  tool_result: "PostToolUse",
+  agent_end: "Stop",
 };
 
 export const HOOK_EVENT_TYPES = [

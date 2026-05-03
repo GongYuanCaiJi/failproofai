@@ -392,6 +392,100 @@ describe("getProjectFolders", () => {
     expect(result[0].lastModified.getTime()).toBe(piMtime.getTime());
   });
 
+  it("merges Claude + Codex + Copilot + Cursor + OpenCode + Pi rows that share an encoded name (6-CLI parity)", async () => {
+    const claudeMtime = new Date("2024-01-01T00:00:00Z");
+    const codexMtime = new Date("2025-01-01T00:00:00Z");
+    const copilotMtime = new Date("2026-01-15T00:00:00Z");
+    const cursorMtime = new Date("2026-03-15T00:00:00Z");
+    const opencodeMtime = new Date("2026-05-15T00:00:00Z");
+    const piMtime = new Date("2026-08-15T00:00:00Z");
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([
+      { name: "-home-u-six", isDirectory: () => true, isFile: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: claudeMtime } as any);
+    mockGetCodexProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-six",
+        path: "/home/u/six",
+        isDirectory: true,
+        lastModified: codexMtime,
+        lastModifiedFormatted: codexMtime.toISOString(),
+        cli: ["codex"],
+      } satisfies ProjectFolder,
+    ]);
+    mockGetCopilotProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-six",
+        path: "/home/u/six",
+        isDirectory: true,
+        lastModified: copilotMtime,
+        lastModifiedFormatted: copilotMtime.toISOString(),
+        cli: ["copilot"],
+      } satisfies ProjectFolder,
+    ]);
+    mockGetCursorProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-six",
+        path: "/home/u/six",
+        isDirectory: true,
+        lastModified: cursorMtime,
+        lastModifiedFormatted: cursorMtime.toISOString(),
+        cli: ["cursor"],
+      } satisfies ProjectFolder,
+    ]);
+    mockGetOpenCodeProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-six",
+        path: "/home/u/six",
+        isDirectory: true,
+        lastModified: opencodeMtime,
+        lastModifiedFormatted: opencodeMtime.toISOString(),
+        cli: ["opencode"],
+      } satisfies ProjectFolder,
+    ]);
+    mockGetPiProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-six",
+        path: "/home/u/six",
+        isDirectory: true,
+        lastModified: piMtime,
+        lastModifiedFormatted: piMtime.toISOString(),
+        cli: ["pi"],
+      } satisfies ProjectFolder,
+    ]);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    // Canonical merge order in mergeProjectFolders is the source-iteration order
+    // in lib/projects.ts: claude → codex → copilot → cursor → opencode → pi.
+    expect(result[0].cli).toEqual(["claude", "codex", "copilot", "cursor", "opencode", "pi"]);
+    // Newest mtime wins (Pi in this case).
+    expect(result[0].lastModified.getTime()).toBe(piMtime.getTime());
+    // Claude's path is preserved as the primary store.
+    expect(result[0].path).toBe("/mock/.claude/projects/-home-u-six");
+  });
+
+  it("includes OpenCode-only projects (no matching Claude/Codex/Copilot/Cursor/Pi folder)", async () => {
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([] as any);
+    mockGetOpenCodeProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-opencode-only",
+        path: "/home/u/opencode-only",
+        isDirectory: true,
+        lastModified: new Date("2026-05-15T00:00:00Z"),
+        lastModifiedFormatted: "2026-05-15T00:00:00.000Z",
+        cli: ["opencode"],
+      } satisfies ProjectFolder,
+    ]);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["opencode"]);
+    expect(result[0].path).toBe("/home/u/opencode-only");
+  });
+
   it("includes Pi-only projects (no matching Claude/Codex/Copilot/Cursor folder)", async () => {
     mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
     mockReaddir.mockResolvedValueOnce([] as any);

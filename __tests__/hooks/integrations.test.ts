@@ -732,8 +732,18 @@ describe("Pi integration", () => {
     expect([...pi.scopes]).toEqual(["user", "project"]);
   });
 
-  it("eventTypes are exactly the 4 Pi events (snake_case)", () => {
+  it("eventTypes are exactly the 7 Pi events (snake_case)", () => {
     expect([...pi.eventTypes]).toEqual([...PI_HOOK_EVENT_TYPES]);
+    // Pin the canonical set so reordering / accidental removals are caught.
+    expect([...pi.eventTypes].sort()).toEqual([
+      "agent_end",
+      "input",
+      "session_shutdown",
+      "session_start",
+      "tool_call",
+      "tool_result",
+      "user_bash",
+    ]);
   });
 
   it("buildHookEntry includes the FAILPROOFAI_HOOK_MARKER", () => {
@@ -872,6 +882,9 @@ describe("PI_EVENT_MAP", () => {
     expect(PI_EVENT_MAP.user_bash).toBe("PreToolUse");
     expect(PI_EVENT_MAP.input).toBe("UserPromptSubmit");
     expect(PI_EVENT_MAP.session_start).toBe("SessionStart");
+    expect(PI_EVENT_MAP.session_shutdown).toBe("SessionEnd");
+    expect(PI_EVENT_MAP.tool_result).toBe("PostToolUse");
+    expect(PI_EVENT_MAP.agent_end).toBe("Stop");
   });
 
   it("PI_EVENT_MAP keys exactly match PI_HOOK_EVENT_TYPES", () => {
