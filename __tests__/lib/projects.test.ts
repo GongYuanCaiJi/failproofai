@@ -40,6 +40,10 @@ vi.mock("@/lib/pi-projects", () => ({
   getPiProjects: vi.fn(async () => []),
 }));
 
+vi.mock("@/lib/gemini-projects", () => ({
+  getGeminiProjects: vi.fn(async () => []),
+}));
+
 import { readdir, stat } from "fs/promises";
 import { extractSessionId, getProjectFolders, getSessionFiles, type ProjectFolder } from "@/lib/projects";
 import { getCodexProjects } from "@/lib/codex-projects";
@@ -47,12 +51,14 @@ import { getCopilotProjects } from "@/lib/copilot-projects";
 import { getCursorProjects } from "@/lib/cursor-projects";
 import { getOpenCodeProjects } from "@/lib/opencode-projects";
 import { getPiProjects } from "@/lib/pi-projects";
+import { getGeminiProjects } from "@/lib/gemini-projects";
 
 const mockGetCodexProjects = vi.mocked(getCodexProjects);
 const mockGetCopilotProjects = vi.mocked(getCopilotProjects);
 const mockGetCursorProjects = vi.mocked(getCursorProjects);
 const mockGetOpenCodeProjects = vi.mocked(getOpenCodeProjects);
 const mockGetPiProjects = vi.mocked(getPiProjects);
+const mockGetGeminiProjects = vi.mocked(getGeminiProjects);
 
 const mockReaddir = vi.mocked(readdir);
 const mockStat = vi.mocked(stat);
