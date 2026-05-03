@@ -6,7 +6,8 @@
  * server-side project / session providers live in their own files
  * (`lib/codex-projects.ts`, `lib/codex-sessions.ts`, `lib/copilot-projects.ts`,
  * `lib/copilot-sessions.ts`, `lib/cursor-projects.ts`, `lib/cursor-sessions.ts`,
- * `lib/opencode-projects.ts`, `lib/opencode-sessions.ts`)
+ * `lib/opencode-projects.ts`, `lib/opencode-sessions.ts`,
+ * `lib/pi-projects.ts`, `lib/pi-sessions.ts`)
  * and are imported lazily by `lib/projects.ts` and the session viewer page so
  * Turbopack doesn't drag Node-only deps (`fs/promises`, `os`) into client
  * bundles.
@@ -26,7 +27,7 @@
 import type { IntegrationType } from "@/src/hooks/types";
 
 /** Canonical CLI ids the registry knows about. Mirrors `INTEGRATION_TYPES`. */
-export const KNOWN_CLI_IDS = ["claude", "codex", "copilot", "cursor", "opencode"] as const satisfies readonly IntegrationType[];
+export const KNOWN_CLI_IDS = ["claude", "codex", "copilot", "cursor", "opencode", "pi"] as const satisfies readonly IntegrationType[];
 export type CliId = (typeof KNOWN_CLI_IDS)[number];
 
 /** Per-CLI metadata consumed by the dashboard. */
@@ -62,6 +63,11 @@ const CLI_ENTRIES: Record<CliId, CliEntry> = {
     id: "opencode",
     label: "OpenCode",
     badgeClasses: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  },
+  pi: {
+    id: "pi",
+    label: "Pi",
+    badgeClasses: "bg-pink-500/10 text-pink-400 border-pink-500/20",
   },
 };
 

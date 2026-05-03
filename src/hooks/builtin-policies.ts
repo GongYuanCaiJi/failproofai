@@ -12,9 +12,9 @@ import { hookLogWarn } from "./hook-logger";
 
 /**
  * Whether `resolved` lives under an agent CLI's home directory
- * (~/.claude/, ~/.codex/, ~/.copilot/, ~/.cursor/, or any of OpenCode's
- * three home-side dirs). Used to whitelist agent self-reads of their own
- * config and transcripts.
+ * (~/.claude/, ~/.codex/, ~/.copilot/, ~/.cursor/, ~/.pi/, or any of
+ * OpenCode's three home-side dirs). Used to whitelist agent self-reads of
+ * their own config and transcripts.
  *
  * OpenCode splits its data across three locations (verified live on
  * opencode v1.14.31 via `opencode debug paths`):
@@ -23,7 +23,7 @@ import { hookLogWarn } from "./hook-logger";
  *   • ~/.opencode/          — legacy fallback path
  */
 function isAgentInternalPath(resolved: string): boolean {
-  for (const dir of [".claude", ".codex", ".copilot", ".cursor", ".opencode"]) {
+  for (const dir of [".claude", ".codex", ".copilot", ".cursor", ".opencode", ".pi"]) {
     const root = join(homedir(), dir);
     if (resolved === root || resolved.startsWith(root + "/")) return true;
   }
@@ -44,6 +44,9 @@ function isAgentInternalPath(resolved: string): boolean {
  *                   `.opencode/plugins/*.{mjs,js,ts}`,
  *                   `~/.config/opencode/{opencode.json,opencode.jsonc,config.json}`,
  *                   `~/.config/opencode/plugins/*.{mjs,js,ts}`
+ *   • Pi:           `.pi/settings.json` (project) and `.pi/agent/settings.json`
+ *                   (user); also the Pi-managed extension dir
+ *                   `.pi/extensions/` / `.pi/agent/extensions/`.
  * These must NEVER be edited by the agent itself — that would let it disable
  * its own protections.
  */
@@ -59,6 +62,9 @@ function isAgentSettingsFile(resolved: string): boolean {
   if (/[\\/]\.config[\\/]opencode[\\/]opencode\.jsonc?$/.test(resolved)) return true;
   if (/[\\/]\.config[\\/]opencode[\\/]config\.json$/.test(resolved)) return true;
   if (/[\\/]\.config[\\/]opencode[\\/]plugins[\\/][^/\\]+\.(?:mjs|js|ts)$/.test(resolved)) return true;
+  // Pi: settings + extensions dirs (project and user-scope variants).
+  if (/[\\/]\.pi[\\/](?:agent[\\/])?settings\.json$/.test(resolved)) return true;
+  if (/[\\/]\.pi[\\/](?:agent[\\/])?extensions[\\/]/.test(resolved)) return true;
   return false;
 }
 

@@ -27,6 +27,10 @@
  *     receive any permission-mode signal from opencode and does not include
  *     one in the JSON it pipes to the failproofai binary. Falls back to
  *     "default" via the same final branch as Copilot/Cursor.
+ *
+ *   • Pi (pi-coding-agent): no permission-mode concept in the extension API;
+ *     `tool_call` handlers always run with the same authority. Falls back to
+ *     "default" via the same final branch as Copilot/Cursor.
  */
 import { readFileSync } from "node:fs";
 import { findCodexTranscript } from "../../lib/codex-sessions";
@@ -45,7 +49,7 @@ export function resolvePermissionMode(
     return resolveCodexMode(sessionId) ?? "default";
   }
 
-  // copilot, cursor, opencode, unknown integrations, or codex without a sessionId
+  // copilot, cursor, opencode, pi, unknown integrations, or codex without a sessionId
   return "default";
 }
 

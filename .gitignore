@@ -54,6 +54,10 @@ next-env.d.ts
 .opencode/plugins/*
 !.opencode/plugins/failproofai.mjs
 
+# pi
+.pi/*
+!.pi/settings.json
+
 # custom hooks loader temp files
 *.__failproofai_tmp__.*
 

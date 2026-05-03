@@ -7,6 +7,7 @@ import { getCachedCodexSessionLog } from "@/lib/codex-sessions";
 import { getCachedCopilotSessionLog } from "@/lib/copilot-sessions";
 import { getCachedCursorSessionLog } from "@/lib/cursor-sessions";
 import { getCachedOpenCodeSessionLog } from "@/lib/opencode-sessions";
+import { getCachedPiSessionLog } from "@/lib/pi-sessions";
 import { decodeFolderName } from "@/lib/paths";
 import { baseSessionId } from "@/lib/utils/session-id";
 import { resolveProjectPath, UUID_RE } from "@/lib/projects";
@@ -42,7 +43,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
   let entries: LogEntry[] | null = null;
   let rawLines: Record<string, unknown>[] | null = null;
   let error: string | null = null;
-  let cli: "claude" | "codex" | "copilot" | "cursor" | "opencode" = "claude";
+  let cli: "claude" | "codex" | "copilot" | "cursor" | "opencode" | "pi" = "claude";
   let externalCwd: string | undefined;
 
   try {
@@ -53,8 +54,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
   } catch (e) {
     const isNotFound = (e as NodeJS.ErrnoException).code === "ENOENT";
     if (isNotFound) {
-      // Fall back through external stores in order:
-      //   Codex → Copilot → Cursor → OpenCode.
+      // Fall back through external stores in order: Codex → Copilot → Cursor → OpenCode → Pi.
       // Each store keys by sessionId rather than the project slug, so the
       // [name] segment is irrelevant on these branches.
       const codex = await getCachedCodexSessionLog(decodedSessionId);
@@ -85,7 +85,15 @@ export default async function SessionPage({ params }: SessionPageProps) {
               externalCwd = opencode.cwd;
               cli = "opencode";
             } else {
-              error = "Session log file not found.";
+              const pi = await getCachedPiSessionLog(decodedSessionId);
+              if (pi) {
+                entries = pi.entries;
+                rawLines = pi.rawLines;
+                externalCwd = pi.cwd;
+                cli = "pi";
+              } else {
+                error = "Session log file not found.";
+              }
             }
           }
         }
@@ -106,7 +114,9 @@ export default async function SessionPage({ params }: SessionPageProps) {
           ? `Cursor Agent${externalCwd ? ` · ${externalCwd}` : ""}`
           : cli === "opencode"
             ? `OpenCode${externalCwd ? ` · ${externalCwd}` : ""}`
-            : decodedName;
+            : cli === "pi"
+              ? `Pi${externalCwd ? ` · ${externalCwd}` : ""}`
+              : decodedName;
 
   return (
     <main className="min-h-screen bg-background">
@@ -170,7 +180,11 @@ export default async function SessionPage({ params }: SessionPageProps) {
                       ? "OpenAI Codex"
                       : cli === "copilot"
                         ? "GitHub Copilot"
-                        : "Cursor Agent"))
+                        : cli === "cursor"
+                          ? "Cursor Agent"
+                          : cli === "opencode"
+                            ? "OpenCode"
+                            : "Pi"))
                 : decodedName
             }
             sessionId={decodedSessionId}
