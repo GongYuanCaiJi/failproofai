@@ -328,6 +328,7 @@ export const GEMINI_TOOL_MAP: Record<string, string> = {
 
 export const HOOK_EVENT_TYPES = [
   "SessionStart",
+  "Setup",
   "SessionEnd",
   "UserPromptSubmit",
   "PreToolUse",
