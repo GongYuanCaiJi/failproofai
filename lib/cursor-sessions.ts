@@ -425,11 +425,26 @@ export function _statTranscript(sessionId: string): { mtimeMs: number } | null {
   }
 }
 
-/** For tests: list session IDs found in any candidate session-state subdir. */
+/** For tests: list session IDs found in any candidate session-state subdir
+ *  (both the new `projects/<cwd>/agent-transcripts/` layout and the legacy
+ *  flat candidates). */
 export function _listSessionIds(): string[] {
   const home = getCursorHome();
   const ids: string[] = [];
-  for (const sub of SESSION_ROOT_CANDIDATES) {
+  // New layout: ~/.cursor/projects/<encoded>/agent-transcripts/<sessionId>/
+  try {
+    const projectsRoot = join(home, "projects");
+    const projectEntries = readdirSync(projectsRoot, { withFileTypes: true });
+    for (const proj of projectEntries) {
+      if (!proj.isDirectory()) continue;
+      try {
+        const sessionDirs = readdirSync(join(projectsRoot, proj.name, "agent-transcripts"), { withFileTypes: true });
+        for (const e of sessionDirs) if (e.isDirectory()) ids.push(e.name);
+      } catch { /* no agent-transcripts under this project */ }
+    }
+  } catch { /* missing projects/ */ }
+  // Legacy flat: ~/.cursor/{agent-sessions,conversations,sessions}/<sessionId>/
+  for (const sub of LEGACY_SESSION_ROOT_CANDIDATES) {
     try {
       const entries = readdirSync(join(home, sub), { withFileTypes: true });
       for (const e of entries) if (e.isDirectory()) ids.push(e.name);
