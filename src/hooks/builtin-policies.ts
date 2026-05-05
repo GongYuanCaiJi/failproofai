@@ -180,7 +180,7 @@ const SECRET_FILE_ID_RSA_RE = /id_rsa/;
 const SECRET_FILE_CREDENTIALS_RE = /credentials/;
 
 // blockWorkOnMain
-const GIT_COMMIT_MERGE_RE = /git\s+(?:commit|merge|rebase|cherry-pick)\b/;
+const GIT_COMMIT_MERGE_RE = /git\s+(commit|merge|rebase|cherry-pick)\b/;
 
 // blockFailproofaiCommands
 const FAILPROOFAI_CLI_RE = /(?:^|;|&&|\|\||\|)\s*failproofai(?:\s|$)/;
@@ -822,7 +822,8 @@ function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
 function blockWorkOnMain(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  if (!GIT_COMMIT_MERGE_RE.test(cmd)) return allow();
+  const match = cmd.match(GIT_COMMIT_MERGE_RE);
+  if (!match) return allow();
 
   const cwd = ctx.session?.cwd;
   if (!cwd) return allow();
@@ -833,7 +834,7 @@ function blockWorkOnMain(ctx: PolicyContext): PolicyResult {
   const protectedBranches = ((ctx.params?.protectedBranches ?? ["main", "master"]) as string[]);
   if (protectedBranches.includes(branch)) {
     return deny(
-      `Git ${cmd.match(/git\s+(\S+)/)?.[1] ?? "operation"} on ${branch} is blocked. Create a feature branch first.`,
+      `Git ${match[1]} on ${branch} is blocked. Create a feature branch first.`,
     );
   }
   return allow();

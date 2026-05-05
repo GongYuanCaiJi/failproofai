@@ -907,19 +907,44 @@ describe("hooks/builtin-policies", () => {
     it("blocks git merge on main", async () => {
       vi.mocked(execSync).mockReturnValue("main\n");
       const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "git merge feature" }, session: { cwd: "/repo" } });
-      expect((await policy.fn(ctx)).decision).toBe("deny");
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("merge");
     });
 
     it("blocks git rebase on main", async () => {
       vi.mocked(execSync).mockReturnValue("main\n");
       const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "git rebase feature" }, session: { cwd: "/repo" } });
-      expect((await policy.fn(ctx)).decision).toBe("deny");
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("rebase");
     });
 
     it("blocks git cherry-pick on main", async () => {
       vi.mocked(execSync).mockReturnValue("main\n");
       const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "git cherry-pick abc123" }, session: { cwd: "/repo" } });
-      expect((await policy.fn(ctx)).decision).toBe("deny");
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("cherry-pick");
+    });
+
+    it("names the offending subcommand on chained checkout && commit", async () => {
+      vi.mocked(execSync).mockReturnValue("main\n");
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: 'git checkout -b feat/x && git commit -m "y"' },
+        session: { cwd: "/repo" },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("commit");
+      expect(result.reason).not.toContain("checkout");
+    });
+
+    it("allows git checkout -b on main", async () => {
+      vi.mocked(execSync).mockReturnValue("main\n");
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "git checkout -b new-branch" }, session: { cwd: "/repo" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
     });
 
     it("allows git commit on feature branch", async () => {
