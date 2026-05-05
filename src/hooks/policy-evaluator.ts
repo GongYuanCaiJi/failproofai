@@ -265,10 +265,26 @@ export async function evaluatePolicies(
       }
 
       if (eventType === "Stop") {
+        const reasonText = `MANDATORY ACTION REQUIRED from failproofai (policy: ${policy.name}): ${reason}\n\nYou MUST complete the above action NOW. Do NOT ask the user for confirmation — execute the required action, then attempt to finish your task again.`;
+        // Copilot CLI: `agentStop` honors `{decision: "block", reason}` JSON on
+        // stdout — the reason becomes the next-turn prompt and the agent retries.
+        // Exit-2 is logged as `[WARNING] Hook warning: ...` (verified empirically
+        // against Copilot CLI 1.0.41 events.jsonl) but does NOT trigger retry.
+        // Ref: https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference
+        if (session?.cli === "copilot") {
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({ decision: "block", reason: reasonText }),
+            stderr: "",
+            policyName: policy.name,
+            reason,
+            decision: "deny",
+          };
+        }
         return {
           exitCode: 2,
           stdout: "",
-          stderr: `MANDATORY ACTION REQUIRED from failproofai (policy: ${policy.name}): ${reason}\n\nYou MUST complete the above action NOW. Do NOT ask the user for confirmation — execute the required action, then attempt to finish your task again.`,
+          stderr: reasonText,
           policyName: policy.name,
           reason,
           decision: "deny",

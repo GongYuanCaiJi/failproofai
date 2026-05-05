@@ -379,6 +379,27 @@ describe("hooks/policy-evaluator", () => {
       expect(result.reason).toBe("changes not committed");
     });
 
+    it("Copilot Stop deny emits {decision:'block', reason} JSON on stdout (NOT exit 2)", async () => {
+      // Copilot CLI 1.0.41 logs exit-2 from agentStop as `[WARNING] Hook
+      // warning: ...` but does NOT retry the agent. The documented retry
+      // shape is `{decision: "block", reason}` JSON on stdout (exit 0) — the
+      // reason becomes the next-turn prompt. The cli==="copilot" branch in
+      // policy-evaluator.ts emits this shape; this test pins it.
+      registerPolicy("stop-blocker", "desc", () => ({
+        decision: "deny",
+        reason: "changes not committed",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {}, { cli: "copilot" });
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
+      expect(parsed.decision).toBe("block");
+      expect(parsed.reason).toContain("MANDATORY ACTION REQUIRED");
+      expect(parsed.reason).toContain("changes not committed");
+      expect(result.decision).toBe("deny");
+    });
+
     it("Stop deny short-circuits subsequent policies", async () => {
       const secondPolicyCalled = { value: false };
       registerPolicy("blocker", "desc", () => ({
