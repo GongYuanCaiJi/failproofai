@@ -207,4 +207,18 @@ describe("getOpenCodeSessionExport", () => {
     expect(await getOpenCodeSessionExport("'; DROP TABLE session; --")).toBeNull();
     expect(mockExec).not.toHaveBeenCalled();
   });
+
+  it("returns null when a follow-up message/part query fails (rather than serving an empty export)", async () => {
+    let call = 0;
+    mockExec.mockImplementation(() => {
+      call += 1;
+      if (call === 1) {
+        // session row succeeds
+        return JSON.stringify([{ id: "ses_x", project_id: "p1", slug: null, directory: "/repo", title: "T", time_created: 1, time_updated: 2 }]);
+      }
+      // message and part queries error out (simulate binary trouble mid-flight)
+      throw new Error("opencode db crashed");
+    });
+    expect(await getOpenCodeSessionExport("ses_x")).toBeNull();
+  });
 });

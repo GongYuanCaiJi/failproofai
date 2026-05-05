@@ -260,12 +260,17 @@ export async function getOpenCodeSessionExport(sessionId: string): Promise<OpenC
     `SELECT id, project_id, slug, directory, title, time_created, time_updated FROM session WHERE id = '${sessionId}'`,
   );
   if (!sessions || sessions.length === 0) return null;
+  // Don't coalesce a `null` return (query failure) into `[]` — that would
+  // silently serve an "empty session" export. A genuinely empty session has
+  // an `[]` from the DB; a query failure has `null`. Treat the latter as
+  // not-found so the route returns 404 rather than a misleading 200.
   const messages = runOpenCodeDb<OpenCodeMessageRow>(
     `SELECT id, session_id, time_created, time_updated, data FROM message WHERE session_id = '${sessionId}' ORDER BY time_created ASC`,
-  ) ?? [];
+  );
   const parts = runOpenCodeDb<OpenCodePartRow>(
     `SELECT id, message_id, session_id, time_created, time_updated, data FROM part WHERE session_id = '${sessionId}' ORDER BY time_created ASC`,
-  ) ?? [];
+  );
+  if (messages === null || parts === null) return null;
   return {
     session: sessions[0],
     messages: messages.map((m) => ({ ...m, data: parseDataColumn(m.data) ?? m.data })),
