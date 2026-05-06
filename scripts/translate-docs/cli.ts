@@ -180,8 +180,12 @@ async function main() {
   // Read cache once upfront — filter unchanged files before starting work
   const cache = readCache();
 
-  // Concurrency limiter to avoid overwhelming the Anthropic API
-  const MAX_CONCURRENT = 10;
+  // Concurrency limiter. Kept low (2) because the gateway behind
+  // ANTHROPIC_BASE_URL drops most parallel connections past ~2 in flight,
+  // surfacing as `Connection error` on 4-of-6 requests. Per-language CI
+  // matrix already parallelizes across languages, so the wall-clock cost
+  // of the lower limit is bounded.
+  const MAX_CONCURRENT = 2;
   async function runWithConcurrency<T>(tasks: (() => Promise<T>)[]): Promise<T[]> {
     const results: T[] = [];
     let i = 0;
