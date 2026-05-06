@@ -5,6 +5,7 @@ import {
   getLanguagesByTier,
   getLanguageByCode,
   getLanguageCodes,
+  getModelForTier,
   DO_NOT_TRANSLATE,
   NAV_TRANSLATIONS,
 } from "@/scripts/translate-docs/config";
@@ -64,6 +65,23 @@ describe("getLanguageCodes", () => {
 
   it("filters by tier", () => {
     expect(getLanguageCodes(1)).toHaveLength(7);
+  });
+});
+
+describe("getModelForTier", () => {
+  it("returns Sonnet for tier 1", () => {
+    expect(getModelForTier(1)).toBe("claude-sonnet-4-6");
+  });
+
+  it("returns Haiku for tier 2 and 3", () => {
+    expect(getModelForTier(2)).toBe("claude-haiku-4-5");
+    expect(getModelForTier(3)).toBe("claude-haiku-4-5");
+  });
+
+  it("uses model aliases (no dated snapshot suffix) so API keys scoped to the alias work", () => {
+    for (const tier of [1, 2, 3]) {
+      expect(getModelForTier(tier)).not.toMatch(/-\d{8}$/);
+    }
   });
 });
 
