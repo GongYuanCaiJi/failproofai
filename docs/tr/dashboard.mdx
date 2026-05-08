@@ -1,14 +1,14 @@
 ---
-title: Dashboard
-description: "Aracı oturumlarını izleyin, araç çağrılarını gözden geçirin ve politikaları yönetin"
+title: Gösterge Paneli
+description: "Agent oturumlarını izleyin, araç çağrılarını gözden geçirin ve politikaları yönetin"
 icon: chart-line
 ---
 
-failproofai dashboard, AI aracı oturumlarınızı izlemek ve politikaları yönetmek için yerel bir web uygulamasıdır. Aracılarınız siz uzaktayken neler yaptığını görün.
+failproofai gösterge paneli, AI agent oturumlarınızı izlemek ve politikaları yönetmek için bir yerel web uygulamasıdır. Agenleriniz sizin yokken ne yaptığını görün.
 
 ---
 
-## Dashboard'u başlatma
+## Gösterge panelini başlatma
 
 ```bash
 failproofai
@@ -16,7 +16,7 @@ failproofai
 
 `http://localhost:8020` adresinde açılır.
 
-Dashboard doğrudan dosya sisteminden okur - Claude Code proje klasörleriniz ve failproofai yapılandırma dosyalarınız. Hiçbir şey uzak bir servise yazılmaz.
+Gösterge paneli doğrudan dosya sisteminden okur - Claude Code proje klasörleriniz ve failproofai yapılandırma dosyalarınız. Hiçbir şey uzak bir servise yazılmaz.
 
 ---
 
@@ -24,12 +24,12 @@ Dashboard doğrudan dosya sisteminden okur - Claude Code proje klasörleriniz ve
 
 ### Projeler
 
-Makinenizde bulunan tüm Claude Code, OpenAI Codex ve GitHub Copilot CLI _(beta)_ projelerini listeler. Claude projeleri `~/.claude/projects/` konumundan keşfedilir (veya `CLAUDE_PROJECTS_PATH` tarafından ayarlanan yol); Codex projeleri `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` altındaki tüm transkriptleri tarayarak ve her oturumun ilk kaydında kayıtlı `cwd` ile gruplayarak keşfedilir; Copilot CLI projeleri her `~/.copilot/session-state/<sessionId>/workspace.yaml` dosyasını tarayarak (`COPILOT_HOME` aracılığıyla yapılandırılabilir) ve `cwd` alanına göre gruplayarak keşfedilir. Birden fazla CLI tarafından kullanılan bir proje, tüm eşleşen rozetlerle tek bir satır olarak görüntülenir. Tablo üzerindeki **CLI** açılır menüsünü kullanarak belirli bir aracı CLI'ye göre filtreleyin; URL seçiminizi `?cli=claude|codex|copilot` olarak korur.
+Makinenizde bulunan tüm Claude Code, OpenAI Codex, GitHub Copilot CLI _(beta)_, Cursor Agent _(beta)_, OpenCode _(beta)_, Pi _(beta)_ ve Gemini CLI _(beta)_ projelerini listeler. Claude projeleri `~/.claude/projects/` dizininden keşfedilir (`CLAUDE_PROJECTS_PATH` tarafından belirlenen yoldan); Codex projeleri `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` altındaki her transkrip taranarak ve her oturumun ilk kaydında kaydedilen `cwd` değerine göre gruplandırılarak keşfedilir; Copilot CLI projeleri `~/.copilot/session-state/<sessionId>/workspace.yaml` taranarak keşfedilir (`COPILOT_HOME` tarafından yapılandırılabilir) ve `cwd` alanına göre gruplandırılır; Cursor Agent projeleri `~/.cursor/agent-sessions/<sessionId>/` altındaki oturum başına meta veriler taranarak keşfedilir (`CURSOR_HOME` tarafından yapılandırılabilir, geri dönüş olarak `conversations/` ve `sessions/` sondanır) ve `meta.json` / `session.json` / `workspace.yaml` dosyasında `cwd` skalerini arayarak; OpenCode projeleri `~/.local/share/opencode/opencode.db` konumundaki SQLite veritabanı sorgulanarak keşfedilir (`opencode db --format json` aracılığıyla - `session` ve `project` tablolarını okur ve `project_id` değerine göre gruplandırırız); Pi projeleri `~/.pi/agent/sessions/<encoded-cwd>/<timestamp>_<uuid>.jsonl` altındaki oturum başına JSONL transkriptleri taranarak keşfedilir (`PI_SESSIONS_DIR` tarafından yapılandırılabilir) ve her oturumun ilk kaydından `cwd` değerini çekeriz; Gemini CLI projeleri `~/.gemini/tmp/<basename>/chats/session-<timestamp>-<uuid-prefix>.jsonl` taranarak keşfedilir (`GEMINI_SESSIONS_DIR` tarafından yapılandırılabilir) ve komşu `.project_root` metin işaretçisinden kanonik cwd değerini kurtarırız. Birden fazla CLI tarafından kullanılan bir proje, tüm eşleşen rozetlerle tek bir satır olarak görüntülenir. Tablonun üzerindeki **CLI** açılır menüsünü kullanarak belirli bir agent CLI'sine göre filtreleyin; URL seçiminizi `?cli=claude|codex|copilot|cursor|opencode|pi|gemini` olarak saklar.
 
 Her proje şunları gösterir:
 - Proje adı (klasör yolundan türetilmiş)
-- CLI rozeti — `Claude Code` (turuncu), `OpenAI Codex` (mor) ve/veya `GitHub Copilot` (mavi)
-- En son oturum aktivitesinin tarihi
+- CLI rozeti — `Claude Code` (turuncu), `OpenAI Codex` (mor), `GitHub Copilot` (mavi), `Cursor Agent` (zümrüt), `OpenCode` (kehribar), `Pi` (pembe) ve/veya `Gemini CLI` (açık mavi)
+- En son oturum etkinliğinin tarihi
 
 Oturumlarını görmek için bir projeye tıklayın.
 
@@ -39,40 +39,40 @@ Bir proje içindeki tüm oturumları listeler. Her oturum şunları gösterir:
 - Oturum kimliği
 - Başlangıç ve bitiş zaman damgaları
 - Araç çağrısı sayısı
-- Hook aktivite sayısı (tetiklenen politikalar)
+- Hook etkinlik sayısı (tetiklenen politikalar)
 
-Listeyi daraltmak için tarih aralığı filtresini ve oturum kimliği aramasını kullanın. Oturumlar sayfalanmıştır.
+Listeyi daraltmak için tarih aralığı filtresini ve oturum kimliği aramasını kullanın. Oturumlar sayfalandırılmıştır.
 
-Oturum görüntüleyicisini açmak için bir oturuma tıklayın.
+Oturum görüntüleyiciyi açmak için bir oturuma tıklayın.
 
 ### Oturum görüntüleyici
 
-Oturum görüntüleyici, otonom aracılar için temel soruyu cevaplar: aracı ne yaptı ve yolu takip etti mi? Başlık yanındaki CLI rozeti oturumun Claude Code veya OpenAI Codex transkripti olup olmadığını gösterir. Bir oturumda meydana gelen her şeyin bir zaman çizelgesini gösterir:
+Oturum görüntüleyici, özerk agenler için temel soruyu yanıtlar: agent ne yaptı ve doğru yolda kaldı mı? Başlığın yanındaki CLI rozeti, oturumun Claude Code, OpenAI Codex, GitHub Copilot CLI, Cursor Agent, OpenCode, Pi veya Gemini CLI transkripti olup olmadığını gösterir. Bir oturumda gerçekleşen her şeyin zaman çizelgesini gösterir:
 
 - **Mesajlar** - Claude'un metin yanıtları ve kullanıcı istemleri
-- **Araç çağrıları** - Claude'un çağırdığı her araç, girdisi ve çıktısı ile
-- **Politika aktivitesi** - Her araç çağrısı için hangi politikaların tetiklendiği ve hangi kararı döndürdüğü
+- **Araç çağrıları** - Claude'un çağırdığı her araç, giriş ve çıkışı ile
+- **Politika etkinliği** - Her araç çağrısı için hangi politikaların tetiklendiği ve ne karar döndürdüğü
 
-Üstteki istatistik çubuğu oturum süresini, toplam araç çağrısını ve kanca kararlarının (izin ver / reddet / talimatlı sayıları) özetini gösterir.
+En üstteki istatistik çubuğu oturum süresini, toplam araç çağrısı sayısını ve hook kararlarının bir özetini gösterir (izin ver / reddet / talimat ver sayıları).
 
-İndirme düğmesini kullanarak oturumu ZIP veya JSONL dosyası olarak dışa aktarabilirsiniz.
+Oturumu dışa aktarmak için **İndirme Günlükleri** düğmesine tıklayın. Claude Code, Codex, Copilot, Cursor, Pi ve Gemini oturumları için orijinal diskte saklanan JSONL transkriptini byte-byte alırsınız; OpenCode oturumları için (oturumları SQLite'de diskte değil) temel `session` / `messages` / `parts` tablolarını yansıtan bir JSON belgesi alırsınız.
 
 ### Politikalar
 
-Politikaları yönetmek ve aktiviteyi gözden geçirmek için iki sekmeli bir sayfa.
+Politikaları yönetmek ve etkinliği gözden geçirmek için iki sekmeli bir sayfa.
 
 <Tabs>
   <Tab title="Politikalar sekmesi">
-  - Tek bir tıklamayla bireysel politikaları açıp kapatın (`~/.failproofai/policies-config.json` dosyasına yazılır)
-  - Bir politikanın parametrelerini yapılandırmak için genişletin (`policyParams` destekleyen politikalar için)
-  - Belirli bir kapsam için kancaları kurun veya kaldırın
-  - Özel politikalar dosyası yolu ayarlayın
+  - Tek bir tıklamayla bireysel politikaları açıp kapatın (`~/.failproofai/policies-config.json` dosyasına yazar)
+  - Bir politikayı genişleterek parametrelerini yapılandırın (`policyParams` destekleyen politikalar için)
+  - Verilen bir kapsam için hook'ları yükleyin veya kaldırın
+  - Özel bir politika dosyası yolunu ayarlayın
   </Tab>
-  <Tab title="Aktivite sekmesi">
-  - Tüm oturumlar genelinde tetiklenen her kanca olayının tam sayfalanmış geçmişi
-  - Kararına, olay türüne, CLI'ye (Claude Code / OpenAI Codex / GitHub Copilot _(beta)_), politika adına veya oturum kimliğine göre filtreleyin
-  - Her satır şunları gösterir: zaman damgası, politika adı, karar, CLI rozeti (turuncu = Claude Code, mor = OpenAI Codex, mavi = GitHub Copilot), araç adı, oturum kimliği ve reddet/talimatlı kararlarının nedeni
-  - Transkriptini açmak için bir oturum kimliğine tıklayın — görüntüleyici kancayı tetikleyen CLI'yi otomatik olarak algılar (Claude `~/.claude/projects/…`, Codex `~/.codex/sessions/…`, Copilot CLI `~/.copilot/session-state/<id>/events.jsonl`) ve başlıkta eşleşen CLI rozetini görüntüler
+  <Tab title="Etkinlik sekmesi">
+  - Tüm oturumlar arasında tetiklenen her hook olayının tam sayfalandırılmış geçmişi
+  - Karar, olay türü, CLI (Claude Code / OpenAI Codex / GitHub Copilot _(beta)_ / Cursor Agent _(beta)_ / OpenCode _(beta)_ / Pi _(beta)_ / Gemini CLI _(beta)_), politika adı veya oturum kimliğine göre filtreleyin
+  - Her satır şunları gösterir: zaman damgası, politika adı, karar, CLI rozeti (turuncu = Claude Code, mor = OpenAI Codex, mavi = GitHub Copilot, zümrüt = Cursor Agent, kehribar = OpenCode, pembe = Pi, açık mavi = Gemini CLI), araç adı, oturum kimliği ve reddet/talimat ver kararlarının nedeni
+  - Transkriptini açmak için bir oturum kimliğine tıklayın — görüntüleyici hook'u hangi CLI'nin tetiklediğini otomatik olarak algılar (Claude `~/.claude/projects/…`, Codex `~/.codex/sessions/…`, Copilot CLI `~/.copilot/session-state/<id>/events.jsonl`, Cursor Agent `~/.cursor/agent-sessions/<id>/events.jsonl`, OpenCode `~/.local/share/opencode/opencode.db`, Pi `~/.pi/agent/sessions/<encoded-cwd>/<id>.jsonl`, Gemini CLI `~/.gemini/tmp/<basename>/chats/<session>.jsonl`) ve başlıkta eşleşen CLI rozetini gösterir
   </Tab>
 </Tabs>
 
@@ -80,13 +80,13 @@ Politikaları yönetmek ve aktiviteyi gözden geçirmek için iki sekmeli bir sa
 
 ## Otomatik yenileme
 
-Dashboard üst gezintide otomatik yenileme değiştiricisine sahiptir. Etkinleştirildiğinde, geçerli sayfa yeni oturumlar ve politika aktiviteleri göründüğünde periyodik olarak yenilenir. Uzun süren otonom aracı oturumlarını izlemek için gereklidir.
+Gösterge panelinin üst gezintide bir otomatik yenileme geçişi vardır. Etkinleştirildiğinde, mevcut sayfa periyodik olarak yenilenerek yeni oturumları ve politika etkinliğini gösterir. Uzun süreli özerk agent oturumlarını izlemek için gereklidir.
 
 ---
 
 ## Sayfaları devre dışı bırakma
 
-Dashboard'un yalnızca bazı bölümlerine ihtiyacınız varsa, `FAILPROOFAI_DISABLE_PAGES` değerini virgülle ayrılmış bir sayfa adları listesine ayarlayın:
+Gösterge panelinin yalnızca bazı bölümlerine ihtiyacınız varsa, `FAILPROOFAI_DISABLE_PAGES` ortam değişkenini virgülle ayrılmış sayfa adları listesine ayarlayın:
 
 ```bash
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
@@ -98,13 +98,13 @@ Geçerli değerler: `policies`, `projects`.
 
 ## Tema
 
-Dashboard açık ve koyu modu destekler. Gezinti çubuğundaki düğmeyle geçiş yapın. Tercih, tarayıcınızın yerel depolama alanında saklanır.
+Gösterge paneli açık ve koyu modu destekler. Gezinti çubuğundaki düğme ile geçiş yapın. Tercih, tarayıcınızın yerel depolamasında saklanır.
 
 ---
 
-## Projeler yolunu yapılandırma
+## Proje yolunu yapılandırma
 
-Varsayılan olarak, dashboard standart Claude Code projeleri dizininden okur. Özel kurulumlar için bunu geçersiz kılın:
+Varsayılan olarak, gösterge paneli standart Claude Code projeleri dizininden okur. Özel kurulumlar için bunu geçersiz kılın:
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -112,32 +112,32 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ---
 
-## localhost olmayan bir konaktan erişim
+## Localhost olmayan bir ana bilgisayardan erişme
 
-Dashboard'u **dev modunda** (`npm run dev`) çalıştırırken ve `localhost` dışında bir ana bilgisayar adından (örneğin özel bir alan, uzak bir IP veya tünel harita URL'si) erişirken şöyle bir uyarı görebilirsiniz:
+Gösterge panelini **geliştirme modunda** çalıştırırken (`npm run dev`) ve `localhost` dışında bir ana bilgisayar adından erişirken - örneğin, özel bir etki alanı, uzak IP veya tünel URL'si - şu gibi bir uyarı görebilirsiniz:
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-Bu, Next.js'nin HMR (hot module reload) websocket'ine çapraz kaynaklı erişimi engellemesidir; bu yalnızca geliştirme özelliğidir. Konağınıza izin vermek için `--allowed-origins` bayrağını kullanın:
+Bu, Next.js'in HMR (sıcak modül yeniden yükleme) web soketine çapraz kökenli erişimi engellemesidir; bu, yalnızca geliştirme özelliğidir. Ana bilgisayarınıza izin vermek için `--allowed-origins` bayrağını kullanın:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
 ```
 
-Birden fazla ana bilgisayar veya IP için virgülle ayrılmış bir liste geçirin:
+Birden fazla ana bilgisayar veya IP için virgülle ayrılmış bir liste iletin:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
 ```
 
-Bunun yerine `FAILPROOFAI_ALLOWED_DEV_ORIGINS` ortam değişkenini de ayarlayabilirsiniz:
+`FAILPROOFAI_ALLOWED_DEV_ORIGINS` ortam değişkenini ayarlayarak da yapabilirsiniz:
 
 ```bash
 FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-Bu yalnızca dev modu için geçerlidir. `failproofai` (üretim modu) çalıştırırken HMR websocket'i ve çapraz kaynaklı dev kaynağı sorunu yoktur.
+Bu yalnızca geliştirme moduna uygulanır. `failproofai` çalıştırırken (üretim modu), HMR web soketi ve çapraz kökenli geliştirme kaynağı sorunu yoktur.
 </Note>

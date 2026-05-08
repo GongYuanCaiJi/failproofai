@@ -25,13 +25,13 @@
 
 **תרגומים**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
 
-הדרך הקלה ביותר לנהל מדיניות שמשמרות את סוכני ה-AI שלך אמינים, ממוקדים והפועלים באופן עצמאי - עבור **Claude Code**, **OpenAI Codex**, **GitHub Copilot CLI** _(בטא)_ והמערך **Agents SDK**.
+הדרך הקלה ביותר לנהל מדיניות שמשמרות סוכנים AI אמינים, ממוקדים ופעילים באופן עצמאי - עבור **Claude Code**, **OpenAI Codex**, **GitHub Copilot CLI** _(beta)_, **Cursor Agent** _(beta)_, **OpenCode** _(beta)_, **Pi** _(beta)_, **Gemini CLI** _(beta)_ ו-**Agents SDK**.
 
 <p align="center">
   <img src="failproofai-hq.gif" alt="Failproof AI בפעולה" width="800" />
 </p>
 
-## CLIs של סוכנים תומכים
+## CLIs של סוכנים נתמכים
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -52,24 +52,51 @@
     </picture>
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <strong>+ עוד בקרוב</strong>
+  <a href="https://cursor.com/docs/hooks" title="Cursor Agent CLI">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/cursor-dark.svg" />
+      <img src="assets/logos/cursor-light.svg" alt="Cursor Agent" width="64" height="64" />
+    </picture>
+  </a>
+</p>
+<p align="center">
+  <a href="https://opencode.ai/docs/plugins/" title="OpenCode">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/opencode-dark.svg" />
+      <img src="assets/logos/opencode-light.svg" alt="OpenCode" width="64" height="64" />
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://pi.dev" title="Pi (pi-coding-agent)">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/pi-dark.svg" />
+      <img src="assets/logos/pi-light.svg" alt="Pi" width="64" height="64" />
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://geminicli.com/" title="Gemini CLI">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/gemini-dark.svg" />
+      <img src="assets/logos/gemini-light.svg" alt="Gemini CLI" width="64" height="64" />
+    </picture>
+  </a>
 </p>
 
-> התקן hookים לאחד, שניים או שלושתם: `failproofai policies --install --cli copilot` (או `--cli claude codex copilot`). השמט את `--cli` לגילוי אוטומטי של CLIs מותקנים והודעה לאישור. **תמיכת GitHub Copilot CLI נמצאת בבטא.**
+> התקן hooks לאחד או לכל שילוב: `failproofai policies --install --cli opencode pi gemini` (או `--cli claude codex copilot cursor opencode pi gemini`). השמט `--cli` לגילוי אוטומטי של CLIs מותקנות ודרישה. **תמיכה ב-GitHub Copilot CLI, Cursor Agent, OpenCode, Pi, ו-Gemini CLI נמצאת בגרסת בטא — בדיקות מתמשכות.**
 
-- **39 מדיניות מובנות** - תפס מצבי כשל נפוצים של סוכנים מחוץ לקופסה. חסום פקודות הרסניות, מנע דליפת סודות, שמור סוכנים בתוך גבולות פרויקט, גלה לולאות ועוד.
-- **מדיניות מותאמת אישית** - כתוב את כללי האמינות שלך ב-JavaScript. השתמש ב-API `allow`/`deny`/`instruct` כדי לאכוף קונוונציות, למנוע סטייה, להגביל פעולות או להשתלב עם מערכות חיצוניות.
-- **תצורה קלה** - כוונן כל מדיניות ללא כתיבת קוד. הגדר רשימות מאושרות, ענפים מוגנים, סף לפי פרויקט או בעולם. תצורה תלת-היקף מתמזגת באופן אוטומטי.
-- **צג סוכן** - ראה מה סוכניך עשו בזמן שהיית בחוץ. עיין בהפעלות, בדוק כל קריאת כלי, וסקור בדיוק היכן מדיניות הופעלו.
+- **39 מדיניות מובנית** - תופס כישלונות נפוצים של סוכנים מחוץ לתיבה. חסום פקודות הרסניות, מנע דליפת סודות, שמור סוכנים בתחומי פרויקט, גלה לולאות ועוד.
+- **מדיניות מותאמת אישית** - כתוב את כללי האמינות שלך ב-JavaScript. השתמש ב-API `allow`/`deny`/`instruct` לאכיפת הנהלים, מניעת סטייה, פעולות שער או שילוב עם מערכות חיצוניות.
+- **קונפיגורציה קלה** - כוונן כל מדיניות ללא כתיבת קוד. הגדר רשימות מותר, ענפים מוגנים, סף לפי פרויקט או גלובלי. שלוש מיזוג ההיקפים באופן אוטומטי.
+- **מוקד סוכנים** - ראה מה סוכניך עשו כשלא היית שם. עיין בהפעלות, בדוק כל קריאת כלים וסקור בדיוק היכן המדיניות פעלה.
 
-הכל פועל מקומית - אף נתון לא משאיר את המכונה שלך.
+הכל פועל באופן מקומי - אף נתון לא משאיר את המכונה שלך.
 
 ---
 
 ## דרישות
 
 - Node.js >= 20.9.0
-- Bun >= 1.3.0 (אופציונלי - נדרש רק לפיתוח / בנייה מהמקור)
+- Bun >= 1.3.0 (אופציונלי - נדרש רק לפיתוח / בנייה מקור)
 
 ---
 
@@ -85,15 +112,15 @@ bun add -g failproofai
 
 ## התחלה מהירה
 
-### 1. הפעל מדיניות בעולם
+### 1. הפוך מדיניות לפעילה באופן גלובלי
 
 ```bash
 failproofai policies --install
 ```
 
-כותב ערכי hook לתוך `~/.claude/settings.json`. Claude Code יהפוך failproofai לפני ואחרי כל קריאת כלי.
+כותב ערכי hook ל-`~/.claude/settings.json`. Claude Code כעת יקרא ל-failproofai לפני ואחרי כל קריאת כלים.
 
-### 2. הפעל את לוח הבקרה
+### 2. השק את לוח הבקרה
 
 ```bash
 failproofai
@@ -109,17 +136,17 @@ failproofai policies
 
 ---
 
-## התקנת מדיניות
+## התקנת המדיניות
 
 ### היקפים
 
-| היקף | פקודה | איתם הוא כותב |
+| היקף | פקודה | איפה זה כותב |
 |-------|---------|-----------------|
-| עולמי (ברירת מחדל) | `failproofai policies --install` | `~/.claude/settings.json` |
+| גלובלי (ברירת מחדל) | `failproofai policies --install` | `~/.claude/settings.json` |
 | פרויקט | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | מקומי | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
 
-### התקן מדיניות ספציפיות
+### התקן מדיניות ספציפית
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
@@ -129,15 +156,15 @@ failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
 
 ```bash
 failproofai policies --uninstall
-# או לגבי היקף ספציפי:
+# או עבור היקף ספציפי:
 failproofai policies --uninstall --scope project
 ```
 
 ---
 
-## תצורה
+## קונפיגורציה
 
-תצורת המדיניות נמצאת ב-`~/.failproofai/policies-config.json` (עולמי) או `.failproofai/policies-config.json` בפרויקט שלך (לכל פרויקט).
+קונפיגורציית המדיניות נמצאת ב-`~/.failproofai/policies-config.json` (גלובלי) או `.failproofai/policies-config.json` בפרויקט שלך (לכל פרויקט).
 
 ```json
 {
@@ -156,7 +183,7 @@ failproofai policies --uninstall --scope project
     },
     "block-push-master": {
       "protectedBranches": ["main", "release", "prod"],
-      "hint": "נסה ליצור ענף חדש במקום זאת."
+      "hint": "נסה ליצור ענף חדש במקום."
     },
     "sanitize-api-keys": {
       "additionalPatterns": [
@@ -170,60 +197,60 @@ failproofai policies --uninstall --scope project
 }
 ```
 
-**שלוש היקפי תצורה** מתמזגות באופן אוטומטי (פרויקט → מקומי → עולמי). ראה [docs/configuration.mdx](docs/configuration.mdx) לכללי מיזוג מלאים.
+**שלוש היקפי קונפיגורציה** מוזגים באופן אוטומטי (פרויקט → מקומי → גלובלי). ראה [docs/configuration.mdx](docs/configuration.mdx) לכללי מיזוג מלאים.
 
 ---
 
-## מדיניות מובנות
+## מדיניות מובנית
 
-| מדיניות | תיאור | ניתן להגדיר |
+| מדיניות | תיאור | ניתן להגדרה |
 |--------|-------------|:---:|
-| `block-sudo` | מנע מסוכנים הפעלת פקודות מערכת מיוחסות | `allowPatterns` |
-| `block-rm-rf` | מנע מחיקת קבצים רקורסיבית בשוגג | `allowPaths` |
-| `block-curl-pipe-sh` | מנע מסוכנים צנרור סקריפטים לא אמינים לשל | |
-| `block-failproofai-commands` | מנע הסרה עצמית | |
-| `sanitize-jwt` | עצור JWT tokens מלהדיף לתוך הקשר סוכן | |
-| `sanitize-api-keys` | עצור API keys מלהדיף לתוך הקשר סוכן | `additionalPatterns` |
-| `sanitize-connection-strings` | עצור credentials של בסיס נתונים מלהדיף לתוך הקשר סוכן | |
-| `sanitize-private-key-content` | הסתר בלוקים של מפתח פרטי PEM מהפלט | |
-| `sanitize-bearer-tokens` | הסתר Bearer tokens של Authorization מהפלט | |
-| `block-env-files` | שמור סוכנים מקריאת קובצי .env | |
-| `protect-env-vars` | מנע מסוכנים הדפסת משתני סביבה | |
+| `block-sudo` | מנע מסוכנים הרצת פקודות מערכת מוגנות | `allowPatterns` |
+| `block-rm-rf` | מנע מחיקה רקורסיבית של קבצים בטעות | `allowPaths` |
+| `block-curl-pipe-sh` | מנע מסוכנים להעביר סקריפטים שאינם מהימנים ל-shell | |
+| `block-failproofai-commands` | מנע הסרת התקנה עצמית | |
+| `sanitize-jwt` | עצור דלפי JWT tokens להקשר של סוכן | |
+| `sanitize-api-keys` | עצור דלפי מפתחות API להקשר של סוכן | `additionalPatterns` |
+| `sanitize-connection-strings` | עצור דלפי אישורי מסד נתונים להקשר של סוכן | |
+| `sanitize-private-key-content` | שחזר חסימות מפתח PEM פרטי מפלט | |
+| `sanitize-bearer-tokens` | שחזר אישור Bearer tokens מפלט | |
+| `block-env-files` | שמור סוכנים מקריאת קבצי .env | |
+| `protect-env-vars` | מנע מסוכנים הדפסת משתנים סביבה | |
 | `block-read-outside-cwd` | שמור סוכנים בתוך גבולות פרויקט | `allowPaths` |
-| `block-secrets-write` | מנע כתיבות לקבצי מפתח פרטי ותעודות | `additionalPatterns` |
-| `block-push-master` | מנע דחיפות בשוגג לעיקר/master | `protectedBranches` |
-| `block-work-on-main` | שמור סוכנים מעל ענפים מוגנים | `protectedBranches` |
+| `block-secrets-write` | מנע כתיבה לקבצי מפתח פרטי ותעודות | `additionalPatterns` |
+| `block-push-master` | מנע דחיקה בטעות ל-main/master | `protectedBranches` |
+| `block-work-on-main` | שמור סוכנים מענפים מוגנים | `protectedBranches` |
 | `block-force-push` | מנע `git push --force` | |
-| `warn-git-amend` | הזכר סוכנים לפני שינוי commits | |
-| `warn-git-stash-drop` | הזכר סוכנים לפני הורדת stashes | |
-| `warn-all-files-staged` | תפס `git add -A` בשוגג | |
-| `warn-destructive-sql` | תפס DROP/DELETE SQL לפני ביצוע | |
-| `warn-schema-alteration` | תפס ALTER TABLE לפני ביצוע | |
-| `warn-large-file-write` | תפס כתיבות קובץ גדולות באופן בלתי צפוי | `thresholdKb` |
-| `warn-package-publish` | תפס `npm publish` בשוגג | |
-| `warn-background-process` | תפס הפעלות תהליך בתוך כדור בלא כוונה | |
-| `warn-global-package-install` | תפס התקנות חבילה גלובליות בלא כוונה | |
+| `warn-git-amend` | הזכר לסוכנים לפני תיקון התחייבויות | |
+| `warn-git-stash-drop` | הזכר לסוכנים לפני הסרת stashes | |
+| `warn-all-files-staged` | תופס בטעות `git add -A` | |
+| `warn-destructive-sql` | תופס SQL DROP/DELETE לפני ביצוע | |
+| `warn-schema-alteration` | תופס ALTER TABLE לפני ביצוע | |
+| `warn-large-file-write` | תופס כתיבות קבצים גדולות בצורה בלתי צפויה | `thresholdKb` |
+| `warn-package-publish` | תופס בטעות `npm publish` | |
+| `warn-background-process` | תופס הפעלות תהליך רקע שלא במתוכנן | |
+| `warn-global-package-install` | תופס התקנות חבילה גלובליות שלא במתוכנן | |
 | …ועוד | | |
 
-פרטי מדיניות מלאים והפניה של פרמטרים: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
+פרטי מדיניות מלאים ויחוס פרמטרים: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
 
 ---
 
 ## מדיניות מותאמת אישית
 
-כתוב את המדיניות שלך כדי לשמור סוכנים אמינים וממוקדים:
+כתוב מדיניות משלך כדי לשמור על סוכנים אמינים וממוקדים:
 
 ```js
 import { customPolicies, allow, deny, instruct } from "failproofai";
 
 customPolicies.add({
   name: "no-production-writes",
-  description: "חסום כתיבות לנתיבים המכילים 'production'",
+  description: "חסום כתיבה לנתיבים המכילים production",
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
     if (!["Write", "Edit"].includes(ctx.toolName ?? "")) return allow();
     const path = ctx.toolInput?.file_path ?? "";
-    if (path.includes("production")) return deny("כתיבות לנתיבים production חסומות");
+    if (path.includes("production")) return deny("כתיבה לנתיבי production חסומה");
     return allow();
   },
 });
@@ -239,31 +266,31 @@ failproofai policies --install --custom ./my-policies.js
 
 | פונקציה | השפעה |
 |----------|--------|
-| `allow()` | אישור הפעולה |
-| `allow(message)` | אישור והשלח הקשר מידע ל-Claude |
+| `allow()` | אשר את הפעולה |
+| `allow(message)` | אשר ושלח הקשר מידע ל-Claude |
 | `deny(message)` | חסום את הפעולה; הודעה מוצגת ל-Claude |
-| `instruct(message)` | הוסף הקשר לפרומפט של Claude; אל תחסום |
+| `instruct(message)` | הוסף הקשר להנחיית Claude; לא חוסם |
 
 ### אובייקט הקשר (`ctx`)
 
 | שדה | סוג | תיאור |
 |-------|------|-------------|
 | `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
-| `toolName` | `string` | כלי שמקראים (`"Bash"`, `"Write"`, `"Read"`, …) |
-| `toolInput` | `object` | פרמטרי קלט של כלי |
-| `payload` | `object` | מטען אירוע גולמי מלא |
-| `session.cwd` | `string` | ספרית עבודה של הפעלת Claude Code |
+| `toolName` | `string` | כלי שמקבל קריאה (`"Bash"`, `"Write"`, `"Read"`, …) |
+| `toolInput` | `object` | פרמטרי קלט של הכלי |
+| `payload` | `object` | עומס אירוע גולמי מלא |
+| `session.cwd` | `string` | תיקייה עובדת של הפעלת Claude Code |
 | `session.sessionId` | `string` | מזהה הפעלה |
-| `session.transcriptPath` | `string` | נתיב לקובץ תמלול של הפעלה |
+| `session.transcriptPath` | `string` | נתיב לקובץ תלמוד ההפעלה |
 
-hookים מותאמים אישית תומכים בייבואים מקומיים טרנזיטיביים, async/await, וגישה ל-`process.env`. שגיאות פועלות בפתיחה בכשל (רשומות ב-`~/.failproofai/hook.log`, מדיניות מובנות ממשיכות). ראה [docs/custom-hooks.mdx](docs/custom-hooks.mdx) למדריך מלא.
+hook מותאם אישית תומך בייבוא מקומי חולף, async/await, וגישה ל-`process.env`. שגיאות הן fail-open (מעובדות ל-`~/.failproofai/hook.log`, מדיניות מובנית ממשיכות). ראה [docs/custom-hooks.mdx](docs/custom-hooks.mdx) לגיד מלא.
 
-### מדיניות מבוססות קונוונציה
+### מדיניות מבוססות הנוהג
 
-הוסף קבצי `*policies.{js,mjs,ts}` לתוך `.failproofai/policies/` והם טוענים באופן אוטומטי — אף דגלים או שינויי תצורה לא נדרשים. בצע commit של הספרייה ל-git וכל חברי הצוות מקבלים את אותם סטנדרטים איכות באופן אוטומטי.
+הפל קבצי `*policies.{js,mjs,ts}` ל-`.failproofai/policies/` והם נטענים באופן אוטומטי - אין צורך בדגלים או שינויי קונפיגורציה. עשה commit לתיקייה ל-git וכל חברי צוות מקבלים את אותם סטנדרטים באיכות באופן אוטומטי.
 
 ```text
-# רמת פרויקט — committed ל-git, משותף עם הצוות
+# רמת פרויקט — committed to git, משותף עם הצוות
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
@@ -271,13 +298,13 @@ hookים מותאמים אישית תומכים בייבואים מקומיים 
 ~/.failproofai/policies/my-policies.mjs
 ```
 
-שתי הרמות טוענות (union). קבצים טוענים בסדר אלפביתי בתוך כל ספרייה. הוסף קידומת עם `01-`, `02-`, וכו' כדי לשלוט בסדר. כאשר הצוות שלך מגלה מצבי כשל חדשים, הוסף מדיניות ודחוף — כולם מקבלים את העדכון ב-pull הבא שלהם. ראה [examples/convention-policies/](examples/convention-policies/) לדוגמאות מוכנות לשימוש.
+שתי הרמות נטענות (union). קבצים נטענים בסדר אלפבתי בכל תיקייה. הקדם עם `01-`, `02-`, וכו'. כדי לשלוט בסדר. כשהצוות שלך גוכח כישלונות חדשים, הוסף מדיניות ודחוף — כולם מקבלים את העדכון ב-pull הבא שלהם. ראה [examples/convention-policies/](examples/convention-policies/) לדוגמאות מוכנות לשימוש.
 
 ---
 
 ## טלמטריה
 
-Failproof AI אוסף טלמטריה שימוש אנונימית דרך PostHog כדי להבין שימוש בתכונות. תוכן הפעלה, שמות קבצים, קלטי כלים או מידע אישי לעולם לא נשלחים.
+Failproof AI אוגר טלמטריה שימוש אנונימית דרך PostHog כדי להבין שימוש בתכונות. לא תוכן הפעלה, שמות קבצים, קלטי כלים או מידע אישי נשלחים אי פעם.
 
 השבת זאת:
 
@@ -291,22 +318,22 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 
 | מדריך | תיאור |
 |-------|-------------|
-| [Getting Started](docs/getting-started.mdx) | התקנה ורגעים ראשונים |
-| [Built-in Policies](docs/built-in-policies.mdx) | כל 39 מדיניות מובנות עם פרמטרים |
+| [Getting Started](docs/getting-started.mdx) | התקנה והצעדים הראשונים |
+| [Built-in Policies](docs/built-in-policies.mdx) | כל 39 המדיניות המובנות עם פרמטרים |
 | [Custom Policies](docs/custom-policies.mdx) | כתוב את המדיניות שלך |
-| [Configuration](docs/configuration.mdx) | פורמט קובץ תצורה ומיזוג היקף |
+| [Configuration](docs/configuration.mdx) | פורמט קובץ קונפיגורציה ומיזוג היקף |
 | [Dashboard](docs/dashboard.mdx) | עקוב אחר הפעלות וסקור פעילות מדיניות |
-| [Architecture](docs/architecture.mdx) | כיצד מערכת hook פועלת |
+| [Architecture](docs/architecture.mdx) | כיצד מערכת ה-hook פועלת |
 | [Testing](docs/testing.mdx) | הרץ בדיקות וכתוב חדשות |
 
-### הרץ תיעוד מקומי
+### הרץ תיעוד באופן מקומי
 
 ```bash
 docker build -f Dockerfile.docs -t failproofai-docs .
 docker run --rm -p 3000:3000 failproofai-docs
 ```
 
-פותח את אתר Mintlify docs ב-`http://localhost:3000`. המיכל עוקב אחר שינויים אם אתה מעגן את ספרית ה-docs:
+פותח את אתר Mintlify docs ב-`http://localhost:3000`. המכל צפה בשינויים אם תחבור את תיקייה התיעוד:
 
 ```bash
 docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
@@ -314,11 +341,11 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ---
 
-## הערה לתורמי failproofai
+## הערה לתורמים של failproofai
 
-ה-`.claude/settings.json` של repot זה משתמש ב-`bun ./bin/failproofai.mjs --hook <EventType>` במקום הפקודה `npx -y failproofai` הסטנדרטית. זה בגלל שהרצה של `npx -y failproofai` בתוך פרויקט failproofai עצמו יוצרת קונפליקט הסתמכות עצמית.
+`.claude/settings.json` של repo זה משתמש ב-`bun ./bin/failproofai.mjs --hook <EventType>` במקום הפקודה הסטנדרטית `npx -y failproofai`. זה בגלל שהרץ `npx -y failproofai` בתוך פרויקט failproofai עצמו יוצר סכסוך הנוגע לעצמו.
 
-עבור כל ה-repos האחרים, הגישה המומלצת היא `npx -y failproofai`, המותקנת דרך:
+עבור כל ה-repos אחרים, הגישה המומלצת היא `npx -y failproofai`, מותקנת דרך:
 
 ```bash
 failproofai policies --install --scope project
@@ -336,7 +363,8 @@ failproofai policies --install --scope project
 
 ---
 
-בנוי ותוחזק על ידי **ExosphereHost: Reliability Research Lab for Your Agents**. אנחנו עוזרים לחברות ולסטארטאפים לשפר את אמינות סוכני ה-AI שלהם דרך הסוכנים, התוכנה והמומחיות שלנו. למד עוד ב-[exosphere.host](https://exosphere.host).
+בנוי ותחזוקה מ-**ExosphereHost: Reliability Research Lab for Your Agents**. אנחנו עוזרים לחברות וסטארטאפים לשפר את אמינות סוכני AI שלהם דרך הסוכנים שלנו, תוכנה ומומחיות. למידע נוסף ב-[exosphere.host](https://exosphere.host).
+```
 
 
 </div>
