@@ -12,7 +12,7 @@
 import * as readline from "node:readline";
 import { BUILTIN_POLICIES } from "./builtin-policies";
 import { detectInstalledClis, getIntegration } from "./integrations";
-import type { IntegrationType } from "./types";
+import { INTEGRATION_TYPES, type IntegrationType } from "./types";
 
 interface SelectItem {
   name: string;
@@ -85,24 +85,115 @@ export async function resolveTargetClis(
   return promptCliTargetSelection(detected, action);
 }
 
+/** Selectable row in the CLI target menu. Exported for unit tests. */
+export interface CliMenuOption {
+  label: string;
+  value: IntegrationType[];
+  /** True when the underlying CLI was found on PATH. */
+  detected: boolean;
+  /** True for the aggregated "Install for all detected" row. */
+  isAll: boolean;
+}
+
+/**
+ * Build the option list for the CLI target menu.
+ *
+ *   • install action  → detected first (with optional aggregate row), then
+ *                       every undetected CLI as a forward-install option.
+ *   • uninstall action → detected only (you cannot remove from what was never
+ *                       installed); aggregate row says "Remove from all N".
+ */
+export function buildCliMenuOptions(
+  detected: IntegrationType[],
+  action: CliPromptAction,
+): { options: CliMenuOption[]; undetected: IntegrationType[] } {
+  const undetected: IntegrationType[] =
+    action === "install"
+      ? INTEGRATION_TYPES.filter((id) => !detected.includes(id))
+      : [];
+
+  const options: CliMenuOption[] = [];
+  if (detected.length > 1) {
+    const verb = action === "uninstall" ? "Remove from" : "Install for";
+    options.push({
+      label: `${verb} all ${detected.length} detected`,
+      value: detected,
+      detected: true,
+      isAll: true,
+    });
+  }
+  for (const id of detected) {
+    options.push({
+      label: getIntegration(id).displayName,
+      value: [id],
+      detected: true,
+      isAll: false,
+    });
+  }
+  for (const id of undetected) {
+    options.push({
+      label: getIntegration(id).displayName,
+      value: [id],
+      detected: false,
+      isAll: false,
+    });
+  }
+  return { options, undetected };
+}
+
 /**
  * Interactive arrow-key single-select for "install/remove for which CLI?" when
- * multiple agent CLIs are detected. Visual style mirrors promptPolicySelection.
+ * multiple agent CLIs are detected.
+ *
+ * Layout:
+ *   • DETECTED section: an "Install for all detected" option (only when >1
+ *     detected) followed by each detected CLI individually.
+ *   • NOT INSTALLED section (install action only): each undetected CLI as a
+ *     forward-install option, so users can prep hooks before adding the CLI.
+ *
+ * Cursor skips section headers — it only lands on selectable item rows.
  */
 async function promptCliTargetSelection(
   detected: IntegrationType[],
   action: CliPromptAction = "install",
 ): Promise<IntegrationType[]> {
-  const labels = detected.map((id) => getIntegration(id).displayName).join(" + ");
-  const allLabel = detected.length > 2 ? "All" : "Both";
-  const options: Array<{ label: string; description: string; value: IntegrationType[] }> = [
-    { label: allLabel, description: labels, value: detected },
-    ...detected.map((id) => ({
-      label: `${getIntegration(id).displayName} only`,
-      description: "",
-      value: [id] as IntegrationType[],
-    })),
-  ];
+  const { options, undetected } = buildCliMenuOptions(detected, action);
+
+  type DisplayRow =
+    | { kind: "header"; title: string; hint?: string }
+    | { kind: "blank" }
+    | { kind: "item"; option: CliMenuOption; itemIndex: number };
+
+  function buildDisplayRows(): DisplayRow[] {
+    const rows: DisplayRow[] = [];
+    let itemIndex = 0;
+
+    rows.push({
+      kind: "header",
+      title: `Detected (${detected.length})`,
+    });
+    for (const opt of options) {
+      if (opt.detected) {
+        rows.push({ kind: "item", option: opt, itemIndex: itemIndex++ });
+      }
+    }
+
+    if (undetected.length > 0) {
+      rows.push({ kind: "blank" });
+      rows.push({
+        kind: "header",
+        title: `Not installed (${undetected.length})`,
+        hint: "install hooks ahead of time",
+      });
+      for (const opt of options) {
+        if (!opt.detected) {
+          rows.push({ kind: "item", option: opt, itemIndex: itemIndex++ });
+        }
+      }
+    }
+
+    return rows;
+  }
 
   let cursor = 0;
   let lastLineCount = 0;
@@ -143,26 +234,45 @@ async function promptCliTargetSelection(
   }
 
   const heading = action === "uninstall" ? "Remove Hooks" : "Install Hooks";
-  const verb = action === "uninstall" ? "remove from" : "install";
 
   function render(): void {
     const cols = process.stdout.columns || 120;
     hideCursor();
 
     const lines: string[] = [];
-    lines.push(`  Failproof AI — ${heading}`);
-    lines.push("");
-    lines.push(`  \x1B[2mDetected ${labels}. Choose where to ${verb}:\x1B[0m`);
+    lines.push(`  \x1B[1mFailproof AI\x1B[0m \x1B[2m—\x1B[0m ${heading}`);
     lines.push("");
 
-    for (let i = 0; i < options.length; i++) {
-      const opt = options[i];
-      const isActive = i === cursor;
+    for (const row of buildDisplayRows()) {
+      if (row.kind === "blank") {
+        lines.push("");
+        continue;
+      }
+      if (row.kind === "header") {
+        const hintVisible = row.hint ? ` · ${row.hint}` : "";
+        // Line shape: "  " + "── " + title + hintVisible + " " + dashes  → cols
+        const dashLen = Math.max(2, cols - 2 - 3 - row.title.length - hintVisible.length - 1);
+        const suffix = row.hint ? ` \x1B[2m· ${row.hint}\x1B[0m` : "";
+        lines.push(
+          `  \x1B[2m── \x1B[0m\x1B[1m${row.title}\x1B[0m${suffix} \x1B[2m${"─".repeat(dashLen)}\x1B[0m`,
+        );
+        continue;
+      }
+
+      const opt = row.option;
+      const isActive = row.itemIndex === cursor;
       const pointer = isActive ? "\x1B[36m❯\x1B[0m" : " ";
-      const labelPart = isActive ? `\x1B[1;36m${opt.label}\x1B[0m` : opt.label;
-      const pad = opt.description ? " ".repeat(Math.max(2, 22 - opt.label.length)) : "";
-      const desc = opt.description ? `\x1B[2m${opt.description}\x1B[0m` : "";
-      lines.push(`  ${pointer} ${labelPart}${pad}${desc}`);
+      const marker = opt.isAll
+        ? "\x1B[33m★\x1B[0m"
+        : opt.detected
+          ? "\x1B[32m●\x1B[0m"
+          : "\x1B[2m○\x1B[0m";
+      const label = isActive
+        ? `\x1B[1;36m${opt.label}\x1B[0m`
+        : opt.detected
+          ? opt.label
+          : `\x1B[2m${opt.label}\x1B[0m`;
+      lines.push(`  ${pointer} ${marker}  ${label}`);
     }
 
     lines.push("");
@@ -177,6 +287,8 @@ async function promptCliTargetSelection(
     process.stdout.write(output);
     lastLineCount = lines.length;
   }
+
+  const itemCount = options.length;
 
   return new Promise<IntegrationType[]>((resolve) => {
     render();
@@ -200,10 +312,10 @@ async function promptCliTargetSelection(
         process.exit(130); // SIGINT-equivalent
       }
       if (key.name === "up") {
-        cursor = cursor > 0 ? cursor - 1 : options.length - 1;
+        cursor = cursor > 0 ? cursor - 1 : itemCount - 1;
         render();
       } else if (key.name === "down") {
-        cursor = cursor < options.length - 1 ? cursor + 1 : 0;
+        cursor = cursor < itemCount - 1 ? cursor + 1 : 0;
         render();
       } else if (key.name === "return" || key.name === "space") {
         cleanup();
