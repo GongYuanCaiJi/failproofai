@@ -132,4 +132,72 @@ describe("hooks/install-prompt", () => {
       expect(uninstallResult).toEqual(["claude", "codex", "copilot", "cursor"]);
     });
   });
+
+  describe("buildCliMenuOptions", () => {
+    it("install action: detected first with aggregate row, then every undetected CLI", async () => {
+      const { buildCliMenuOptions } = await import("../../src/hooks/install-prompt");
+      const { options, undetected } = buildCliMenuOptions(
+        ["claude", "codex"],
+        "install",
+      );
+
+      // 1 aggregate "all" + 2 detected + 5 undetected
+      expect(options).toHaveLength(8);
+      expect(undetected).toEqual(["copilot", "cursor", "opencode", "pi", "gemini"]);
+
+      expect(options[0]).toMatchObject({ isAll: true, detected: true, value: ["claude", "codex"] });
+      expect(options[0].label).toBe("Install for all 2 detected");
+
+      // Detected rows preserve order and carry detected=true
+      expect(options.slice(1, 3)).toEqual([
+        { label: "Claude Code",  value: ["claude"], detected: true,  isAll: false },
+        { label: "OpenAI Codex", value: ["codex"],  detected: true,  isAll: false },
+      ]);
+
+      // Undetected rows carry detected=false
+      const undetectedRows = options.slice(3);
+      expect(undetectedRows.every((o) => !o.detected && !o.isAll)).toBe(true);
+      expect(undetectedRows.map((o) => o.label)).toEqual([
+        "GitHub Copilot",
+        "Cursor Agent",
+        "OpenCode",
+        "Pi",
+        "Gemini CLI",
+      ]);
+    });
+
+    it("uninstall action: only detected rows, no undetected (and verb is 'Remove from')", async () => {
+      const { buildCliMenuOptions } = await import("../../src/hooks/install-prompt");
+      const { options, undetected } = buildCliMenuOptions(
+        ["claude", "codex", "copilot"],
+        "uninstall",
+      );
+
+      expect(undetected).toEqual([]);
+      expect(options).toHaveLength(4); // 1 aggregate + 3 detected
+      expect(options[0].label).toBe("Remove from all 3 detected");
+      expect(options.every((o) => o.detected)).toBe(true);
+    });
+
+    it("install with all 7 detected: no aggregate-row needed beyond the standard one, no undetected section", async () => {
+      const { buildCliMenuOptions } = await import("../../src/hooks/install-prompt");
+      const { options, undetected } = buildCliMenuOptions(
+        ["claude", "codex", "copilot", "cursor", "opencode", "pi", "gemini"],
+        "install",
+      );
+
+      expect(undetected).toEqual([]);
+      expect(options).toHaveLength(8); // aggregate + 7 detected
+      expect(options[0].label).toBe("Install for all 7 detected");
+    });
+
+    it("install with 1 detected + many undetected: skips aggregate row (1 ≯ 1)", async () => {
+      const { buildCliMenuOptions } = await import("../../src/hooks/install-prompt");
+      const { options } = buildCliMenuOptions(["claude"], "install");
+
+      // No aggregate when only 1 detected — first row is the detected CLI itself.
+      expect(options[0]).toMatchObject({ label: "Claude Code", isAll: false });
+      expect(options.filter((o) => o.isAll)).toEqual([]);
+    });
+  });
 });
