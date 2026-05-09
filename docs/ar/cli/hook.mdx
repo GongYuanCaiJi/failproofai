@@ -1,27 +1,22 @@
----
-title: معالج الخطاف (داخلي)
-description: "العملية الفرعية التي يستدعيها Claude Code في كل حدث أداة"
----
-
 ```bash
 failproofai --hook <EventType>
 ```
 
-هذا هو الأمر المسجل في `settings.json` الخاص بـ Claude Code بواسطة `failproofai policies --install`. لا تقوم عادة باستدعاء هذا الأمر مباشرة.
+هذا هو الأمر المسجل في `settings.json` بواسطة Claude Code من خلال `failproofai policies --install`. لا تحتاج عادة إلى استدعاء هذا الأمر مباشرة.
 
 يقرأ حمولة JSON من stdin، ويقيّم جميع السياسات المفعّلة، ويخرج برمز يشير إلى القرار:
 
 | رمز الخروج | القرار | التأثير |
 |-----------|--------|--------|
 | `0` | `allow` | السماح بالإجراء |
-| `1` | `deny` | حجب الإجراء - Claude سيرى سبب الرفض |
-| `2` | `instruct` | حقن التوجيه في سياق Claude |
+| `1` | `deny` | حجب الإجراء - سيرى Claude سبب الحجب |
+| `2` | `instruct` | إدراج التوجيهات في سياق Claude |
 
 ### أنواع الأحداث المدعومة
 
 | الفئة | الأحداث |
 |----------|--------|
-| **تنفيذ الأداة** | `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied` |
+| **تنفيذ الأدوات** | `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied` |
 | **دورة حياة الجلسة** | `SessionStart`, `SessionEnd`, `Stop`, `StopFailure` |
 | **التفاعل مع المستخدم** | `UserPromptSubmit`, `Notification`, `Elicitation`, `ElicitationResult` |
 | **الوكلاء الفرعيون والمهام** | `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |

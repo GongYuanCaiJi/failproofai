@@ -3,32 +3,32 @@ title: משתנים סביבתיים
 description: "הגדר את התנהגות failproofai באמצעות משתנים סביבתיים"
 ---
 
-## דשבורד
+## לוח בקרה
 
 | משתנה | תיאור |
 |----------|-------------|
-| `PORT` | יציאת דשבורד (ברירת מחדל: `8020`) |
-| `CLAUDE_PROJECTS_PATH` | עקוף את מיקום תיקיות הפרויקטים של Claude Code |
-| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | דפי דשבורד להסתרה, מופרדים בפסיקים |
-| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | hosts/IPs המורשים לגשת למשאבי פיתוח. זהה ל-`--allowed-origins`. |
+| `PORT` | יציאת לוח הבקרה (ברירת מחדל: `8020`) |
+| `CLAUDE_PROJECTS_PATH` | בטל את ההגדרה למיקום תיקיות פרויקטי Claude Code |
+| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | עמודי לוח בקרה להסתרה מופרדים בפסיקים |
+| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | שמות מארחים/כתובות IP המורשות לגישה למשאבי פיתוח. זהה ל-`--allowed-origins`. |
 
 ## רישום
 
 | משתנה | תיאור |
 |----------|-------------|
 | `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | רמת רישום השרת (ברירת מחדל: `warn`) |
-| `FAILPROOFAI_HOOK_LOG_FILE` | נתיב קובץ רישום hook מותאם אישית, או `true` לברירת המחדל (`~/.failproofai/logs/hooks.log`) |
+| `FAILPROOFAI_HOOK_LOG_FILE` | נתיב קובץ רישום hook מותאם אישית, או `true` לברירת מחדל (`~/.failproofai/logs/hooks.log`) |
 
 ## טלמטריה
 
 | משתנה | תיאור |
 |----------|-------------|
-| `FAILPROOFAI_TELEMETRY_DISABLED=1` | בטל טלמטריית שימוש אנונימית |
+| `FAILPROOFAI_TELEMETRY_DISABLED=1` | השבת טלמטריה שימוש אנונימית |
 
-## LLM (להערכת מדיניויות)
+## LLM (להערכת מדיניות)
 
 | משתנה | תיאור |
 |----------|-------------|
-| `FAILPROOFAI_LLM_BASE_URL` | נקודת קצה של ממשק ה-LLM (ברירת מחדל: `https://api.openai.com/v1`) |
-| `FAILPROOFAI_LLM_API_KEY` | מפתח API למדיניויות המופעלות על ידי LLM |
-| `FAILPROOFAI_LLM_MODEL` | שם מודל (ברירת מחדל: `gpt-4o-mini`) |
+| `FAILPROOFAI_LLM_BASE_URL` | נקודת קצה של API של LLM (ברירת מחדל: `https://api.openai.com/v1`) |
+| `FAILPROOFAI_LLM_API_KEY` | מפתח API עבור מדיניות מופעלת על ידי LLM |
+| `FAILPROOFAI_LLM_MODEL` | שם המודל (ברירת מחדל: `gpt-4o-mini`) |

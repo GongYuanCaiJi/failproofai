@@ -1,10 +1,10 @@
 ---
-title: Konfigürasyon
+title: Yapılandırma
 description: "Yapılandırma dosyası biçimi, üç kapsam sistemi ve birleştirme kuralları"
 icon: gear
 ---
 
-failproofai, hangi politikaların etkin olduğunu, nasıl davrandığını ve özel politikaların nereden yükleneceğini kontrol etmek için JSON yapılandırma dosyalarını kullanır. Yapılandırma, takımınızla paylaşmak için tasarlanmıştır - depoyu sürüm kontrolüne kaydedin ve her geliştirici aynı ajan güvenlik ağını alır.
+failproofai, hangi politikaların aktif olduğunu, nasıl davrandıklarını ve özel politikaların nereden yüklendiğini kontrol etmek için JSON yapılandırma dosyalarını kullanır. Yapılandırma, ekibinizle kolayca paylaşılmak üzere tasarlanmıştır - depoyu sürüm denetimine işleyin ve her geliştirici aynı agent güvenlik ağını alır.
 
 ---
 
@@ -14,39 +14,39 @@ failproofai, hangi politikaların etkin olduğunu, nasıl davrandığını ve ö
 
 | Kapsam | Dosya yolu | Amaç |
 |--------|-----------|------|
-| **proje** | `.failproofai/policies-config.json` | Depo başına ayarlar, sürüm kontrolüne kaydedilir |
-| **yerel** | `.failproofai/policies-config.local.json` | Kişisel depo başına geçersiz kılmalar, gitignored |
+| **proje** | `.failproofai/policies-config.json` | Depo başına ayarlar, sürüm denetimine işlenir |
+| **yerel** | `.failproofai/policies-config.local.json` | Kişisel depo başına geçersiz kılmalar, gitignore'lanır |
 | **genel** | `~/.failproofai/policies-config.json` | Tüm projeler arasında kullanıcı düzeyinde varsayılanlar |
 
-failproofai bir hook olayını aldığında, mevcut çalışma dizini için var olan üç dosyayı yükler ve birleştirir.
+failproofai bir hook olayı aldığında, geçerli çalışma dizini için var olan üç dosyayı da yükler ve birleştirir.
 
 ### Birleştirme kuralları
 
-**`enabledPolicies`** - üç kapsamın tümünün birleşimi. Herhangi bir düzeyde etkinleştirilen bir politika etkindir.
+**`enabledPolicies`** - üç kapsamın birleşimi. Herhangi bir düzeyde etkinleştirilen bir politika aktiftir.
 
 ```text
-project:  ["block-sudo"]
-local:    ["block-rm-rf"]
-global:   ["block-sudo", "sanitize-api-keys"]
+proje:    ["block-sudo"]
+yerel:    ["block-rm-rf"]
+genel:    ["block-sudo", "sanitize-api-keys"]
 
-resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← tekrarlanmayan birleşim
+çözümlenen: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← çoklama kaldırılmış birleşim
 ```
 
 **`policyParams`** - belirli bir politika için parametreleri tanımlayan ilk kapsam tamamen kazanır. Bir politikanın parametreleri içinde derin birleştirme yoktur.
 
 ```text
-project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
-global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+proje:    block-sudo → { allowPatterns: ["sudo apt-get update"] }
+genel:    block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
-resolved: { allowPatterns: ["sudo apt-get update"] }   ← proje kazanır, genel yok sayılır
+çözümlenen: { allowPatterns: ["sudo apt-get update"] }   ← proje kazanır, genel yoksayılır
 ```
 
 ```text
-project:  (block-sudo girişi yok)
-local:    (block-sudo girişi yok)
-global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+proje:    (block-sudo girdisi yok)
+yerel:    (block-sudo girdisi yok)
+genel:    block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
-resolved: { allowPatterns: ["sudo systemctl status"] }  ← genel ayara düşer
+çözümlenen: { allowPatterns: ["sudo systemctl status"] }  ← genele düşer
 ```
 
 **`customPoliciesPath`** - bunu tanımlayan ilk kapsam kazanır.
@@ -110,17 +110,17 @@ Etkinleştirilecek politika adlarının listesi. Adlar, `failproofai policies` t
 
 Tür: `Record<string, Record<string, unknown>>`
 
-İlke başına parametre geçersiz kılmaları. Dış anahtar politika adıdır; iç anahtarlar politikaya özgüdür. Her politika, [Yerleşik Politikalar](/tr/built-in-policies) bölümünde kullanılabilir parametrelerini belgelendirir.
+Politika başına parametre geçersiz kılmaları. Dış anahtar politika adıdır; iç anahtarlar politikaya özgüdür. Her politika, [Yerleşik Politikalar](/tr/built-in-policies) bölümünde mevcut parametrelerini belgelemektedir.
 
-Bir politikanın parametreleri varsa ancak bunları belirtmezseniz, politikanın yerleşik varsayılanları kullanılır. `policyParams` yapılandırmayan kullanıcılar, önceki sürümlerle aynı davranışı alırlar.
+Bir politikanın parametreleri varsa ancak bunları belirtmezseniz, politikanın yerleşik varsayılanları kullanılır. `policyParams` yapılandırmaması yapan kullanıcılar önceki sürümlerle aynı davranışı alırlar.
 
-Bir politikanın params bloğu içindeki bilinmeyen anahtarlar, hook tetiklendiğinde sessizce yok sayılır ancak `failproofai policies` çalıştırdığınızda uyarılar olarak işaretlenir.
+Bir politikanın parametreleri bloğu içindeki bilinmeyen anahtarlar, hook tetiklemesi sırasında sessizce yoksayılır ancak `failproofai policies` çalıştırıldığında uyarı olarak işaretlenir.
 
-#### `hint` (kesişmeyen)
+#### `hint` (kesinti noktaları arası)
 
 Tür: `string` (isteğe bağlı)
 
-Bir politika `deny` veya `instruct` döndürdüğünde nedene eklenen bir ileti. Politikanın kendisini değiştirmeden Claude'a eylem yapılabilir rehberlik vermek için kullanın.
+Bir politika `deny` veya `instruct` döndürdüğünde nedene eklenen bir ileti. Politikanın kendisini değiştirmeden Claude'a işlem yapılabilir rehberlik vermek için bunu kullanın.
 
 Herhangi bir politika türüyle çalışır — yerleşik, özel (`custom/`), proje kuralı (`.failproofai-project/`) veya kullanıcı kuralı (`.failproofai-user/`).
 
@@ -132,49 +132,49 @@ Herhangi bir politika türüyle çalışır — yerleşik, özel (`custom/`), pr
     },
     "block-sudo": {
       "allowPatterns": ["sudo apt-get"],
-      "hint": "sudo olmadan doğrudan apt-get kullanın."
+      "hint": "Sudo olmadan doğrudan apt-get kullanın."
     },
     "custom/my-policy": {
-      "hint": "Önce kullanıcıdan onay isteyiniz."
+      "hint": "İlk olarak kullanıcıdan onay isteyin."
     }
   }
 }
 ```
 
-`block-force-push` reddettiğinde, Claude şunu görür: *"Force-pushing engellendi. Bunun yerine yeni bir dal oluşturmayı deneyin."*
+`block-force-push` reddettiğinde, Claude şunu görür: *"Force-push engellenir. Bunun yerine yeni bir dal oluşturmayı deneyin."*
 
-String olmayan değerler ve boş diziler sessizce yok sayılır. `hint` ayarlanmamışsa, davranış değişmez (geriye dönük uyumlu).
+Dize olmayan değerler ve boş dizeler sessizce yoksayılır. `hint` ayarlanmazsa, davranış değiştirilmez (geriye dönük uyumlu).
 
 ### `customPoliciesPath`
 
 Tür: `string` (mutlak yol)
 
-Özel hook politikaları içeren bir JavaScript dosyasına giden yol. Bu, `failproofai policies --install --custom <path>` tarafından otomatik olarak ayarlanır (yol depolanmadan önce mutlak yola çözülür).
+Özel hook politikaları içeren JavaScript dosyasının yolu. Bu, `failproofai policies --install --custom <path>` tarafından otomatik olarak ayarlanır (yol depolandırılmadan önce mutlak olarak çözülür).
 
-Dosya her hook olayında yeniden yüklenir - önbellek yoktur. Yazım ayrıntıları için [Özel Politikalar](/tr/custom-policies) bölümüne bakın.
+Dosya her hook olayında yeni yüklenir - önbellek yoktur. Yazarlık ayrıntıları için [Özel Politikalar](/tr/custom-policies) bölümüne bakın.
 
 ### Kural tabanlı politikalar
 
-Açık `customPoliciesPath`e ek olarak, failproofai `.failproofai/policies/` dizinlerinden politika dosyalarını otomatik olarak keşfeder ve yükler:
+Açık `customPoliciesPath` dışında, failproofai `.failproofai/policies/` dizinlerinden politika dosyalarını otomatik olarak bulur ve yükler:
 
 | Düzey | Dizin | Kapsam |
 |-------|-------|--------|
-| Proje | `.failproofai/policies/` | Takımla sürüm kontrolü aracılığıyla paylaşılır |
-| Kullanıcı | `~/.failproofai/policies/` | Kişisel, tüm projeler için geçerli |
+| Proje | `.failproofai/policies/` | Ekiple sürüm denetimi aracılığıyla paylaşılır |
+| Kullanıcı | `~/.failproofai/policies/` | Kişisel, tüm projeler için geçerlidir |
 
-**Dosya eşleştirmesi:** Yalnızca `*policies.{js,mjs,ts}` ile eşleşen dosyalar yüklenir (ör. `security-policies.mjs`, `workflow-policies.js`). Dizindeki diğer dosyalar yok sayılır.
+**Dosya eşleştirmesi:** Yalnızca `*policies.{js,mjs,ts}` ile eşleşen dosyalar yüklenir (örneğin `security-policies.mjs`, `workflow-policies.js`). Dizindeki diğer dosyalar yoksayılır.
 
-**Yapılandırma gerekmez:** Kural politikaları `policies-config.json` içinde girdi gerektirmez. Dosyaları dizine bırakın ve sonraki hook olayında seçilecektir.
+**Yapılandırma gerekmez:** Kural politikaları `policies-config.json` içinde giriş gerektirmez. Dosyaları dizine bırakın ve bunlar sonraki hook olayında alınır.
 
-**Birleşim yükleme:** Hem proje hem de kullanıcı kural dizinleri taranır. Her iki düzeyden de eşleşen tüm dosyalar yüklenir (`customPoliciesPath`'ten farklı olarak ilk kapsam kazanır).
+**Birleştirme yükleme:** Hem proje hem de kullanıcı kural dizinleri taranır. Her iki düzeydeki tüm eşleşen dosyalar yüklenir (`customPoliciesPath` ilk kapsam kazanışı kullanan değer).
 
-Daha fazla ayrıntı ve örnekler için [Özel Politikalar](/tr/custom-policies) bölümüne bakın.
+Daha fazla ayrıntı ve örnek için [Özel Politikalar](/tr/custom-policies) bölümüne bakın.
 
 ### `llm`
 
 Tür: `object` (isteğe bağlı)
 
-AI çağrıları yapan politikalar için LLM istemci yapılandırması. Çoğu kurulum için gerekli değildir.
+AI çağrısı yapan politikalar için LLM istemci yapılandırması. Çoğu kurulum için gerekli değildir.
 
 ```json
 {
@@ -187,21 +187,21 @@ AI çağrıları yapan politikalar için LLM istemci yapılandırması. Çoğu k
 
 ---
 
-## CLI'dan yapılandırmayı yönetme
+## CLI'den yapılandırmayı yönetme
 
-`policies --install` ve `policies --uninstall` komutları, ajan CLI'ınızın hook ayarları dosyasına (hook giriş noktaları) yazarken, `policies-config.json` doğrudan yönettiğiniz dosyadır. İkisi ayrıdır:
+`policies --install` ve `policies --uninstall` komutları, agent CLI'nızın hook ayarları dosyasına (hook giriş noktaları) yazarken, `policies-config.json` doğrudan yönettiğiniz dosyadır. İkisi ayrıdır:
 
-- **Ajan CLI ayarları** — ajana her araç kullanımında `failproofai --hook <event>` çağırmasını söyler:
+- **Agent CLI ayarları** — agenttesiz her araç kullanımında `failproofai --hook <event>` çağırmasını söyler:
   - **Claude Code**: `~/.claude/settings.json` (kullanıcı), `<cwd>/.claude/settings.json` (proje), `<cwd>/.claude/settings.local.json` (yerel)
   - **OpenAI Codex**: `~/.codex/hooks.json` (kullanıcı), `<cwd>/.codex/hooks.json` (proje) — Codex'in yerel kapsamı yoktur
-  - **GitHub Copilot CLI _(beta)_**: `~/.copilot/hooks/failproofai.json` (kullanıcı), `<cwd>/.github/hooks/failproofai.json` (proje) — Copilot'un yerel kapsamı yoktur. Hook girdileri, `timeoutSec` ile Copilot'un işletim sistemi anahtarlı `bash`/`powershell` komut alanlarını kullanır; dosya, üst düzey `version: 1` işaretçisi taşır. Copilot CLI desteği, `events.jsonl` kayıt şemasını (genel belgeler belirtmez) daha gerçek dünyada oturumlarla doğruladığımız sürece **beta** sürümündedir.
-  - **Cursor Agent _(beta)_**: `~/.cursor/hooks.json` (kullanıcı), `<cwd>/.cursor/hooks.json` (proje) — Cursor'un yerel kapsamı yoktur. Hook girdileri Claude şeklindeki `{type, command, timeout}` formunu kullanır (`bash`/`powershell` bölümü yok), ancak Cursor'un [hooks şemasına](https://cursor.com/docs/hooks) göre düz bir dizi başına camelCase olay anahtarları (`preToolUse`, `beforeSubmitPrompt`, …) altında depolanır; dosya, üst düzey `version: 1` işaretçisi taşır. İşleyici, `CURSOR_EVENT_MAP` aracılığıyla camelCase → PascalCase'i kanonikleştirerek mevcut yerleşik politikaların değişmeden tetiklenmesini sağlar. Cursor Agent desteği, Cursor'un disk üzerinde transkript biçimini (genel belgeler belirtmez) daha gerçek dünyada yüklemelerle doğruladığımız sürece **beta** sürümündedir.
-  - **OpenCode _(beta)_**: `~/.config/opencode/opencode.json` + `~/.config/opencode/plugins/failproofai.mjs` (kullanıcı), `<cwd>/.opencode/opencode.json` + `<cwd>/.opencode/plugins/failproofai.mjs` (proje) — OpenCode'un yerel kapsamı yoktur. Diğer dört CLI'den farklı olarak OpenCode **harici komut hook sistemi olmadığından**: `opencode.json` içindeki `plugin: []` dizisi aracılığıyla açıkça kaydedilen işlem içi JS/TS eklentilerini yükler (`.opencode/plugins/` otomatik keşfi, opencode v1.14.33'te eklentilerin nasıl yükleneceği **değildir**). Kurulum, ikili failproofai'yi çağıran ve ikili Claude şeklindeki JSON yanıtını eklenti semantiğine (deny için `throw new Error()`, instruct için `client.session.prompt(...)`, allow için no-op) çeviren küçük bir oluşturulan eklenti başlatma yı bırakır. Oturumlar `~/.local/share/opencode/opencode.db` konumundaki OpenCode'un SQLite DB'sinde yaşar; pano oturum görüntüleyicisi, `opencode db --format json` ve `opencode export <id>` aracılığıyla bunları okur. OpenCode desteği, davranışı sürümler arasında ve daha gerçek dünyada oturumlarla doğruladığımız sürece **beta** sürümündedir. [OpenCode eklentileri belgelerine](https://opencode.ai/docs/plugins/) bakın.
-  - **Pi _(beta)_**: `~/.pi/agent/settings.json` (kullanıcı), `<cwd>/.pi/settings.json` (proje) — Pi'nin yerel kapsamı yoktur. Pi başlangıçta TypeScript uzantı paketlerini yükler; ayarlar dosyası, düz bir dize dizisi `{"packages": ["./relative/path", …]}` dir. failproofai, paketlenmiş `pi-extension/` dizinine işaret eden tek bir packages-array girdisi yazar. Uzantı dahili olarak Pi'nin `tool_call` / `user_bash` / `input` / `session_start` olaylarına abone olur ve `failproofai --hook <Event> --cli pi` komutunu çalıştırır; işleyici underscore_lower_snake_case → PascalCase'i `PI_EVENT_MAP` aracılığıyla kanonikleştirerek mevcut yerleşik politikaların değişmeden tetiklenmesini sağlar. Pi desteği, Pi'nin uzantı API'si ve oturum günlüğü düzeni stabilleşene kadar **beta** sürümündedir.
-  - **Gemini CLI _(beta)_**: `~/.gemini/settings.json` (kullanıcı), `<cwd>/.gemini/settings.json` (proje) — Gemini'nin yerel kapsamı yoktur (varsayılan olarak `/etc/gemini-cli/settings.json` konumunda `system` kapsamını belgelendirir, failproofai bunu göstermez). Hook girdileri, Claude'un `{type, command, timeout}` formunu `{matcher, hooks: [...]}` matcher şemasında sarılı Gemini'nin içinde kullanır ve varsayılan olarak `matcher: "*"` ile. Olaylar PascalCase'tir (`SessionStart`, `BeforeAgent`, `AfterAgent`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`, `BeforeTool`, `AfterTool`, `PreCompress`, `Notification`, `SessionEnd`); işleyici `GEMINI_EVENT_MAP` aracılığıyla Claude kanonik adlarıyla eşleştirir. Araç adları snake_case'tir (`run_shell_command`, `read_file`, `write_file`, `replace`, …) — işleyici `GEMINI_TOOL_MAP` aracılığıyla kanonikleştirerek mevcut yerleşik politikaların değişmeden tetiklenmesini sağlar. Politika değerlendiricisi Gemini'nin düz `{decision: "deny", reason}` şeklini yayınlar (Gemini'nin "Golden Rule" exit-0 sözleşmesine göre tercih edilir), BeforeAgent / AfterTool / SessionStart'ta bağlam enjeksiyonu için `{hookSpecificOutput: {hookEventName, additionalContext}}`, AfterAgent'te zorla yeniden deneme semantiği için `{decision: "block", reason}`. Gemini CLI desteği, daha gerçek dünyada kapsamı genişletene kadar **beta** sürümündedir. [Gemini CLI hooks belgelerine](https://geminicli.com/docs/hooks/) bakın.
-- **`policies-config.json`** — failproofai'ye hangi politikaları değerlendireceğini ve ne parametrelerle değerlendireceğini söyler (tüm ajan CLI'ları arasında paylaşılan)
+  - **GitHub Copilot CLI _(beta)_**: `~/.copilot/hooks/failproofai.json` (kullanıcı), `<cwd>/.github/hooks/failproofai.json` (proje) — Copilot'un yerel kapsamı yoktur. Hook girdileri Copilot'un işletim sistemi anahtarlı `bash`/`powershell` komut alanlarını `timeoutSec` ile kullanır; dosya üst düzey `version: 1` işaretini taşır. Copilot CLI desteği, kamuya açık belgelerinde belirtilmeyen `events.jsonl` kayıt şemasını daha gerçek dünya oturumlarına karşı doğrularken **betadır**.
+  - **Cursor Agent _(beta)_**: `~/.cursor/hooks.json` (kullanıcı), `<cwd>/.cursor/hooks.json` (proje) — Cursor'un yerel kapsamı yoktur. Hook girdileri Claude şeklinde `{type, command, timeout}` formunu kullanır (`bash`/`powershell` bölünmesi yoktur) ancak Cursor'un [hooks şemasına](https://cursor.com/docs/hooks) göre camelCase olay anahtarları (`preToolUse`, `beforeSubmitPrompt`, …) altında düz bir dizide saklanır; dosya üst düzey `version: 1` işaretini taşır. İşleyici camelCase → PascalCase'i `CURSOR_EVENT_MAP` aracılığıyla kanonikleştirir, böylece mevcut yerleşik politikalar değişmez ateşlenir. Cursor Agent desteği, Cursor'un disk üzerindeki transkrip biçimini (kamuya açık belgelerinde belirtilmemiş) daha gerçek dünya yüklemelerine karşı doğrularken **betadır**.
+  - **OpenCode _(beta)_**: `~/.config/opencode/opencode.json` + `~/.config/opencode/plugins/failproofai.mjs` (kullanıcı), `<cwd>/.opencode/opencode.json` + `<cwd>/.opencode/plugins/failproofai.mjs` (proje) — OpenCode'un yerel kapsamı yoktur. Diğer altı CLI'nin aksine, OpenCode **harici komut hook sistemine sahip değildir**: `opencode.json` içindeki `plugin: []` dizisi aracılığıyla açıkça kayıtlı in-process JS/TS eklentilerini yükler (`.opencode/plugins/` kişiden otomatik bulma, opencode v1.14.33'te eklentilerin nasıl yüklendiği **değildir**). Yükleme, failproofai ikilisini alt işlem çağıran ve ikilinin Claude şeklinde JSON yanıtını eklenti semantiğine çeviren küçük bir oluşturulan eklenti dolgusu bırakır: araç olayı reddetmek için `throw new Error()` (araç çağrısını iptal eder), `client.session.prompt(...)` kılavuz için VE `Stop` / `SubagentStop` reddetme için (reddetme nedenini sonraki kullanıcı iletisi olarak gönderir — `session.idle` bildirim yalnızca ve bundan atma işlemi bir işlem değil olduğundan tek zorla yeniden deneme kanalı), ve izin için işlem yok. Oturumlar opencode'un SQLite DB'sinde `~/.local/share/opencode/opencode.db` konumunda yaşar; panorun oturum görüntüleyicisi bunları `opencode db --format json` ve `opencode export <id>` aracılığıyla okur. OpenCode desteği, davranışı sürümler arasında ve daha gerçek dünya oturumlarına karşı doğrularken **betadır**. [OpenCode eklentileri belgelerine](https://opencode.ai/docs/plugins/) bakın.
+  - **Pi _(beta)_**: `~/.pi/agent/settings.json` (kullanıcı), `<cwd>/.pi/settings.json` (proje) — Pi'nin yerel kapsamı yoktur. Pi, başlangıçta TypeScript uzantı paketlerini yükler; ayarlar dosyası `{"packages": ["./relative/path", …]}` biçiminde düz bir dize dizisidir. failproofai, paketlenmiş `pi-extension/` dizinine işaret eden tek bir paket dizisi girdisi yazar. Uzantı, Pi'nin `tool_call` / `user_bash` / `input` / `session_start` olaylarına dahili olarak abone olur ve `failproofai --hook <Event> --cli pi` kabuğuna çıkışı tutar; işleyici underscore_lower_snake_case → PascalCase'i `PI_EVENT_MAP` aracılığıyla kanonikleştirir, böylece mevcut yerleşik politikalar değişmez ateşlenir. Pi desteği, Pi'nin uzantı API'si ve oturum günlüğü düzeni stabilleşirken **betadır**.
+  - **Gemini CLI _(beta)_**: `~/.gemini/settings.json` (kullanıcı), `<cwd>/.gemini/settings.json` (proje) — Gemini'nin yerel kapsamı yoktur (varsayılan `/etc/gemini-cli/settings.json` konumunda bir `system` kapsamını belgelese de failproofai bunu sunmaz). Hook girdileri Claude'un `{type, command, timeout}` formunu Gemini'nin `{matcher, hooks: [...]}` eşleştirme şemasına sarılı olarak kullanır, varsayılan olarak `matcher: "*"` ile. Olaylar PascalCase'dir (`SessionStart`, `BeforeAgent`, `AfterAgent`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`, `BeforeTool`, `AfterTool`, `PreCompress`, `Notification`, `SessionEnd`); işleyici `GEMINI_EVENT_MAP` aracılığıyla Claude kanonik adlarına eşlenir. Araç adları snake_case'dir (`run_shell_command`, `read_file`, `write_file`, `replace`, …) — işleyici `GEMINI_TOOL_MAP` aracılığıyla kanonikleştirir, böylece mevcut yerleşik politikalar değişmez ateşlenir. Politika değerlendiricisi Gemini'nin düz `{decision: "deny", reason}` şeklini yayar (Gemini'nin Altın Kural çıkış-0 sözleşmesine göre tercih edilen), BeforeAgent / AfterTool / SessionStart üzerinde bağlam enjeksiyonu için `{hookSpecificOutput: {hookEventName, additionalContext}}`, ve AfterAgent'da zorla yeniden deneme semantiği için `{decision: "block", reason}` yayar. Gemini CLI desteği, gerçek dünya kapsamını genişletirken **betadır**. [Gemini CLI hooks belgelerine](https://geminicli.com/docs/hooks/) bakın.
+- **`policies-config.json`** — failproofai'ye hangi politikaları değerlendireceğini ve ne parametrelerle değerlendireceğini söyler (tüm agent CLI'leri arasında paylaşılır)
 
-Belirli bir ajana hedef almak için `--cli claude|codex|copilot|cursor|opencode|pi|gemini` kullanın (boşluk ayrıldı veya herhangi bir alt küme için tekrarlanan):
+Belirli bir agenttesi hedeflemek için `--cli claude|codex|copilot|cursor|opencode|pi|gemini` geçin (boşluk ayrılmış veya herhangi bir alt kümesi için tekrarlanan):
 
 ```bash
 failproofai policies --install --cli codex --scope project
@@ -213,20 +213,20 @@ failproofai policies --install --cli gemini --scope project
 failproofai policies --install --cli claude codex copilot cursor opencode pi gemini
 ```
 
-`--cli` atlandığında, `failproofai` hangi ajan CLI'larının kurulu olduğunu algılar (`which claude` / `which codex` / `which copilot` / `which cursor-agent` / `which opencode` / `which pi` / `which gemini`):
+`--cli` atlanırsa, `failproofai` hangi agent CLI'lerinin yüklü olduğunu algılar (`which claude` / `which codex` / `which copilot` / `which cursor-agent` / `which opencode` / `which pi` / `which gemini`):
 
-- **Bir CLI algılandı** — sorulmadan bu CLI'yı otomatik olarak seçer.
-- **Etkileşimli terminalde birden fazla CLI algılandı** — `Detected (N)` bölümüne gruplandırılmış ok tuşu tek seçim istemi gösterir (`Algılanan N'nin tümü için yükle` toplama satırı + algılanan her CLI bireysel olarak) ve her bir desteklenen CLI'yı önceden yükleme seçeneği olarak listelemek için `Yüklü değil (M) · hook'ları önceden yüklemeye hazır` bölümü (↑↓ hareket etmek, Enter seçmek, ^C çıkmak için). Kaldırma akışı yalnızca Algılanan bölümü gösterir.
-- **Etkileşimli olmayan çalıştırmada birden fazla CLI algılandı** (CI, TTY yok) — sorulmadan algılanan tüm CLI'lar için yükler.
-- **Hiçbiri algılanmadı** — `claude`'a geri döner ve PATH'de ajan ikili bulunamadığına dair bir uyarı verir; hook komutu hala yazıldığı için, bir tane kurduğunuz anda etkinleşir.
+- **Bir CLI algılandı** — sormadan o CLI'yi otomatik seçer.
+- **Birden çok CLI algılandı** etkileşimli terminalinde — ok tuşu tek seçim istemi gösterir, bir `Detected (N)` bölümüne (algılanan her CLI için bireysel olarak + `Tüm N algılanan için kancaları kur` toplu satırı içeren) ve algılanan her desteklenen CLI'yi ileri kurulum seçeneği olarak listeleyen `Not installed (M) · install hooks ahead of time` bölümüne gruplandırılmış (↑↓ taşımak için, Enter seçmek için, ^C çıkmak için). Kaldırma akışı yalnızca Detected bölümünü gösterir.
+- **Birden çok CLI algılandı** etkileşimsiz çalıştırmada (CI, TTY yok) — sormadan algılanan tüm CLI'ler için kurar.
+- **Hiçbiri algılanmadı** — `claude` konumuna düşer, PATH'te agent ikilisi bulunmadığını belirten bir uyarı ile; hook komutu yine de yazılır, böylece biri kurulur kurulmaz etkinleşir.
 
-`policies-config.json` dosyasını istediğiniz zaman doğrudan düzenleyebilirsiniz; değişiklikler yeniden başlatma gerekmeksizin sonraki hook olayında hemen etkili olur.
+`policies-config.json` dosyasını doğrudan istediğiniz zaman düzenleyebilirsiniz; değişiklikler yeniden başlatmaya gerek kalmadan sonraki hook olayında hemen etkili olur.
 
 ---
 
 ## Örnek: takım varsayılanları ile proje düzeyinde yapılandırma
 
-`.failproofai/policies-config.json` dosyasını deponuza kaydedin:
+`.failproofai/policies-config.json` dosyasını deponuza işleyin:
 
 ```json
 {
@@ -245,4 +245,4 @@ failproofai policies --install --cli claude codex copilot cursor opencode pi gem
 }
 ```
 
-Her geliştirici daha sonra, takım arkadaşlarını etkilemeden kişisel geçersiz kılmalar için `.failproofai/policies-config.local.json` (gitignored) oluşturabilir.
+Her geliştirici daha sonra kişisel geçersiz kılmalar için `.failproofai/policies-config.local.json` (gitignore'lanan) oluşturabilir, takım arkadaşlarını etkilemez.

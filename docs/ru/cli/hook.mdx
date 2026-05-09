@@ -1,5 +1,5 @@
 ---
-title: Обработчик hook (внутренний)
+title: Обработчик хука (внутренний)
 description: "Подпроцесс, который Claude Code вызывает при каждом событии инструмента"
 ---
 
@@ -14,17 +14,17 @@ failproofai --hook <EventType>
 | Код выхода | Решение | Эффект |
 |-----------|---------|--------|
 | `0` | `allow` | Разрешить действие |
-| `1` | `deny` | Заблокировать действие — Claude увидит причину отказа |
-| `2` | `instruct` | Внести указания в контекст Claude |
+| `1` | `deny` | Заблокировать действие — Claude видит причину отказа |
+| `2` | `instruct` | Внести рекомендации в контекст Claude |
 
 ### Поддерживаемые типы событий
 
 | Категория | События |
 |-----------|---------|
 | **Выполнение инструментов** | `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied` |
-| **Жизненный цикл сеанса** | `SessionStart`, `SessionEnd`, `Stop`, `StopFailure` |
+| **Жизненный цикл сессии** | `SessionStart`, `SessionEnd`, `Stop`, `StopFailure` |
 | **Взаимодействие с пользователем** | `UserPromptSubmit`, `Notification`, `Elicitation`, `ElicitationResult` |
-| **Подагенты и задачи** | `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
+| **Субагенты и задачи** | `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
 | **Конфигурация** | `InstructionsLoaded`, `ConfigChange`, `CwdChanged` |
 | **Файловая система** | `FileChanged`, `WorktreeCreate`, `WorktreeRemove` |
 | **Контекст** | `PreCompact`, `PostCompact` |

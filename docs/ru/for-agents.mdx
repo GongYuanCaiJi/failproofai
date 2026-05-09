@@ -1,38 +1,38 @@
 ---
 title: "Для агентов"
-description: "Добавьте справку Failproof AI своему coding агенту в одну команду. Работает с Claude Code, Cursor, Windsurf и другими."
+description: "Добавьте знания Failproof AI в вашего кодирующего агента одной командой. Работает с Claude Code, Cursor, Windsurf и другими."
 ---
 
-Добавьте полную справку Failproof AI своему coding агенту в одну команду. Работает с Claude Code, Cursor, Windsurf и любым другим агентом, поддерживающим skills.
+Добавьте полный справочник Failproof AI в вашего кодирующего агента одной командой. Работает с Claude Code, Cursor, Windsurf и любым другим агентом, который поддерживает навыки.
 
 ```bash
 npx skills add https://docs.befailproof.ai
 ```
 
-`npx skills` определяет, какие агенты у вас установлены, и автоматически добавляет skill в правильном формате для каждого из них.
+`npx skills` автоматически обнаруживает установленные у вас агенты и добавляет навык в правильном формате для каждого из них.
 
-## Что охватывает skill
+## Что включает в себя навык
 
-| Раздел | Что включено |
-|--------|--------------|
-| Policies | Встроенные имена политик, типы событий, параметры, включение/отключение |
-| Custom policies | `customPolicies.add()`, фильтры совпадений, API `allow`/`deny`/`instruct` |
-| Context object | `ctx.eventType`, `ctx.toolName`, `ctx.toolInput`, `ctx.session` |
-| Configuration | Структура `policies-config.json`, слияние scopes, `policyParams` |
+| Область | Что входит |
+|------|----------------|
+| Политики | Встроенные имена политик, типы событий, параметры, включение/отключение |
+| Пользовательские политики | `customPolicies.add()`, фильтры совпадений, API `allow`/`deny`/`instruct` |
+| Объект контекста | `ctx.eventType`, `ctx.toolName`, `ctx.toolInput`, `ctx.session` |
+| Конфигурация | структура `policies-config.json`, объединение scopes, `policyParams` |
 | CLI | `failproofai policies --install`, `--uninstall`, `--custom`, scopes |
-| Dashboard | Просмотр сессий, активность политик, переменные окружения |
-| Architecture | Поток обработчика хука, коды выхода, контракт stdin/stdout |
+| Панель управления | просмотр сессий, активность политик, переменные окружения |
+| Архитектура | поток обработчика hook, коды выхода, контракт stdin/stdout |
 
-## Полный ли skill?
+## Полный ли навык?
 
-Mintlify генерирует `llms.txt` из всех страниц в навигации. Документация Failproof AI охватывает полный API — каждая политика, опция и пример включены. Если вы найдёте что-то пропущенное, исходник находится по адресу `https://docs.befailproof.ai/llms-full.txt`.
+Mintlify генерирует `llms.txt` из всех страниц в навигации. Документация Failproof AI охватывает полный API — все политики, опции и примеры включены. Если вы обнаружите что-то отсутствующее, источник находится в `https://docs.befailproof.ai/llms-full.txt`.
 
-Для целевого контекста ссылайтесь прямо на конкретную страницу:
+Для целевого контекста ссылайтесь непосредственно на конкретную страницу:
 
 ```bash
-# Только API custom policies
+# Только API пользовательских политик
 npx skills add https://docs.befailproof.ai/custom-policies
 
-# Только встроенные policies
+# Только встроенные политики
 npx skills add https://docs.befailproof.ai/built-in-policies
 ```

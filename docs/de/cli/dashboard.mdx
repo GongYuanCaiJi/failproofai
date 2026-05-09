@@ -12,11 +12,11 @@ Startet das Web-Dashboard unter `http://localhost:8020`.
 ## Optionen
 
 | Flag | Beschreibung |
-|------|--------------|
-| `--port <number>` | Port, auf dem gehorcht wird (Standard: `8020`) |
-| `--allowed-origins <origins>` | Kommagetrennte Hosts/IPs, denen der Zugriff auf Entwicklungsressourcen erlaubt ist |
+|------|-------------|
+| `--port <number>` | Port, auf dem gehört wird (Standard: `8020`) |
+| `--allowed-origins <origins>` | Kommagetrennte Hosts/IPs, die auf Entwicklungsressourcen zugreifen dürfen |
 
-Um das Dashboard auf einen anderen Claude-Projektordner zu verweisen, setzen Sie beim Start die Umgebungsvariable `CLAUDE_PROJECTS_PATH`.
+Um das Dashboard auf einen nicht standardmäßigen Claude-Projektordner zu verweisen, setzen Sie beim Start die Umgebungsvariable `CLAUDE_PROJECTS_PATH`.
 
 ## Beispiele
 
@@ -24,6 +24,6 @@ Um das Dashboard auf einen anderen Claude-Projektordner zu verweisen, setzen Sie
 # Auf einem anderen Port starten
 failproofai --port 9000
 
-# Einen benutzerdefinierten Claude-Projektpfad über eine Umgebungsvariable verwenden
+# Benutzerdefinierten Claude-Projektpfad über Umgebungsvariable verwenden
 CLAUDE_PROJECTS_PATH=~/my-claude-projects failproofai
 ```
