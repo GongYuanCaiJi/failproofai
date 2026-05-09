@@ -13,13 +13,16 @@ import { version } from "../package.json";
 export function launch(mode: "dev" | "start"): void {
   const { claudeProjectsPath: parsedPath, loggingLevel, disableTelemetry, allowedDevOrigins, remainingArgs } = parseScriptArgs(process.argv.slice(2));
 
+  // Wordmark mirrors the hosted PNG logo (figlet "Pagga" font, lowercase
+  // pixel-block style). The "i" of "fail" gets a cyan dot + magenta stem to
+  // echo the colored rosette accent in the PNG.
+  const C = "\x1b[36m"; // cyan — flower/dot
+  const M = "\x1b[35m"; // magenta — pink "U" accent
+  const R = "\x1b[0m";
   console.log(`
-    ______      _ __                       ____   ___    ____
-   / ____/___ _(_) /___  _________  ____  / __/  /   |  /  _/
-  / /_  / __ \`/ / / __ \\/ ___/ __ \\/ __ \\/ /_   / /| |  / /
- / __/ / /_/ / / / /_/ / /  / /_/ / /_/ / __/  / ___ |_/ /
-/_/    \\__,_/_/_/ .___/_/   \\____/\\____/_/    /_/  |_/___/
-               /_/   v${version}
+░█▀▀░█▀█░${C}▀█▀${R}░█░░░█▀█░█▀▄░█▀█░█▀█░█▀▀░░░█▀█░▀█▀
+░█▀▀░█▀█░${M}░█░${R}░█░░░█▀▀░█▀▄░█░█░█░█░█▀▀░░░█▀█░░█░
+░▀░░░▀░▀░${M}▀▀▀${R}░▀▀▀░▀░░░▀░▀░▀▀▀░▀▀▀░▀░░░░░▀░▀░▀▀▀   v${version}
 `);
   console.log(`  ⭐ Star us:      https://github.com/exospherehost/failproofai`);
   console.log(`  📖 Docs:         https://befailproof.ai`);
