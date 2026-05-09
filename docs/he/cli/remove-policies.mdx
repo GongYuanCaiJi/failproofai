@@ -1,13 +1,14 @@
 ---
+---
 title: הסרת מדיניות
-description: "הסרת רשומות hook מהגדרות Claude Code"
+description: "הסרת ערכי hook מהגדרות Claude Code"
 ---
 
 ```bash
 failproofai policies --uninstall [policy-names...] [options]
 ```
 
-מסירה רשומות failproofai hook מ-`settings.json` של Claude Code.
+מסיר ערכי failproofai hook מהקובץ `settings.json` של Claude Code.
 
 כינויים: `failproofai p -u`
 
@@ -15,24 +16,24 @@ failproofai policies --uninstall [policy-names...] [options]
 
 | דגל | תיאור |
 |------|-------------|
-| `--scope user` | הסרה מהגדרות גלובליות (ברירת מחדל) |
-| `--scope project` | הסרה מהגדרות הפרוייקט |
-| `--scope local` | הסרה מהגדרות מקומיות |
+| `--scope user` | הסרה מההגדרות הגלובליות (ברירת מחדל) |
+| `--scope project` | הסרה מהגדרות הפרויקט |
+| `--scope local` | הסרה מהגדרות המקומיות |
 | `--scope all` | הסרה מכל ההיקפים בו-זמנית |
-| `--custom` / `-c` | ניקוי של `customPoliciesPath` מהקונפיגורציה |
+| `--custom` / `-c` | ניקוי ה-`customPoliciesPath` מהתצורה |
 
 ## התנהגות
 
-- **ללא שמות מדיניות** - מסירה את כל רשומות failproofai hook מקובץ ההגדרות
-- **שמות ספציפיים** - משביתה מדיניות אלה אך שומרת את ה-hooks מותקנות
+- **ללא שמות מדיניות** - מסיר את כל ערכי failproofai hook מקובץ ההגדרות
+- **שמות ספציפיים** - מנטרל את המדיניויות הללו אך משאיר את ה-hooks מותקנים
 
 ## דוגמאות
 
 ```bash
-# הסרת כל ה-hooks ברמה גלובלית
+# הסרת כל ה-hooks בצורה גלובלית
 failproofai policies --uninstall
 
-# השבתת מדיניות ספציפית (שומרת ה-hooks מותקנות)
+# השבתת מדיניות ספציפית (שמר את ה-hooks מותקנים)
 failproofai policies --uninstall block-sudo
 
 # הסרת hooks מכל היקף

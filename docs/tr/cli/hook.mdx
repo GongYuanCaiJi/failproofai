@@ -1,15 +1,10 @@
----
-title: Hook işleyicisi (dahili)
-description: "Alt işlem Claude Code'un her araç olayında çağırdığı komut"
----
-
 ```bash
 failproofai --hook <EventType>
 ```
 
-Bu, `failproofai policies --install` tarafından Claude Code'un `settings.json` dosyasına kaydedilen komuttur. Normalde bunu doğrudan çağırmazsınız.
+Bu komut, `failproofai policies --install` tarafından Claude Code'un `settings.json` dosyasına kayıtlıdır. Normalde bunu doğrudan çağırmazsınız.
 
-stdin'den JSON yükü okur, tüm etkin politikaları değerlendirir ve kararı belirten bir koduyla çıkış yapar:
+stdin'den bir JSON yükü okur, etkinleştirilmiş tüm politikaları değerlendirir ve kararı belirten bir kodla çıkar:
 
 | Çıkış kodu | Karar | Etki |
 |-----------|--------|--------|

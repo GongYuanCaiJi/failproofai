@@ -1,21 +1,21 @@
 ---
-title: "Per gli agenti"
-description: "Aggiungi la conoscenza di Failproof AI al tuo agente di codifica con un unico comando. Funziona con Claude Code, Cursor, Windsurf e altri."
+title: "Per gli agent"
+description: "Aggiungi la conoscenza di Failproof AI al tuo agent di coding in un comando. Funziona con Claude Code, Cursor, Windsurf e altri."
 ---
 
-Aggiungi il riferimento completo di Failproof AI al tuo agente di codifica con un unico comando. Funziona con Claude Code, Cursor, Windsurf e qualsiasi altro agente che supporti le skills.
+Aggiungi il riferimento completo di Failproof AI al tuo agent di coding in un comando. Funziona con Claude Code, Cursor, Windsurf e qualsiasi altro agent che supporti le skill.
 
 ```bash
 npx skills add https://docs.befailproof.ai
 ```
 
-`npx skills` rileva quali agenti hai installato e aggiunge automaticamente la skill nel formato corretto per ciascuno.
+`npx skills` rileva quali agent hai installato e aggiunge la skill nel formato corretto per ciascuno automaticamente.
 
 ## Cosa copre la skill
 
 | Area | Cosa è incluso |
 |------|----------------|
-| Policies | Nomi delle policy built-in, tipi di eventi, parametri, abilitazione/disabilitazione |
+| Policies | Nomi delle policy integrate, tipi di evento, parametri, abilitazione/disabilitazione |
 | Custom policies | `customPolicies.add()`, filtri di corrispondenza, API `allow`/`deny`/`instruct` |
 | Context object | `ctx.eventType`, `ctx.toolName`, `ctx.toolInput`, `ctx.session` |
 | Configuration | Struttura di `policies-config.json`, fusione degli scope, `policyParams` |
@@ -25,14 +25,14 @@ npx skills add https://docs.befailproof.ai
 
 ## La skill è completa?
 
-Mintlify genera `llms.txt` da tutte le pagine nella navigazione. La documentazione di Failproof AI copre l'intera API - ogni policy, opzione ed esempio è incluso. Se trovi qualcosa di mancante, la fonte è disponibile in `https://docs.befailproof.ai/llms-full.txt`.
+Mintlify genera `llms.txt` da tutte le pagine nella navigazione. La documentazione di Failproof AI copre l'API completa - ogni policy, opzione ed esempio è incluso. Se trovi qualcosa di mancante, la fonte è su `https://docs.befailproof.ai/llms-full.txt`.
 
-Per un contesto più mirato, collega direttamente a una pagina specifica:
+Per un contesto mirato, collega direttamente a una pagina specifica:
 
 ```bash
 # Solo l'API delle custom policies
 npx skills add https://docs.befailproof.ai/custom-policies
 
-# Solo le built-in policies
+# Solo le policy integrate
 npx skills add https://docs.befailproof.ai/built-in-policies
 ```

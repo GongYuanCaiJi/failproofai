@@ -1,6 +1,6 @@
 ---
 title: البدء السريع
-description: "ثبّت failproofai وفعّل السياسات واترك وكلاءك يعملون بموثوقية"
+description: "ثبت failproofai، وفعّل السياسات، واترك وكلاءك يعملون بموثوقية"
 icon: rocket
 ---
 
@@ -30,16 +30,16 @@ bun add -g failproofai
 ## البدء السريع
 
 <Steps>
-  <Step title="فعّل السياسات">
-    السياسات هي قواعد تعمل قبل وبعد كل استدعاء أداة من الوكيل. تلتقط الأوامر المدمرة وتسرب الأسرار وأنماط الفشل الأخرى قبل أن تسبب الضرر.
+  <Step title="تفعيل السياسات">
+    السياسات هي قواعد تعمل قبل وبعد كل استدعاء أداة للوكيل. تلتقط الأوامر المدمرة، وتسريب الأسرار، وأنماط الفشل الأخرى قبل أن تسبب أضراراً.
 
     ```bash
     failproofai policies --install
     ```
 
-    يكتب هذا إدخالات الخطاف في أدوات سطر الأوامر المثبتة لديك (ملف Claude Code بـ `~/.claude/settings.json`، ملف OpenAI Codex بـ `~/.codex/hooks.json`، ملف GitHub Copilot CLI بـ `~/.copilot/hooks/failproofai.json`، ملف Cursor Agent بـ `~/.cursor/hooks.json`، مكون إضافي OpenCode الذي تم إنشاؤه في `~/.config/opencode/plugins/failproofai.mjs` بالإضافة إلى إدخال التسجيل في مصفوفة `plugin` بـ `~/.config/opencode/opencode.json`، ملف Pi بـ `~/.pi/agent/settings.json`، أو ملف Gemini CLI بـ `~/.gemini/settings.json`). عندما يكون أكثر من واحد موجوداً ستُطلب منك إجابة؛ مرّر `--cli claude codex copilot cursor opencode pi gemini` (أي مجموعة فرعية) لتخطي الطلب.
+    يكتب هذا إدخالات الخطاف في واجهات سطر الأوامر المثبتة (`~/.claude/settings.json` للـ Claude Code، `~/.codex/hooks.json` لـ OpenAI Codex، `~/.copilot/hooks/failproofai.json` لـ GitHub Copilot CLI، `~/.cursor/hooks.json` لـ Cursor Agent، وحدة التغليف المتولدة في `~/.config/opencode/plugins/failproofai.mjs` لـ OpenCode بالإضافة إلى إدخال التسجيل في `~/.config/opencode/opencode.json` في صفيف `plugin`، `~/.pi/agent/settings.json` لـ Pi، أو `~/.gemini/settings.json` لـ Gemini CLI). عند وجود أكثر من واحد، سيُطلب منك الاختيار؛ مرر `--cli claude codex copilot cursor opencode pi gemini` (أي مجموعة جزئية) لتخطي الطلب.
 
-    دعم GitHub Copilot CLI و Cursor Agent و OpenCode و Pi و Gemini CLI هو **تجريبي** — ثبّت باستخدام `--cli copilot` أو `--cli cursor` أو `--cli opencode` أو `--cli pi` أو `--cli gemini`.
+    يتمتع GitHub Copilot CLI و Cursor Agent و OpenCode و Pi و Gemini CLI بدعم **تجريبي** — ثبّت باستخدام `--cli copilot` أو `--cli cursor` أو `--cli opencode` أو `--cli pi` أو `--cli gemini`.
 
     ```bash
     failproofai policies --install --scope project
@@ -57,47 +57,47 @@ bun add -g failproofai
     failproofai policies
     ```
 
-    يعرض كل سياسة وما إذا كانت مفعلة وأي معاملات مكونة.
+    يعرض كل سياسة، سواء كانت مفعّلة، وأي معاملات مكونة.
   </Step>
   <Step title="تشغيل لوحة التحكم">
     ```bash
     failproofai
     ```
 
-    يفتح لوحة تحكم محلية في `http://localhost:8020` حيث يمكنك استعراض الجلسات وفحص استدعاءات الأدوات وإدارة السياسات.
+    يفتح لوحة تحكم محلية في `http://localhost:8020` حيث يمكنك استعراض الجلسات، وفحص استدعاءات الأداة، وإدارة السياسات.
   </Step>
-  <Step title="شغّل وكيلك">
-    شغّل Claude Code كالمعتاد. إذا حاول الوكيل شيئاً محفوفاً بالمخاطر، يعترضه failproofai تلقائياً. اتركه يعمل دون مراقبة واستعرض ما حدث في لوحة التحكم.
+  <Step title="تشغيل وكيلك">
+    شغّل Claude Code كالمعتاد. إذا حاول الوكيل فعل شيء محفوف بالمخاطر، يعترضه failproofai تلقائياً. اتركه يعمل بلا مراقبة واستعرض ما حدث في لوحة التحكم.
   </Step>
 </Steps>
 
 ---
 
-## كيفية عمل السياسات
+## كيف تعمل السياسات
 
-في كل مرة يشغل الوكيل أداة، يستدعي Claude Code failproofai كعملية فرعية:
+في كل مرة يشغّل الوكيل أداة، يستدعي Claude Code failproofai كعملية فرعية:
 
 ```text
-Claude Code  →  failproofai --hook PreToolUse  →  يقرأ JSON من stdin
-                                                 يقيم السياسات
-                                                 يكتب القرار إلى stdout
+Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
+                                                 evaluates policies
+                                                 writes decision to stdout
 ```
 
-تعيد كل سياسة أحد القرارات الثلاثة:
+تُرجع كل سياسة واحداً من ثلاثة قرارات:
 
-- **allow** - يتابع الوكيل بشكل طبيعي
-- **deny** - يتم حظر الإجراء، يُخبر الوكيل بالسبب
-- **instruct** - يتم إضافة سياق إضافي لمحفز الوكيل
+- **allow** - يستمر الوكيل بشكل طبيعي
+- **deny** - يتم حظر الإجراء، ويُخبر الوكيل السبب
+- **instruct** - يتم إضافة سياق إضافي إلى موجه الوكيل
 
 <Note>
-تعمل السياسات في عمليتك المحلية. لا يتم إرسال أي شيء إلى خدمة بعيدة.
+تعمل السياسات في عمليتك المحلية. لا يتم إرسال شيء إلى خدمة بعيدة.
 </Note>
 
 ---
 
-## إعداد سياسات الفريق بسياسات قائمة على الاتفاقية
+## إعداد سياسات الفريق باستخدام السياسات القائمة على الاتفاقية
 
-الطريقة الأسرع لإنشاء معايير الجودة عبر فريقك هي اتفاقية `.failproofai/policies/`. أفلت ملفات السياسات في هذا المجلد وسيتم تحميلها تلقائياً — بدون أعلام أو تغييرات إعدادات أو أوامر تثبيت.
+أسرع طريقة لإنشاء معايير الجودة عبر فريقك هي اتفاقية `.failproofai/policies/`. ضع ملفات السياسات في هذا المجلد وسيتم تحميلها تلقائياً — بدون أعلام، بدون تغييرات الإعدادات، بدون أوامر التثبيت.
 
 <Steps>
   <Step title="إنشاء مجلد السياسات">
@@ -105,14 +105,14 @@ Claude Code  →  failproofai --hook PreToolUse  →  يقرأ JSON من stdin
     mkdir -p .failproofai/policies
     ```
   </Step>
-  <Step title="أضف ملفات السياسات">
-    انسخ أمثلة البداية أو اكتب ملفاتك الخاصة:
+  <Step title="إضافة ملفات السياسات">
+    انسخ أمثلة المبتدئين أو اكتب الخاصة بك:
 
     ```bash
     cp node_modules/failproofai/examples/convention-policies/*.mjs .failproofai/policies/
     ```
 
-    أو أنشئ ملفاً جديداً:
+    أو أنشئ واحداً جديداً:
 
     ```js
     // .failproofai/policies/team-policies.mjs
@@ -131,33 +131,33 @@ Claude Code  →  failproofai --hook PreToolUse  →  يقرأ JSON من stdin
     });
     ```
   </Step>
-  <Step title="انشر على git">
+  <Step title="الالتزام بـ git">
     ```bash
     git add .failproofai/policies/
     git commit -m "Add team quality policies"
     ```
 
-    كل عضو في الفريق لديه failproofai مثبت يلتقط هذه السياسات تلقائياً. لا حاجة لإعداد منفصل لكل مطور.
+    كل عضو في الفريق لديه failproofai مثبت يلتقط هذه السياسات تلقائياً. لا توجد حاجة لإعداد منفصل لكل مطور.
   </Step>
 </Steps>
 
 <Tip>
-انشر `.failproofai/policies/` في مستودعك حتى يشارك الفريق بأكمله نفس المعايير. مع اكتشاف فريقك لأنماط فشل جديدة، أضف السياسات وادفعها — يحصل الجميع على التحديث عند `git pull` التالي. بمرور الوقت تصبح هذه السياسات معياراً للجودة الحية يستمر في التحسن.
+التزم `.failproofai/policies/` إلى مستودعك حتى يشارك الفريق بأكمله نفس المعايير. عندما يكتشف فريقك أنماط فشل جديدة، أضف سياسات واضغط — يحصل الجميع على التحديث عند جلب `git pull` التالي. بمرور الوقت، تصبح هذه السياسات معياراً جودة حياً يستمر في التحسن.
 </Tip>
 
 ---
 
 ## تخزين البيانات
 
-يبقى كل الإعدادات والسجلات على جهازك:
+تبقى جميع الإعدادات والسجلات على جهازك:
 
 | المسار | ما يخزنه |
 |------|----------------|
-| `~/.failproofai/policies-config.json` | إعدادات السياسات العامة |
+| `~/.failproofai/policies-config.json` | إعدادات السياسة العامة |
 | `~/.failproofai/hook-activity.jsonl` | سجل تنفيذ الخطاف |
-| `~/.failproofai/hook.log` | سجل تصحيح أخطاء الخطاف المخصص |
-| `.failproofai/policies-config.json` | إعدادات لكل مشروع (مُلتزم بها) |
-| `.failproofai/policies-config.local.json` | تجاوزات شخصية (مستثناة من git) |
+| `~/.failproofai/hook.log` | سجل تصحيح الأخطاء لأخطاء الخطاف المخصصة |
+| `.failproofai/policies-config.json` | إعدادات كل مشروع (مرتكبة) |
+| `.failproofai/policies-config.local.json` | التجاوزات الشخصية (مضافة إلى gitignore) |
 
 ---
 
@@ -175,8 +175,8 @@ failproofai policies --uninstall
 
 <CardGroup cols={2}>
 
-<Card title="الإعدادات" icon="gear" href="/ar/configuration">
-  النطاقات وتنسيق ملف الإعدادات
+<Card title="التكوين" icon="gear" href="/ar/configuration">
+  نطاقات وتنسيق ملف الإعدادات
 </Card>
 
 <Card title="السياسات المدمجة" icon="shield" href="/ar/built-in-policies">
@@ -188,7 +188,7 @@ failproofai policies --uninstall
 </Card>
 
 <Card title="مراقب الوكيل" icon="chart-line" href="/ar/dashboard">
-  راقب الجلسات واستعرض نشاط السياسات
+  راقب الجلسات واستعرض نشاط السياسة
 </Card>
 
 </CardGroup>

@@ -1,40 +1,39 @@
 ---
----
-title: Politiche integrate
-description: "Tutte le 39 politiche integrate che intercettano i comuni errori degli agenti"
+title: Criteri integrati
+description: "Tutti i 39 criteri integrati che rilevano le modalità di errore comuni degli agenti"
 icon: shield
 ---
 
-failproofai include 39 politiche integrate che intercettano i comuni errori degli agenti. Ogni politica si attiva su un tipo di evento hook specifico e un nome di strumento. Diciannove politiche accettano parametri che consentono di sintonizzare il loro comportamento senza scrivere codice. Cinque politiche di flusso di lavoro applicano una pipeline commit → push → PR → CI prima che Claude si fermi.
+failproofai viene fornito con 39 criteri integrati che rilevano le modalità di errore comuni degli agenti. Ogni criterio si attiva su un tipo di evento hook specifico e un nome di strumento. Diciannove criteri accettano parametri che ti permettono di regolarne il comportamento senza scrivere codice. Cinque criteri di flusso di lavoro applicano una pipeline commit → push → PR → CI prima che Claude si fermi.
 
 ---
 
 ## Panoramica
 
-Le politiche sono raggruppate per categorie:
+I criteri sono raggruppati in categorie:
 
-| Categoria | Politiche | Tipo di hook |
-|-----------|-----------|-----------|
-| [Comandi pericolosi](#comandi-pericolosi) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
-| [Comandi infra](#comandi-infra) | block-kubectl, block-terraform, block-aws-cli, block-gcloud, block-az-cli, block-helm, block-gh-pipeline | PreToolUse |
-| [Secrets (sanitizer)](#secrets-sanitizer) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
-| [Ambiente](#ambiente) | block-env-files, protect-env-vars | PreToolUse |
-| [Accesso ai file](#accesso-ai-file) | block-read-outside-cwd, block-secrets-write | PreToolUse |
+| Categoria | Criteri | Tipo di hook |
+|----------|---------|-----------|
+| [Comandi pericolosi](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
+| [Comandi infra](#infra-commands) | block-kubectl, block-terraform, block-aws-cli, block-gcloud, block-az-cli, block-helm, block-gh-pipeline | PreToolUse |
+| [Segreti (sanitizzatori)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
+| [Ambiente](#environment) | block-env-files, protect-env-vars | PreToolUse |
+| [Accesso ai file](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
 | [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
 | [Database](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
-| [Avvisi](#avvisi) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
-| [Gestori pacchetti](#gestori-pacchetti) | prefer-package-manager | PreToolUse |
-| [Flusso di lavoro](#flusso-di-lavoro) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-no-conflicts-before-stop, require-ci-green-before-stop | Stop |
+| [Avvisi](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
+| [Gestori di pacchetti](#package-managers) | prefer-package-manager | PreToolUse |
+| [Flusso di lavoro](#workflow) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-no-conflicts-before-stop, require-ci-green-before-stop | Stop |
 
-- **`block-`** — ferma l'agente dal procedere.
-- **`warn-`** — fornisce all'agente ulteriore contesto in modo che possa autocorreggersi.
+- **`block-`** — blocca l'agente dal procedere.
+- **`warn-`** — fornisce all'agente un contesto aggiuntivo per permettergli di autocorreggersi.
 - **`sanitize-`** — rimuove i dati sensibili dall'output dello strumento prima che l'agente li veda.
 
 ### Spazi dei nomi
 
-Ogni politica risiede in uno slot `<namespace>/<name>`. Le politiche integrate appartengono allo spazio dei nomi **`exospherehost/`** — ad esempio, `exospherehost/sanitize-jwt`. Lo spazio dei nomi previene collisioni quando carichi anche politiche personalizzate o di terze parti con nomi brevi simili.
+Ogni criterio risiede in uno slot `<namespace>/<name>`. I criteri integrati appartengono allo spazio dei nomi **`exospherehost/`** — ad esempio, `exospherehost/sanitize-jwt`. Lo spazio dei nomi previene conflitti quando carichi anche criteri personalizzati o di terze parti con nomi brevi simili.
 
-Nella tua configurazione puoi fare riferimento a una politica integrata sia con il suo nome breve che con il suo nome qualificato; entrambi i moduli si risolvono nella stessa politica:
+Nella tua configurazione puoi fare riferimento a un criterio integrato usando il suo nome breve o il suo nome qualificato; entrambi i moduli si risolvono nello stesso criterio:
 
 ```json
 {
@@ -45,13 +44,13 @@ Nella tua configurazione puoi fare riferimento a una politica integrata sia con 
 }
 ```
 
-Se un nome non contiene `/`, failproofai lo tratta come appartenente allo spazio dei nomi predefinito `exospherehost`. I nomi che contengono già `/` (ad esempio `myorg/foo`, `custom/my-hook`) vengono mantenuti così come sono.
-- **`require-`** — blocca l'evento Stop finché non vengono soddisfatte le condizioni.
+Se un nome non contiene `/`, failproofai lo tratta come appartenente allo spazio dei nomi predefinito `exospherehost`. I nomi che contengono già un `/` (ad esempio `myorg/foo`, `custom/my-hook`) vengono mantenuti così come sono.
+- **`require-`** — blocca l'evento Stop fino a quando le condizioni non sono soddisfatte.
 
 ---
 
 <Tip>
-Ogni politica supporta un campo `hint` facoltativo in `policyParams`. L'hint viene aggiunto al messaggio deny o instruct che Claude visualizza, fornendo indicazioni utili senza modificare il codice della politica. Funziona con politiche integrate, personalizzate e convenzionali. Vedi [Configurazione → hint](/it/configuration#hint-cross-cutting) per i dettagli.
+Ogni criterio supporta un campo `hint` opzionale in `policyParams`. L'hint viene aggiunto al messaggio di negazione o istruzione che Claude vede, fornendo indicazioni concrete senza modificare il codice del criterio. Funziona con criteri integrati, personalizzati e di convenzione. Vedere [Configurazione → hint](/it/configuration#hint-cross-cutting) per i dettagli.
 </Tip>
 
 ---
@@ -63,15 +62,15 @@ Impedisci agli agenti di eseguire operazioni difficili da annullare o che potreb
 ### `block-sudo`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega qualsiasi comando `sudo`.
+**Predefinito:** Nega qualsiasi comando `sudo`.
 
-Blocca le invocazioni che includono la parola chiave `sudo`. L'abbinamento di pattern viene eseguito su token di comando analizzati, non sulla stringa grezza, per prevenire bypass tramite injection di operatori shell.
+Blocca le invocazioni che includono la parola chiave `sudo`. La corrispondenza dei modelli viene eseguita su token di comando analizzati, non sulla stringa raw, per prevenire bypass tramite iniezione di operatori shell.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | Prefissi di comando esatti consentiti. Ogni voce viene confrontata con i token argv analizzati. |
+| `allowPatterns` | `string[]` | `[]` | Prefissi di comando esatti che sono consentiti. Ogni voce viene confrontata con i token argv analizzati. |
 
 **Esempio:**
 
@@ -88,7 +87,7 @@ Blocca le invocazioni che includono la parola chiave `sudo`. L'abbinamento di pa
 Con questa configurazione, `sudo systemctl status nginx` è consentito, ma `sudo rm /etc/hosts` è negato.
 
 <Note>
-I pattern vengono confrontati con token analizzati, non con la stringa di comando grezza. Questo previene il bypass tramite operatori shell accodati (ad esempio `sudo systemctl status x; rm -rf /` non corrisponde a `sudo systemctl status *`).
+I modelli vengono confrontati rispetto ai token analizzati, non alla stringa di comando raw. Questo previene bypass tramite operatori shell aggiunti (ad esempio `sudo systemctl status x; rm -rf /` non corrisponde a `sudo systemctl status *`).
 </Note>
 
 ---
@@ -96,13 +95,13 @@ I pattern vengono confrontati con token analizzati, non con la stringa di comand
 ### `block-rm-rf`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega `rm -rf`, `rm -fr` e forme di eliminazione ricorsiva simili.
+**Predefinito:** Nega `rm -rf`, `rm -fr` e forme simili di eliminazione ricorsiva.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `allowPaths` | `string[]` | `[]` | Percorsi che sono sicuri per eliminare ricorsivamente (ad esempio `/tmp`). |
+| `allowPaths` | `string[]` | `[]` | Percorsi che è sicuro eliminare ricorsivamente (ad esempio `/tmp`). |
 
 **Esempio:**
 
@@ -121,7 +120,7 @@ I pattern vengono confrontati con token analizzati, non con la stringa di comand
 ### `block-curl-pipe-sh`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega `curl <url> | bash`, `curl <url> | sh`, `wget <url> | bash` e pattern simili.
+**Predefinito:** Nega `curl <url> | bash`, `curl <url> | sh`, `wget <url> | bash` e modelli simili.
 
 Nessun parametro.
 
@@ -130,7 +129,7 @@ Nessun parametro.
 ### `block-failproofai-commands`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega comandi che disinstallerebbe o disabiliterebbero failproofai stesso (ad esempio `npm uninstall failproofai`, `failproofai policies --uninstall`).
+**Predefinito:** Nega i comandi che disinstallerebbero o disabiliterebbero failproofai stesso (ad esempio `npm uninstall failproofai`, `failproofai policies --uninstall`).
 
 Nessun parametro.
 
@@ -138,18 +137,18 @@ Nessun parametro.
 
 ## Comandi infra
 
-Ferma gli agenti di codifica dall'esecuzione di CLI infrastruttura o dall'attivazione di pipeline CI/CD. Tutte le politiche in questa categoria sono **opt-in** (`defaultEnabled: false`) — gli agenti che legittimamente necessitano di chiamare `kubectl`, `terraform`, ecc. non saranno disturbati a meno che tu non abiliti la politica. Se abilitata, ogni invocazione della CLI corrispondente viene negata a meno che il comando non corrisponda a una voce in `allowPatterns`.
+Impedisci agli agenti di codifica di eseguire CLI infrastruttura o attivare pipeline CI/CD. Tutti i criteri in questa categoria sono **opt-in** (`defaultEnabled: false`) — gli agenti che legittimamente necessitano di chiamare `kubectl`, `terraform`, ecc. non verranno interrotti a meno che non abiliti il criterio. Se abilitato, ogni invocazione della CLI corrispondente viene negata a meno che il comando non corrisponda a una voce in `allowPatterns`.
 
-La grammatica di pattern è la stessa di [`block-sudo`](#block-sudo): i token vengono confrontati con argv analizzati, `*` è un wildcard per un token, e qualsiasi comando contenente un operatore shell autonomo (`&&`, `||`, `|`, `;`) o un token con metacaratteri shell incorporati viene rifiutato prima dell'abbinamento della lista di consentiti per prevenire bypass di injection.
+La grammatica del modello è la stessa di [`block-sudo`](#block-sudo): i token vengono confrontati rispetto a argv analizzato, `*` è un jolly per un token, e qualsiasi comando contenente un operatore shell autonomo (`&&`, `||`, `|`, `;`) o un token con metacaratteri shell incorporati viene rifiutato prima della corrispondenza della whitelist per prevenire bypass di iniezione.
 
 ### `block-kubectl`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega qualsiasi invocazione `kubectl`.
+**Predefinito:** Nega qualsiasi invocazione `kubectl`.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | Prefissi di comando kubectl consentiti. |
 
@@ -172,11 +171,11 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 ### `block-terraform`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega qualsiasi invocazione `terraform` o `tofu` (OpenTofu).
+**Predefinito:** Nega qualsiasi invocazione `terraform` o `tofu` (OpenTofu).
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | Prefissi di comando terraform/tofu consentiti. |
 
@@ -197,13 +196,13 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 ### `block-aws-cli`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega qualsiasi invocazione della CLI `aws`.
+**Predefinito:** Nega qualsiasi invocazione della CLI `aws`.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | Prefissi di comando CLI aws che sono consentiti. |
+| `allowPatterns` | `string[]` | `[]` | Prefissi di comando CLI aws consentiti. |
 
 **Esempio:**
 
@@ -222,11 +221,11 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 ### `block-gcloud`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega qualsiasi invocazione della CLI `gcloud` (Google Cloud).
+**Predefinito:** Nega qualsiasi invocazione della CLI `gcloud` (Google Cloud).
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | Prefissi di comando gcloud consentiti. |
 
@@ -247,13 +246,13 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 ### `block-az-cli`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega qualsiasi invocazione della CLI `az` (Azure).
+**Predefinito:** Nega qualsiasi invocazione della CLI `az` (Azure).
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | Prefissi di comando CLI az che sono consentiti. |
+| `allowPatterns` | `string[]` | `[]` | Prefissi di comando CLI az consentiti. |
 
 **Esempio:**
 
@@ -272,11 +271,11 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 ### `block-helm`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega qualsiasi invocazione `helm`.
+**Predefinito:** Nega qualsiasi invocazione `helm`.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | Prefissi di comando helm consentiti. |
 
@@ -297,7 +296,7 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 ### `block-gh-pipeline`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega i seguenti sottocomandi della CLI `gh` che mutano lo stato o attivano pipeline:
+**Predefinito:** Nega i seguenti sottocomandi della CLI `gh` che mutano lo stato o attivano pipeline:
 
 - `gh workflow run`, `gh workflow enable`, `gh workflow disable`
 - `gh run rerun`, `gh run cancel`
@@ -306,13 +305,13 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 - `gh cache delete`
 - `gh secret set`, `gh secret delete`
 
-I sottocomandi `gh` di sola lettura come `gh pr view`, `gh pr list`, `gh run list`, `gh release view` e `gh api repos/.../...` **non** vengono corrispondenti a questa politica — sono routinariamente necessari per i controlli del flusso di lavoro (incluso il proprio `require-ci-green-before-stop` di failproofai).
+I sottocomandi `gh` di sola lettura come `gh pr view`, `gh pr list`, `gh run list`, `gh release view` e `gh api repos/.../...` **non** sono corrispondenti a questo criterio — sono routinariamente necessari per i controlli del flusso di lavoro (incluso il proprio `require-ci-green-before-stop` di failproofai).
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | Invocazioni specifiche scritte per consentire anche se verrebbero negate. |
+| `allowPatterns` | `string[]` | `[]` | Invocazioni scritte specifiche da consentire anche se sarebbero altrimenti negate. |
 
 **Esempio:**
 
@@ -328,14 +327,14 @@ I sottocomandi `gh` di sola lettura come `gh pr view`, `gh pr list`, `gh run lis
 
 ---
 
-## Secrets (sanitizer)
+## Segreti (sanitizzatori)
 
-Impedisci agli agenti di perdere credenziali nel loro contesto o output. Le politiche di sanitizer si attivano su eventi **PostToolUse**. Quando Claude esegue un comando Bash, legge un file o chiama qualsiasi strumento, queste politiche ispezionano l'output prima che venga restituito a Claude. Se viene rilevato un pattern di secret, la politica restituisce una decisione deny che impedisce all'output di essere passato indietro.
+Impedisci agli agenti di perdere le credenziali nel loro contesto o output. I criteri sanitizzatori si attivano su eventi **PostToolUse**. Quando Claude esegue un comando Bash, legge un file o chiama qualsiasi strumento, questi criteri ispezionano l'output prima che venga restituito a Claude. Se viene rilevato un modello di segreto, il criterio restituisce una decisione di negazione che impedisce che l'output venga ripassato indietro.
 
 ### `sanitize-jwt`
 
 **Evento:** PostToolUse (tutti gli strumenti)  
-**Impostazione predefinita:** Redige i token JWT (tre segmenti base64url separati da `.`).
+**Predefinito:** Redige i token JWT (tre segmenti base64url separati da `.`).
 
 Nessun parametro.
 
@@ -344,13 +343,13 @@ Nessun parametro.
 ### `sanitize-api-keys`
 
 **Evento:** PostToolUse (tutti gli strumenti)  
-**Impostazione predefinita:** Redige i formati comuni di chiave API: Anthropic (`sk-ant-`), OpenAI (`sk-`), GitHub PAT (`ghp_`), chiavi di accesso AWS (`AKIA`), chiavi Stripe (`sk_live_`, `sk_test_`) e chiavi API Google (`AIza`).
+**Predefinito:** Redige i formati comuni di chiavi API: Anthropic (`sk-ant-`), OpenAI (`sk-`), GitHub PATs (`ghp_`), chiavi di accesso AWS (`AKIA`), chiavi Stripe (`sk_live_`, `sk_test_`) e chiavi API Google (`AIza`).
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | Pattern regex aggiuntivi da trattare come secret. |
+| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | Pattern regex aggiuntivi da trattare come segreti. |
 
 **Esempio:**
 
@@ -372,7 +371,7 @@ Nessun parametro.
 ### `sanitize-connection-strings`
 
 **Evento:** PostToolUse (tutti gli strumenti)  
-**Impostazione predefinita:** Redige le stringhe di connessione del database che contengono credenziali incorporate (ad esempio `postgresql://user:password@host/db`).
+**Predefinito:** Redige le stringhe di connessione ai database che contengono credenziali incorporate (ad esempio `postgresql://user:password@host/db`).
 
 Nessun parametro.
 
@@ -381,7 +380,7 @@ Nessun parametro.
 ### `sanitize-private-key-content`
 
 **Evento:** PostToolUse (tutti gli strumenti)  
-**Impostazione predefinita:** Redige i blocchi PEM (`-----BEGIN PRIVATE KEY-----`, `-----BEGIN RSA PRIVATE KEY-----`, ecc.).
+**Predefinito:** Redige i blocchi PEM (`-----BEGIN PRIVATE KEY-----`, `-----BEGIN RSA PRIVATE KEY-----`, ecc.).
 
 Nessun parametro.
 
@@ -390,7 +389,7 @@ Nessun parametro.
 ### `sanitize-bearer-tokens`
 
 **Evento:** PostToolUse (tutti gli strumenti)  
-**Impostazione predefinita:** Redige le intestazioni `Authorization: Bearer <token>` dove il token è 20 o più caratteri.
+**Predefinito:** Redige le intestazioni `Authorization: Bearer <token>` dove il token è di 20 o più caratteri.
 
 Nessun parametro.
 
@@ -403,9 +402,9 @@ Proteggi la configurazione dell'ambiente sensibile dall'essere letta o esposta d
 ### `block-env-files`
 
 **Evento:** PreToolUse (Bash, Read)  
-**Impostazione predefinita:** Nega la lettura di file `.env` tramite `cat .env`, chiamate dello strumento Read con `.env` come percorso del file, ecc.
+**Predefinito:** Nega la lettura di file `.env` tramite `cat .env`, chiamate dello strumento Read con `.env` come percorso del file, ecc.
 
-Non blocca `.envrc` o altri file adiacenti all'ambiente - solo i file denominati esattamente `.env`.
+Non blocca `.envrc` o altri file correlati all'ambiente — solo file denominati esattamente `.env`.
 
 Nessun parametro.
 
@@ -414,7 +413,7 @@ Nessun parametro.
 ### `protect-env-vars`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega comandi che stampano variabili di ambiente: `printenv`, `env`, `echo $VAR`.
+**Predefinito:** Nega i comandi che stampano le variabili di ambiente: `printenv`, `env`, `echo $VAR`.
 
 Nessun parametro.
 
@@ -422,16 +421,16 @@ Nessun parametro.
 
 ## Accesso ai file
 
-Mantieni gli agenti che lavorano all'interno dei limiti del progetto e lontani da file sensibili.
+Mantieni gli agenti che lavorano entro i confini del progetto e lontani dai file sensibili.
 
 ### `block-read-outside-cwd`
 
 **Evento:** PreToolUse (Read, Bash)  
-**Impostazione predefinita:** Nega la lettura di file al di fuori della radice del progetto. Il confine è `CLAUDE_PROJECT_DIR` (impostato una volta per sessione da Claude Code), con un fallback alla directory di lavoro corrente della sessione quando quella variabile non è impostata. Usare la radice del progetto anziché il `cwd` dal vivo significa che il confine rimane stabile anche dopo che Claude usa `cd` in una sottodirectory.
+**Predefinito:** Nega la lettura di file al di fuori della radice del progetto. Il confine è `CLAUDE_PROJECT_DIR` (impostato una volta per sessione da Claude Code), con un fallback alla directory di lavoro corrente della sessione quando quella variabile non è impostata. L'utilizzo della radice del progetto piuttosto della `cwd` attiva significa che il confine rimane stabile anche dopo che Claude entra in una sottodirectory.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `allowPaths` | `string[]` | `[]` | Prefissi di percorso assoluto consentiti anche se al di fuori della radice del progetto. |
 
@@ -452,13 +451,13 @@ Mantieni gli agenti che lavorano all'interno dei limiti del progetto e lontani d
 ### `block-secrets-write`
 
 **Evento:** PreToolUse (Write, Edit)  
-**Impostazione predefinita:** Nega le scritture in file comunemente utilizzati per chiavi private e certificati: `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`.
+**Predefinito:** Nega le scritture in file comunemente utilizzati per chiavi private e certificati: `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `additionalPatterns` | `string[]` | `[]` | Pattern di nome file aggiuntivi (stile glob) da bloccare. |
+| `additionalPatterns` | `string[]` | `[]` | Pattern di nomi file aggiuntivi (stile glob) da bloccare. |
 
 **Esempio:**
 
@@ -476,18 +475,18 @@ Mantieni gli agenti che lavorano all'interno dei limiti del progetto e lontani d
 
 ## Git
 
-Previeni push accidentali, force-push e errori di ramo difficili da annullare.
+Previeni push accidentali, force-push e errori di branch difficili da annullare.
 
 ### `block-push-master`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega `git push origin main` e `git push origin master`.
+**Predefinito:** Nega `git push origin main` e `git push origin master`.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `protectedBranches` | `string[]` | `["main", "master"]` | Nomi di ramo che non possono essere pushati direttamente. |
+| `protectedBranches` | `string[]` | `["main", "master"]` | Nomi di branch che non possono essere pushati direttamente. |
 
 **Esempio:**
 
@@ -502,7 +501,7 @@ Previeni push accidentali, force-push e errori di ramo difficili da annullare.
 ```
 
 <Tip>
-Per consentire il push su tutti i rami (disabilitando effettivamente questa politica senza rimuoverla da `enabledPolicies`), imposta `protectedBranches: []`.
+Per consentire il push a tutti i branch (disabilitando effettivamente questo criterio senza rimuoverlo da `enabledPolicies`), imposta `protectedBranches: []`.
 </Tip>
 
 ---
@@ -510,22 +509,22 @@ Per consentire il push su tutti i rami (disabilitando effettivamente questa poli
 ### `block-work-on-main`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega `git commit`, `git merge`, `git rebase` e `git cherry-pick` mentre l'albero di lavoro è su `main` o `master`. La creazione e il cambio di ramo (`git checkout`, `git checkout -b`, `git switch`, `git switch -c`) non sono interessati.
+**Predefinito:** Nega `git commit`, `git merge`, `git rebase` e `git cherry-pick` mentre l'albero di lavoro è su `main` o `master`. La creazione e il cambio di branch (`git checkout`, `git checkout -b`, `git switch`, `git switch -c`) non sono interessati.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `protectedBranches` | `string[]` | `["main", "master"]` | Nomi di ramo su cui commit/merge/rebase/cherry-pick viene negato. |
+| `protectedBranches` | `string[]` | `["main", "master"]` | Nomi di branch su cui commit/merge/rebase/cherry-pick è negato. |
 
 ---
 
 ### `block-force-push`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Nega `git push --force` e `git push -f`.
+**Predefinito:** Nega `git push --force` e `git push -f`.
 
-Nessun parametro specifico della politica. Usa il cross-cutting [`hint`](/it/configuration#hint-cross-cutting) per suggerire alternative:
+Nessun parametro specifico del criterio. Usa la [`hint`](/it/configuration#hint-cross-cutting) cross-cutting per suggerire alternative:
 
 ```json
 {
@@ -542,7 +541,7 @@ Nessun parametro specifico della politica. Usa il cross-cutting [`hint`](/it/con
 ### `warn-git-amend`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Istruisce Claude a procedere con cautela quando esegue `git commit --amend`. Non blocca il comando.
+**Predefinito:** Istruisce Claude a procedere con attenzione quando esegue `git commit --amend`. Non blocca il comando.
 
 Nessun parametro.
 
@@ -551,7 +550,7 @@ Nessun parametro.
 ### `warn-git-stash-drop`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Istruisce Claude a confermare prima di eseguire `git stash drop`. Non blocca il comando.
+**Predefinito:** Istruisce Claude a confermare prima di eseguire `git stash drop`. Non blocca il comando.
 
 Nessun parametro.
 
@@ -560,7 +559,7 @@ Nessun parametro.
 ### `warn-all-files-staged`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Istruisce Claude a rivedere ciò che sta organizzando quando esegue `git add -A` o `git add .`. Non blocca il comando.
+**Predefinito:** Istruisce Claude a rivedere cosa sta mettendo in staging quando esegue `git add -A` o `git add .`. Non blocca il comando.
 
 Nessun parametro.
 
@@ -568,12 +567,12 @@ Nessun parametro.
 
 ## Database
 
-Intercetta le operazioni SQL distruttive prima che vengono eseguite sul tuo database.
+Cattura le operazioni SQL distruttive prima che si eseguano sul tuo database.
 
 ### `warn-destructive-sql`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Istruisce Claude a confermare prima di eseguire SQL contenente `DROP TABLE`, `DROP DATABASE` o `DELETE` senza una clausola `WHERE`.
+**Predefinito:** Istruisce Claude a confermare prima di eseguire SQL contenente `DROP TABLE`, `DROP DATABASE` o `DELETE` senza una clausola `WHERE`.
 
 Nessun parametro.
 
@@ -582,7 +581,7 @@ Nessun parametro.
 ### `warn-schema-alteration`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Istruisce Claude a confermare prima di eseguire dichiarazioni `ALTER TABLE`.
+**Predefinito:** Istruisce Claude a confermare prima di eseguire le istruzioni `ALTER TABLE`.
 
 Nessun parametro.
 
@@ -590,18 +589,18 @@ Nessun parametro.
 
 ## Avvisi
 
-Fornisci agli agenti contesto extra prima di operazioni potenzialmente rischiose ma non distruttive.
+Fornisci agli agenti un contesto aggiuntivo prima di operazioni potenzialmente rischiose ma non distruttive.
 
 ### `warn-large-file-write`
 
 **Evento:** PreToolUse (Write)  
-**Impostazione predefinita:** Istruisce Claude a confermare prima di scrivere file più grandi di 1024 KB.
+**Predefinito:** Istruisce Claude a confermare prima di scrivere file più grandi di 1024 KB.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `thresholdKb` | `number` | `1024` | Soglia di dimensione del file in kilobyte sopra la quale viene emesso un avviso. |
+| `thresholdKb` | `number` | `1024` | Soglia di dimensione del file in kilobyte al di sopra della quale viene emesso un avviso. |
 
 **Esempio:**
 
@@ -616,7 +615,7 @@ Fornisci agli agenti contesto extra prima di operazioni potenzialmente rischiose
 ```
 
 <Note>
-Il gestore hook applica un limite di stdin di 1 MB sui payload. Per testare questa politica con contenuto piccolo, imposta `thresholdKb` a un valore ben al di sotto di 1024.
+Il gestore dell'hook applica un limite stdin di 1 MB sui payload. Per testare questo criterio con contenuto piccolo, imposta `thresholdKb` su un valore ben al di sotto di 1024.
 </Note>
 
 ---
@@ -624,7 +623,7 @@ Il gestore hook applica un limite di stdin di 1 MB sui payload. Per testare ques
 ### `warn-package-publish`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Istruisce Claude a confermare prima di eseguire `npm publish`.
+**Predefinito:** Istruisce Claude a confermare prima di eseguire `npm publish`.
 
 Nessun parametro.
 
@@ -633,7 +632,7 @@ Nessun parametro.
 ### `warn-background-process`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Istruisce Claude a stare attento durante l'avvio di processi in background tramite `nohup`, `&`, `disown` o `screen`.
+**Predefinito:** Istruisce Claude a prestare attenzione quando avvia processi in background tramite `nohup`, `&`, `disown` o `screen`.
 
 Nessun parametro.
 
@@ -642,29 +641,29 @@ Nessun parametro.
 ### `warn-global-package-install`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Istruisce Claude a confermare prima di eseguire `npm install -g`, `yarn global add` o `pip install` senza un ambiente virtuale.
+**Predefinito:** Istruisce Claude a confermare prima di eseguire `npm install -g`, `yarn global add` o `pip install` senza un ambiente virtuale.
 
 Nessun parametro.
 
 ---
 
-## Gestori pacchetti
+## Gestori di pacchetti
 
-Applica quale gestore pacchetti l'agente può usare.
+Applica quale gestore di pacchetti l'agente è autorizzato a utilizzare.
 
 ### `prefer-package-manager`
 
 **Evento:** PreToolUse (Bash)  
-**Impostazione predefinita:** Disabilitato. Se abilitato, blocca qualsiasi comando del gestore pacchetti non nella lista `allowed` e dice a Claude di riscrivere il comando usando un gestore consentito.
+**Predefinito:** Disabilitato. Se abilitato, blocca qualsiasi comando del gestore di pacchetti non nell'elenco `allowed` e dice a Claude di riscrivere il comando utilizzando un gestore consentito.
 
 Rileva: pip, pip3, python -m pip, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, poetry, pipenv, conda, cargo.
 
 | Parametro | Tipo | Predefinito | Descrizione |
 |-----------|------|---------|-------------|
-| `allowed` | string[] | `[]` | Nomi dei gestori pacchetti consentiti. Qualsiasi gestore rilevato non in questa lista viene bloccato. Se vuota, la politica è una no-op. |
-| `blocked` | string[] | `[]` | Nomi di gestore aggiuntivi da bloccare oltre la lista integrata (ad esempio `['pdm', 'pipx']`). |
+| `allowed` | string[] | `[]` | Nomi dei gestori di pacchetti consentiti. Qualsiasi gestore rilevato non in questo elenco viene bloccato. Se vuoto, il criterio è un no-op. |
+| `blocked` | string[] | `[]` | Nomi di gestori aggiuntivi da bloccare oltre all'elenco incorporato (ad esempio `['pdm', 'pipx']`). |
 
-La lista di blocco integrata copre: pip, pip3, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, poetry, pipenv, conda, cargo. Usa `blocked` per aggiungere gestori non in questa lista.
+L'elenco di blocco incorporato copre: pip, pip3, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, poetry, pipenv, conda, cargo. Usa `blocked` per aggiungere gestori non in questo elenco.
 
 **Configurazione di esempio:**
 
@@ -680,7 +679,7 @@ La lista di blocco integrata copre: pip, pip3, npm, npx, yarn, pnpm, pnpx, bun, 
 }
 ```
 
-Con questa configurazione, `pip install flask` e `pdm install flask` sono entrambi negati con un messaggio che dice a Claude di usare `uv` o `bun` invece. Comandi come `uv pip install flask` sono consentiti perché `uv` è nella lista di consentiti e viene controllato per primo.
+Con questa configurazione, `pip install flask` e `pdm install flask` sono entrambi negati con un messaggio che dice a Claude di usare `uv` o `bun` invece. Comandi come `uv pip install flask` sono consentiti perché `uv` è nell'elenco consentito e viene controllato per primo.
 
 ---
 
@@ -691,7 +690,7 @@ Rileva quando gli agenti rimangono bloccati o si comportano in modo inaspettato.
 ### `warn-repeated-tool-calls`
 
 **Evento:** PreToolUse (tutti gli strumenti)  
-**Impostazione predefinita:** Istruisce Claude a riconsiderare quando lo stesso strumento viene chiamato 3+ volte con parametri identici - un segno comune che l'agente è bloccato in un ciclo.
+**Predefinito:** Istruisce Claude a riconsiderare quando lo stesso strumento viene chiamato 3+ volte con parametri identici — un segno comune che l'agente è bloccato in un loop.
 
 Nessun parametro.
 
@@ -699,14 +698,14 @@ Nessun parametro.
 
 ## Flusso di lavoro
 
-Applica un flusso di lavoro di fine sessione disciplinato. Queste politiche si attivano sull'evento **Stop** e negano a Claude di fermarsi fino a quando non viene soddisfatta ogni condizione. Seguono una catena di dipendenze naturale: commit → push → PR → CI. Se una politica nega, le politiche successive nella catena vengono saltate (deny short-circuit).
+Applica un disciplinato flusso di lavoro di fine sessione. Questi criteri si attivano sull'evento **Stop** e negano a Claude di fermarsi fino a quando ogni condizione non è soddisfatta. Seguono una catena di dipendenze naturale: commit → push → PR → CI. Se un criterio nega, i criteri successivi nella catena vengono saltati (la negazione cortocircuita).
 
-Tutte le politiche di flusso di lavoro sono **fail-open**: se lo strumento richiesto non è disponibile (ad esempio `gh` non installato, nessun git remote), la politica consente con un messaggio informativo che spiega perché il controllo è stato saltato.
+Tutti i criteri di flusso di lavoro sono **fail-open**: se lo strumento richiesto non è disponibile (ad esempio `gh` non installato, nessun git remote), il criterio consente con un messaggio informativo che spiega perché il controllo è stato saltato.
 
 ### `require-commit-before-stop`
 
 **Evento:** Stop  
-**Impostazione predefinita:** Nega la sospensione quando ci sono modifiche non sottoposte a commit (file modificati, in staging o non tracciati). Restituisce un messaggio informativo quando la directory di lavoro è pulita.
+**Predefinito:** Nega l'arresto quando ci sono modifiche non sottoposte a commit (file modificati, staged o non tracciati). Restituisce un messaggio informativo quando la directory di lavoro è pulita.
 
 Nessun parametro.
 
@@ -715,13 +714,13 @@ Nessun parametro.
 ### `require-push-before-stop`
 
 **Evento:** Stop  
-**Impostazione predefinita:** Nega la sospensione quando ci sono commit non pushati o quando il ramo corrente non ha un ramo di tracking remoto. Suggerisce `git push -u` per creare un ramo di tracking se necessario. Fallback aperto se nessun remote è configurato.
+**Predefinito:** Nega l'arresto quando ci sono commit non pushati o quando il branch corrente non ha un branch di tracciamento remoto. Suggerisce `git push -u` per creare un branch di tracciamento se necessario. Fallisce open se nessun remote è configurato.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `remote` | `string` | `"origin"` | Nome del remote su cui fare il push. |
+| `remote` | `string` | `"origin"` | Nome remoto a cui pushare. |
 
 **Esempio:**
 
@@ -740,14 +739,14 @@ Nessun parametro.
 ### `require-pr-before-stop`
 
 **Evento:** Stop  
-**Impostazione predefinita:** Nega la sospensione quando non esiste una pull request per il ramo corrente, o quando la PR esistente è chiusa senza merge. Istruisce Claude a creare una PR con `gh pr create`. Quando la PR è **merged**, la politica consente (il lavoro è stato distribuito) e il messaggio suggerisce di cambiare ramo (`git checkout main && git pull`).
+**Predefinito:** Nega l'arresto quando nessuna pull request esiste per il branch corrente, o quando la PR esistente è chiusa senza fusione. Istruisce Claude a creare una PR con `gh pr create`. Quando la PR è **merged**, il criterio consente (il lavoro è stato spedito) e il messaggio suggerisce di disattivare il branch (`git checkout main && git pull`).
 
 Nessun parametro.
 
 <Note>
-Questa politica richiede che [GitHub CLI](https://cli.github.com/) (`gh`) sia installato e autenticato.
-Esegui `gh auth login` con un personal access token che ha scope `repo` per l'accesso in lettura alle
-pull request. Se `gh` non è installato o non autenticato, la politica fallback aperto e segnala il motivo a Claude.
+Questo criterio richiede l'installazione e l'autenticazione di [GitHub CLI](https://cli.github.com/) (`gh`).
+Esegui `gh auth login` con un personal access token che ha visibilità `repo` per l'accesso in lettura a
+pull request. Se `gh` non è installato o non autenticato, il criterio fallisce open e riporta il motivo a Claude.
 </Note>
 
 ---
@@ -755,24 +754,24 @@ pull request. Se `gh` non è installato o non autenticato, la politica fallback 
 ### `require-no-conflicts-before-stop`
 
 **Evento:** Stop  
-**Impostazione predefinita:** Nega la sospensione quando il ramo corrente non può eseguire il merge pulito nel ramo base. La politica per prima cosa conferma che esiste una PR `OPEN` su GitHub per il ramo — senza una, non c'è nessun target di merge da applicare, quindi l'intera politica short-circuit per consentire. Una volta confermata una PR `OPEN`, due probe indipendenti vengono eseguite:
+**Predefinito:** Nega l'arresto quando il branch corrente non può fondersi pulitamente nel branch base. Il criterio prima conferma che esiste una PR `OPEN` su GitHub per il branch — senza una, non c'è un merge target da applicare, quindi l'intero criterio cortocircuita per consentire. Una volta confermata una PR `OPEN`, eseguono due sonde indipendenti:
 
-1. **Locale** — `git merge-tree --write-tree --name-only origin/<baseBranch> HEAD`. In caso di conflitto, il messaggio deny nomina i file in conflitto in modo che Claude sappia esattamente cosa risolvere.
-2. **GitHub** — riusa il risultato `gh pr view --json mergeable,state` già recuperato nel precheck. Cattura i conflitti che un `origin/<baseBranch>` locale stantio misserebbe (ad esempio qualcuno ha fatto un merge di una PR in conflitto su `main` dall'ultimo fetch). Un risultato `CONFLICTING` nega. Un risultato `UNKNOWN` nega anche e istruisce Claude a aspettare ~10 secondi e ri-controllare prima di tentare di fermarsi di nuovo — questo previene falsi negativi mentre GitHub ricalcola.
+1. **Locale** — `git merge-tree --write-tree --name-only origin/<baseBranch> HEAD`. In caso di conflitto, il messaggio di negazione nomina i file in conflitto in modo che Claude sappia esattamente cosa risolvere.
+2. **GitHub** — riutilizza il risultato di `gh pr view --json mergeable,state` già recuperato nella precheck. Cattura i conflitti che un `origin/<baseBranch>` locale stale perderebbe (ad esempio qualcuno ha fatto atterrare una PR in conflitto su `main` dall'ultimo fetch). Un risultato `CONFLICTING` nega. Un risultato `UNKNOWN` nega anche e istruisce Claude ad aspettare ~10 secondi e ri-controllare prima di tentare di fermarsi di nuovo — questo previene falsi negativi mentre GitHub ricalcola.
 
-Salta completamente (consente) quando: `gh` non è installato, non esiste nessuna PR per il ramo, lo stato della PR non è `OPEN` (ad esempio `MERGED`, `CLOSED`), o `gh pr view` restituisce output non analizzabile. Fallback aperto anche quando `origin/<baseBranch>` manca localmente o quando nessun commit è in anticipo della base — quei fallthrough di Layer 1 consultano ancora la mergeability PR in cache prima di consentire.
+Salta completamente (consente) quando: `gh` non è installato, nessuna PR esiste per il branch, lo stato della PR non è `OPEN` (ad esempio `MERGED`, `CLOSED`), o `gh pr view` restituisce output non parsabile. Fallisce anche open quando `origin/<baseBranch>` è mancante localmente o quando nessun commit è in anticipo rispetto a base — quei fall-through di Livello 1 consultano comunque la mergeability della PR cachata prima di consentire.
 
 **Parametri:**
 
-| Parametro | Tipo | Predefinito | Descrizione |
+| Param | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `baseBranch` | `string` | `"main"` | Ramo base da verificare per i conflitti. |
+| `baseBranch` | `string` | `"main"` | Branch base da controllare per conflitti. |
 
 <Note>
-GitHub CLI (`gh`) è richiesto per questa politica. La politica usa `gh pr view` per confermare
-che esiste una PR `OPEN` prima di eseguire qualsiasi probe di conflitto — senza `gh`, la politica
-short-circuit per consentire. Esegui `gh auth login` con un personal access token che ha
-scope `repo` per l'accesso in lettura alle pull request.
+GitHub CLI (`gh`) è richiesto per questo criterio. Il criterio usa `gh pr view` per confermare
+che una PR `OPEN` esiste prima di eseguire qualsiasi sonda di conflitto — senza `gh`, il criterio
+cortocircuita per consentire. Esegui `gh auth login` con un personal access token che ha
+visibilità `repo` per l'accesso in lettura a pull request.
 </Note>
 
 ---
@@ -780,23 +779,23 @@ scope `repo` per l'accesso in lettura alle pull request.
 ### `require-ci-green-before-stop`
 
 **Evento:** Stop  
-**Impostazione predefinita:** Nega la sospensione quando i controlli di CI falliscono o sono ancora in esecuzione sul ramo corrente. Controlla sia i GitHub Actions workflow run che i controlli di bot di terze parti (ad esempio CodeRabbit, SonarCloud, Codecov). Tratta le conclusioni `skipped` e `cancelled` come successo. Restituisce un messaggio informativo quando tutti i controlli passano.
+**Predefinito:** Nega l'arresto quando i controlli CI non riescono o sono ancora in esecuzione sul branch corrente. Controlla sia le esecuzioni di flussi di lavoro GitHub Actions che i controlli di bot di terze parti (ad esempio CodeRabbit, SonarCloud, Codecov). Tratta le conclusioni `skipped` e `cancelled` come successo. Restituisce un messaggio informativo quando tutti i controlli passano.
 
 Nessun parametro.
 
 <Note>
-Questa politica richiede che [GitHub CLI](https://cli.github.com/) (`gh`) sia installato e autenticato.
-Esegui `gh auth login` con un personal access token che ha scope `repo` per l'accesso in lettura ai
-workflow run di Actions e all'API Checks. Se `gh` non è installato o non autenticato, la politica fallback aperto e segnala il motivo a Claude.
+Questo criterio richiede l'installazione e l'autenticazione di [GitHub CLI](https://cli.github.com/) (`gh`).
+Esegui `gh auth login` con un personal access token che ha visibilità `repo` per l'accesso in lettura a
+esecuzioni di flussi di lavoro Actions e l'API Checks. Se `gh` non è installato o non autenticato, il criterio fallisce open e riporta il motivo a Claude.
 </Note>
 
 ---
 
 ---
 
-## Disabilitare le politiche individuali
+## Disabilitazione di criteri individuali
 
-Rimuovi una politica specifica da `enabledPolicies` nella tua configurazione, o attivala nella scheda Policies del dashboard.
+Rimuovi uno specifico criterio da `enabledPolicies` nella tua configurazione, o disattivalo nella scheda Policies del dashboard.
 
 ```json
 {
