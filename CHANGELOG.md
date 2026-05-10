@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.10 — 2026-05-10
+
+### Docs
+- Promote `0.0.10-beta.13` to stable `0.0.10`; per-beta sections below carry the full feature / fix / docs details for this cycle (#345).
+
 ## 0.0.10-beta.13 — 2026-05-10
 
 ### Features
