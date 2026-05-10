@@ -952,6 +952,7 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
   const [hooksWarning, setHooksWarning] = useState<string | null>(null);
   const [configuringPolicy, setConfiguringPolicy] = useState<PolicyInfo | null>(null);
   const [checkedClis, setCheckedClis] = useState<Set<IntegrationType>>(() => new Set());
+  const cliCheckboxesInitializedRef = useRef(false);
 
   const reload = useCallback(async () => {
     try {
@@ -965,12 +966,18 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
 
   useEffect(() => { reload(); }, [reload]);
 
-  // Sync the checkbox set with payload on each reload so the UI starts from
-  // "what's installed now". Pre-check detected-but-not-installed CLIs so a
-  // fresh user lands ready for one-click install.
+  // Sync the checkbox set with payload. On first load only, pre-check
+  // detected-but-not-installed CLIs so a fresh user lands ready for one-click
+  // install. After that, sync strictly to `installed` so unchecking a still-
+  // detected CLI and clicking Apply doesn't re-tick the box on reload.
   useEffect(() => {
     if (!config) return;
-    setCheckedClis(new Set(config.clis.filter((c) => c.installed || c.detected).map((c) => c.id)));
+    if (!cliCheckboxesInitializedRef.current) {
+      cliCheckboxesInitializedRef.current = true;
+      setCheckedClis(new Set(config.clis.filter((c) => c.installed || c.detected).map((c) => c.id)));
+    } else {
+      setCheckedClis(new Set(config.clis.filter((c) => c.installed).map((c) => c.id)));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config?.clis]);
 
@@ -1154,25 +1161,6 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
             Apply changes
           </Button>
         </div>
-      </div>
-
-      {/* 7-segment coverage strip */}
-      <div className="flex h-[3px] w-full bg-muted/20" aria-hidden>
-        {config.clis.map((cli) => {
-          const isActive = installedCliSet.has(cli.id);
-          const accentClass =
-            getCliBadgeClasses(cli.id).split(" ").find((c) => c.startsWith("text-")) ??
-            "text-foreground";
-          return (
-            <div
-              key={cli.id}
-              className={`flex-1 ${accentClass} transition-colors duration-300 ${
-                isActive ? "bg-current" : "bg-transparent"
-              }`}
-              title={`${cli.label}: ${isActive ? "active" : "inactive"}`}
-            />
-          );
-        })}
       </div>
 
       {/* CLI rows */}
