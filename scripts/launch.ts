@@ -8,45 +8,15 @@ import { fileURLToPath } from "node:url";
 import { parseScriptArgs } from "./parse-script-args";
 import { diagnoseShadow } from "./install-diagnosis.mjs";
 import { version } from "../package.json";
-import { coloredBanner, monoBanner, BANNER_COLS } from "./banner.generated";
 
 export function launch(mode: "dev" | "start"): void {
   const { loggingLevel, disableTelemetry, allowedDevOrigins, remainingArgs } = parseScriptArgs(process.argv.slice(2));
 
-  // Pre-rendered wordmark — see scripts/generate-banner.ts. Two variants of
-  // the same logo: coloredBanner uses 24-bit ANSI fg/bg per cell with `▀`
-  // half-blocks (each char encodes 2 vertically-stacked source pixels at
-  // 1:1 aspect, so the teal flower + pink "l" highlights survive); monoBanner
-  // is the same grid in plain Unicode block chars for terminals where 24-bit
-  // color is unavailable (NO_COLOR, non-TTY, basic terminals).
-  const cols = process.stdout.columns;
-  const fitsArt = cols === undefined || cols >= BANNER_COLS + 2;
-  // FORCE_COLOR=3 follows the chalk/supports-color convention: explicitly
-  // forces 24-bit color even when stdout isn't a TTY (useful for piping
-  // colored output into a pager or capturing for sharing).
-  const forceTruecolor = process.env.FORCE_COLOR === "3";
-  const noColor =
-    process.env.NO_COLOR !== undefined
-    || process.env.FORCE_COLOR === "0"
-    || (!process.stdout.isTTY && !forceTruecolor);
-  // Most modern terminals (iTerm2, kitty, alacritty, Windows Terminal,
-  // gnome-terminal, vscode, wezterm) advertise 24-bit support via
-  // COLORTERM=truecolor. When COLORTERM isn't set we'd rather emit clean
-  // monochrome blocks than risk garbled escapes on a basic terminal.
-  const supports24bit =
-    !noColor
-    && (process.env.COLORTERM === "truecolor"
-      || process.env.COLORTERM === "24bit"
-      || forceTruecolor);
-  let banner: string;
-  if (!fitsArt) {
-    banner = "  failproof ai";
-  } else if (supports24bit) {
-    banner = "  " + coloredBanner.join("\n  ");
-  } else {
-    banner = "  " + monoBanner.join("\n  ");
-  }
-  console.log(`\n${banner}\n\n  v${version}\n`);
+  // Plain-text title + a labeled `Version` line that lines up with the
+  // `Star us` / `Docs` / `Slack` lines below (all four labels pad to the
+  // same column so the values form a clean right-hand column).
+  console.log(`\n  failproof ai\n`);
+  console.log(`  📦 Version:      ${version}`);
   console.log(`  ⭐ Star us:      https://github.com/exospherehost/failproofai`);
   console.log(`  📖 Docs:         https://befailproof.ai`);
   console.log(`  💬 Slack:        https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ\n`);
