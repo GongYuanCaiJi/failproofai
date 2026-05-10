@@ -4,8 +4,11 @@ import { coloredBanner, monoBanner, BANNER_COLS, BANNER_ROWS } from "@/scripts/b
 
 describe("banner.generated", () => {
   it("exports the configured grid dimensions", () => {
-    expect(BANNER_COLS).toBeGreaterThan(0);
-    expect(BANNER_ROWS).toBeGreaterThan(0);
+    // Pin the concrete footprint so an accidental regeneration at a
+    // different size trips this test instead of silently shipping a
+    // resized startup banner.
+    expect(BANNER_COLS).toBe(46);
+    expect(BANNER_ROWS).toBe(7);
   });
 
   it("colored and mono banners both have BANNER_ROWS lines", () => {
