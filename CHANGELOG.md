@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.11-beta.0 — 2026-05-13
+
+### Dependencies
+- Bump `tailwindcss` 4.2.4 → 4.3.0 (#PR)
+- Bump `react` 19.2.5 → 19.2.6 (#PR)
+- Bump `react-dom` 19.2.5 → 19.2.6 (#PR)
+
 ## 0.0.10 — 2026-05-10
 
 ### Docs
