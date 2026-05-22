@@ -340,25 +340,6 @@ export async function handleHookEvent(
     hookLogWarn("activity persistence failed");
   }
 
-  // Enqueue for server relay — fire-and-forget, never blocks hook.
-  // queue.ts is a no-op if the user is not logged in (no auth.json), and
-  // sanitizes the entry before persisting (drops toolInput/transcriptPath,
-  // hashes cwd, redacts known secret patterns in `reason`).
-  try {
-    const { appendToServerQueue } = await import("../relay/queue");
-    appendToServerQueue(activityEntry);
-  } catch {
-    // Server queue is best-effort; fail-open
-  }
-
-  // Lazy-start relay daemon if user is logged in — ~1ms when already running
-  try {
-    const { ensureRelayRunning } = await import("../relay/daemon");
-    ensureRelayRunning();
-  } catch {
-    // Relay is best-effort; hook must succeed regardless
-  }
-
   // Fire PostHog telemetry for decisions that affect Claude's behavior
   if (result.decision === "deny" || result.decision === "instruct") {
     try {
