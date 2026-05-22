@@ -18,6 +18,20 @@ import {
   type NormalizedToolEvent,
 } from "../types";
 
+/** Truncate a string to at most `maxBytes` UTF-8 bytes, preserving valid
+ *  encoding (never splits a multi-byte sequence). `String.prototype.length`
+ *  counts UTF-16 code units, not bytes — using it to "cap memory" would let
+ *  through up to 4× the intended byte budget for non-ASCII text. */
+function truncateToUtf8Bytes(s: string, maxBytes: number): string {
+  const buf = Buffer.from(s, "utf-8");
+  if (buf.byteLength <= maxBytes) return s;
+  // Walk back at most 3 bytes to land on a UTF-8 boundary (a leading byte is
+  // 0xxxxxxx or 11xxxxxx; continuation bytes are 10xxxxxx).
+  let end = maxBytes;
+  while (end > 0 && (buf[end] & 0xc0) === 0x80) end--;
+  return buf.subarray(0, end).toString("utf-8");
+}
+
 export interface ConvertContext {
   cli: IntegrationType;
   sessionId: string;
@@ -50,10 +64,7 @@ export function logEntriesToEvents(
 
       let toolResultText: string | undefined;
       if (block.result?.content) {
-        toolResultText =
-          block.result.content.length > AUDIT_TOOL_RESULT_MAX_BYTES
-            ? block.result.content.slice(0, AUDIT_TOOL_RESULT_MAX_BYTES)
-            : block.result.content;
+        toolResultText = truncateToUtf8Bytes(block.result.content, AUDIT_TOOL_RESULT_MAX_BYTES);
       }
 
       events.push({

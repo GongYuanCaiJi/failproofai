@@ -47,7 +47,12 @@ export function canonicalizeToolInput(
   rawInput: unknown,
   cli: IntegrationType,
 ): unknown {
-  if (!toolName || !rawInput || typeof rawInput !== "object") return rawInput;
+  // Arrays are objects too — pass them through verbatim instead of letting
+  // Object.entries flatten them into a numeric-keyed plain object (which would
+  // silently corrupt array-shaped tool inputs).
+  if (!toolName || !rawInput || typeof rawInput !== "object" || Array.isArray(rawInput)) {
+    return rawInput;
+  }
   let perToolMap: Record<string, string> | undefined;
   if (cli === "opencode") perToolMap = OPENCODE_TOOL_INPUT_MAP[toolName];
   else if (cli === "pi") perToolMap = PI_TOOL_INPUT_MAP[toolName];

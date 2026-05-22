@@ -77,12 +77,9 @@ async function scanOneTranscript(meta: TranscriptMetadata): Promise<TranscriptAu
     rangeByName: {},
   };
 
-  let events: NormalizedToolEvent[];
-  try {
-    events = await ADAPTERS[meta.cli].streamEvents(meta);
-  } catch {
-    return empty;
-  }
+  // Stream failures must propagate so the orchestrator counts them in
+  // `errors` rather than silently returning an empty hits map.
+  const events = await ADAPTERS[meta.cli].streamEvents(meta);
   if (events.length === 0) return empty;
 
   const result = empty;

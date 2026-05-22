@@ -144,7 +144,7 @@ export function formatMarkdown(result: AuditResult): string {
     out.push("|---|---:|---:|---|---|---|");
     for (const r of rows) {
       out.push(
-        `| \`${r.name}\` | ${r.hits} | ${r.projects} | ${r.source} | ${r.firstSeen ?? "—"} | ${r.lastSeen ?? "—"} |`,
+        `| \`${escapeTableCell(r.name)}\` | ${r.hits} | ${r.projects} | ${escapeTableCell(r.source)} | ${escapeTableCell(r.firstSeen ?? "—")} | ${escapeTableCell(r.lastSeen ?? "—")} |`,
       );
     }
     out.push("");
@@ -172,4 +172,10 @@ export function formatMarkdown(result: AuditResult): string {
 
 function escapeBackticks(s: string): string {
   return s.replace(/`/g, "\\`");
+}
+
+/** Escape characters that would break a markdown table row. Pipes split
+ *  columns; backslashes escape the next char; leading newlines end the row. */
+function escapeTableCell(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ");
 }

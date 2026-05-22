@@ -465,20 +465,27 @@ EXAMPLES
 
     const VALID_CLIS = new Set(["claude", "codex", "copilot", "cursor", "opencode", "pi", "gemini"]);
     /** Consume one or more values for a flag like `--cli a b c`, stopping at
-     *  the next flag or an unknown token (when an allow-set is supplied). */
+     *  the next flag or an unknown token (when an allow-set is supplied).
+     *  Throws when the flag appears with zero following values — a bare
+     *  `--cli` would otherwise silently widen the scope to all CLIs. */
     function collectMulti(flag, allowSet) {
       const out = [];
       const consumed = new Set();
       for (let i = 0; i < subArgs.length; i++) {
         if (subArgs[i] !== flag) continue;
+        let seenForThisFlag = 0;
         for (let j = i + 1; j < subArgs.length; j++) {
           const v = subArgs[j];
           if (v.startsWith("-")) break;
           if (allowSet && !allowSet.has(v)) break;
           out.push(v);
           consumed.add(j);
+          seenForThisFlag++;
         }
         consumed.add(i);
+        if (seenForThisFlag === 0) {
+          throw new CliError(`Missing value(s) for ${flag}`);
+        }
       }
       return { values: out, consumed };
     }
@@ -525,12 +532,19 @@ EXAMPLES
       );
     }
 
+    let parsedLimit;
+    if (limitRes.value !== undefined) {
+      parsedLimit = parseInt(limitRes.value, 10);
+      if (!Number.isInteger(parsedLimit) || parsedLimit <= 0) {
+        throw new CliError(`Invalid value for --limit: "${limitRes.value}". Use a positive integer.`);
+      }
+    }
     const opts = {
       clis: cliRes.values.length > 0 ? cliRes.values : undefined,
       projects: projectRes.values.length > 0 ? projectRes.values : undefined,
       policies: policyRes.values.length > 0 ? policyRes.values : undefined,
       since: sinceRes.value,
-      limit: limitRes.value !== undefined ? parseInt(limitRes.value, 10) : undefined,
+      limit: parsedLimit,
       showExamples,
       reportPath: reportRes.value ?? "./failproofai-audit.md",
       noReport: noReport || jsonOut, // --json implies --no-report unless explicit --report

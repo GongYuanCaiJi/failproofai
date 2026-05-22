@@ -18,7 +18,9 @@ export const preferWriteOverHeredoc: Detector = {
     //                                   later `> file` is unrelated)
     // The redirect must appear before the next whitespace/newline that ends the
     // heredoc opener line — otherwise it's a body or downstream redirect.
-    if (/<<-?\s*['"]?[A-Z_]+['"]?\s*>\s*\S/.test(cmd)) {
+    // Heredoc delimiters are case-sensitive but `EOF`, `eof`, `Eof`, `MARKER`
+    // and digits-after-letter are all valid; match any letter/digit/underscore.
+    if (/<<-?\s*['"]?[A-Za-z_][A-Za-z0-9_]*['"]?\s*>\s*\S/.test(cmd)) {
       const summary = cmd.replace(/\s+/g, " ").trim().slice(0, 160);
       return { example: summary };
     }

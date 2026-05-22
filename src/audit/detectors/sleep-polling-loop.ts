@@ -17,10 +17,10 @@ export const sleepPollingLoop: Detector = {
     if (/\bwhile\b[\s\S]*?\bsleep\b[\s\S]*?\bdone\b/.test(cmd)) {
       return { example: cmd.replace(/\s+/g, " ").trim().slice(0, 160) };
     }
-    // Standalone long sleep
-    const match = /\bsleep\s+(\d+)(?:\.\d+)?(m|h|d)?\b/.exec(cmd);
+    // Standalone long sleep. parseFloat so `sleep 0.5m` (= 30s) isn't dropped.
+    const match = /\bsleep\s+(\d+(?:\.\d+)?)(m|h|d)?\b/.exec(cmd);
     if (match) {
-      const n = parseInt(match[1], 10);
+      const n = parseFloat(match[1]);
       const unit = match[2] ?? "s";
       const seconds = unit === "m" ? n * 60 : unit === "h" ? n * 3600 : unit === "d" ? n * 86400 : n;
       if (seconds >= SLEEP_THRESHOLD_SECONDS) {

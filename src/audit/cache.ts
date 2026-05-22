@@ -95,7 +95,10 @@ export function writeCachedTranscriptResult(
       detectorVersion: getDetectorVersion(),
       result,
     };
-    writeFileSync(cachePath, JSON.stringify(entry), "utf-8");
+    // Set 0o600 at file-creation time so there's no window where the file
+    // exists with the umask default (typically 0o644). The chmodSync below is
+    // a belt-and-suspenders pass for the case where the file already existed.
+    writeFileSync(cachePath, JSON.stringify(entry), { encoding: "utf-8", mode: 0o600 });
     try { chmodSync(cachePath, 0o600); } catch { /* best-effort on POSIX */ }
   } catch {
     // Cache writes are best-effort — never let a cache error kill the audit.
