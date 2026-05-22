@@ -10,6 +10,8 @@ export const redundantCdCwd: Detector = {
     "Bash commands prefixed with `cd <cwd> && …` even though commands already run in cwd.",
   category: "Wasteful",
   severity: "info",
+  displayTitle: "Prepended cd <cwd> before commands",
+  impact: "Pure waste — your agent's shell already runs in `cwd`.",
   detect(event) {
     if (event.toolName !== "Bash") return null;
     const command = (event.toolInput as { command?: unknown }).command;

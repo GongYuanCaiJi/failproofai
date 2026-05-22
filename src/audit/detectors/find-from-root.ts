@@ -9,6 +9,8 @@ export const findFromRoot: Detector = {
   description: "Bash `find` against `/`, `/home`, `/usr`, etc. — scope to cwd instead.",
   category: "Risky",
   severity: "warn",
+  displayTitle: "Ran find from /, /home, /usr, etc.",
+  impact: "Filesystem-wide finds exhaust resources and rarely return useful results.",
   detect(event) {
     if (event.toolName !== "Bash") return null;
     const command = (event.toolInput as { command?: unknown }).command;

@@ -6,6 +6,8 @@ export const gitCommitNoVerify: Detector = {
   description: "git commit invoked with --no-verify / -n, skipping hooks.",
   category: "Risky",
   severity: "warn",
+  displayTitle: "Committed with --no-verify",
+  impact: "Skips pre-commit hooks that exist to catch broken or unsafe code.",
   detect(event) {
     if (event.toolName !== "Bash") return null;
     const command = (event.toolInput as { command?: unknown }).command;

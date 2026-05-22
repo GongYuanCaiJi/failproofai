@@ -7,6 +7,8 @@ export const preferWriteOverHeredoc: Detector = {
   description: "Bash heredoc / `echo > file` writing multi-line content — use Write.",
   category: "Wasteful",
   severity: "info",
+  displayTitle: "Used heredoc / `echo > file` to write a multi-line file",
+  impact: "Write tool handles escaping and is verifiable.",
   detect(event) {
     if (event.toolName !== "Bash") return null;
     const command = (event.toolInput as { command?: unknown }).command;

@@ -7,6 +7,8 @@ export const preferEditOverSedAwk: Detector = {
   description: "Bash `sed -i`/`awk` in-place edits — use Edit.",
   category: "Wasteful",
   severity: "info",
+  displayTitle: "Used sed -i or awk for an in-place edit",
+  impact: "Edit tool is safer and produces a diff the agent can verify.",
   detect(event) {
     if (event.toolName !== "Bash") return null;
     const command = (event.toolInput as { command?: unknown }).command;

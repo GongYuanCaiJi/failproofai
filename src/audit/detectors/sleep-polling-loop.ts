@@ -8,6 +8,8 @@ export const sleepPollingLoop: Detector = {
   description: "Bash long `sleep` or while-sleep polling loops.",
   category: "Wasteful",
   severity: "info",
+  displayTitle: "Used a long sleep or while-sleep polling loop",
+  impact: "Burns wall-clock; better to wait for an explicit signal.",
   detect(event) {
     if (event.toolName !== "Bash") return null;
     const command = (event.toolInput as { command?: unknown }).command;

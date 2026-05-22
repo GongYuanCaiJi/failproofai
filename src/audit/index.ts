@@ -9,11 +9,19 @@
  */
 import { batchAll } from "../../lib/concurrency";
 import { BUILTIN_POLICIES } from "../hooks/builtin-policies";
+import { readMergedHooksConfig } from "../hooks/hooks-config";
+import { normalizePolicyName } from "../hooks/policy-registry";
 import { INTEGRATION_TYPES, type IntegrationType } from "../hooks/types";
 import { ADAPTERS } from "./cli-adapters";
 import { AUDIT_DETECTORS } from "./detectors";
 import { readCachedTranscriptResult, writeCachedTranscriptResult } from "./cache";
 import { initReplay, replayEvent } from "./replay";
+import {
+  trackAuditCompleted,
+  trackAuditInstallCtaShown,
+  trackAuditPatternDetected,
+  trackAuditStarted,
+} from "./telemetry";
 import {
   AUDIT_EXAMPLE_MAX_CHARS,
   AUDIT_MAX_EXAMPLES_PER_NAME,
@@ -35,14 +43,34 @@ function shortPolicyName(name: string): string {
   return slash >= 0 ? name.slice(slash + 1) : name;
 }
 
-/** Look up a builtin policy's category by canonical name; null when the name
+/** Look up a builtin policy definition by canonical name; null when the name
  *  doesn't match a builtin (e.g. user custom policy). */
-function findBuiltinCategory(name: string): string {
+function findBuiltin(name: string) {
   const short = shortPolicyName(name);
   for (const p of BUILTIN_POLICIES) {
-    if (p.name === name || shortPolicyName(p.name) === short) return p.category;
+    if (p.name === name || shortPolicyName(p.name) === short) return p;
   }
-  return "Custom";
+  return null;
+}
+
+/** Build the per-row install hint shown in the report:
+ *  - Already enabled builtin: a check phrase ("Already enforced — currently blocking these in real time")
+ *  - Unenabled builtin:       `failproofai policies --install <short-name>`
+ *  - Audit-only detector:     soft notice ("Audit-only — `failproofai audit` will keep tracking these")
+ *  - Unknown / custom:        empty string
+ */
+function buildInstallHint(
+  name: string,
+  source: "builtin" | "audit-detector",
+  enabled: boolean,
+): string {
+  if (source === "audit-detector") {
+    return "Audit-only — `failproofai audit` will keep tracking these.";
+  }
+  if (enabled) {
+    return "Already enforced — failproofai is blocking these in real time.";
+  }
+  return `Enable in one command:  failproofai policies --install ${shortPolicyName(name)}`;
 }
 
 function truncateExample(s: string): string {
@@ -152,7 +180,10 @@ function recordHit(
   }
 }
 
-function aggregateResults(perTranscript: TranscriptAuditResult[]): AuditCount[] {
+function aggregateResults(
+  perTranscript: TranscriptAuditResult[],
+  enabledBuiltins: Set<string>,
+): AuditCount[] {
   // For each name: sum hits, count distinct projects, merge ranges + examples.
   const byName = new Map<string, {
     hits: number;
@@ -186,23 +217,37 @@ function aggregateResults(perTranscript: TranscriptAuditResult[]): AuditCount[] 
     }
   }
 
-  const detectorNames = new Set(AUDIT_DETECTORS.map((d) => d.name));
+  const detectorByName = new Map(AUDIT_DETECTORS.map((d) => [d.name, d]));
   const out: AuditCount[] = [];
   for (const [name, bucket] of byName) {
-    const isDetector = detectorNames.has(name);
-    const detector = AUDIT_DETECTORS.find((d) => d.name === name);
+    const detector = detectorByName.get(name);
+    const isDetector = !!detector;
+    const builtin = isDetector ? null : findBuiltin(name);
+    const source: "builtin" | "audit-detector" = isDetector ? "audit-detector" : "builtin";
+    const enabled = isDetector ? false : enabledBuiltins.has(normalizePolicyName(name));
+
+    const displayTitle =
+      detector?.displayTitle
+      ?? builtin?.displayTitle
+      ?? detector?.description
+      ?? builtin?.description
+      ?? shortPolicyName(name);
+    const impact = detector?.impact ?? builtin?.impact ?? "";
+
     out.push({
       name,
-      source: isDetector ? "audit-detector" : "builtin",
-      category: isDetector
-        ? (detector?.category ?? "Wasteful")
-        : findBuiltinCategory(name),
+      source,
+      category: detector?.category ?? builtin?.category ?? "Custom",
       severity: isDetector ? (detector?.severity ?? "info") : "deny",
       hits: bucket.hits,
       projects: bucket.projects.size,
       firstSeen: bucket.first,
       lastSeen: bucket.last,
       examples: bucket.examples,
+      displayTitle,
+      impact,
+      enabledInConfig: enabled,
+      installHint: buildInstallHint(name, source, enabled),
     });
   }
 
@@ -214,8 +259,18 @@ export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult>
   const startedAt = Date.now();
   initReplay();
 
+  const outputMode = opts.json ? "json" : opts.noReport ? "text" : "text+markdown";
+  trackAuditStarted(opts, outputMode);
+
   const clis = (opts.clis ?? Array.from(INTEGRATION_TYPES)) as IntegrationType[];
   const sinceMs = parseSinceOpt(opts.since);
+
+  // Snapshot which builtin policies the user currently has enabled — drives
+  // the "already protected" vs "slipping through" split in the report.
+  const userConfig = readMergedHooksConfig();
+  const enabledBuiltins = new Set(
+    (userConfig.enabledPolicies ?? []).map((n) => normalizePolicyName(n)),
+  );
 
   // 1. Discover transcripts across all selected CLIs.
   const allTranscripts: TranscriptMetadata[] = [];
@@ -268,7 +323,7 @@ export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult>
   }
 
   // 3. Aggregate.
-  let results = aggregateResults(perTranscript);
+  let results = aggregateResults(perTranscript, enabledBuiltins);
   if (opts.policies?.length) {
     const wanted = new Set(opts.policies.map(shortPolicyName));
     results = results.filter((r) => wanted.has(shortPolicyName(r.name)));
@@ -280,7 +335,7 @@ export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult>
     if (Object.keys(t.hitsByName).length > 0) projectsWithHits.add(t.projectName);
   }
 
-  return {
+  const auditResult: AuditResult = {
     version: 1,
     scannedAt: new Date(startedAt).toISOString(),
     scope: {
@@ -300,4 +355,15 @@ export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult>
       projectsWithHits: projectsWithHits.size,
     },
   };
+
+  // Telemetry — fire-and-forget, never blocks the CLI. See src/audit/telemetry.ts
+  // for the privacy contract (slugs + counts + booleans only).
+  for (const count of results) trackAuditPatternDetected(count);
+  const unenabledBuiltinNames = results
+    .filter((r) => r.source === "builtin" && !r.enabledInConfig)
+    .map((r) => r.name);
+  trackAuditInstallCtaShown(unenabledBuiltinNames);
+  trackAuditCompleted(auditResult, outputMode);
+
+  return auditResult;
 }

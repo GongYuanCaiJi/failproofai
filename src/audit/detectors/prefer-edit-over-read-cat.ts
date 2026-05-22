@@ -10,6 +10,8 @@ export const preferEditOverReadCat: Detector = {
   description: "Bash `cat`/`head`/`tail`/`less`/`more` on a single source file — use Read.",
   category: "Wasteful",
   severity: "info",
+  displayTitle: "Used `cat`/`head`/`tail` on a source file",
+  impact: "Burns tokens; the Read tool returns content directly without going through Bash output.",
   detect(event) {
     if (event.toolName !== "Bash") return null;
     const command = (event.toolInput as { command?: unknown }).command;

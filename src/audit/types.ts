@@ -74,6 +74,11 @@ export interface Detector {
   /** Severity tier — drives row color in the table. */
   severity: "warn" | "info";
   detect: DetectorFn;
+  /** User-facing past-tense phrase, e.g. "Re-read a file just edited". Falls
+   *  back to `description` when omitted. */
+  displayTitle?: string;
+  /** One short clause describing the consequence. */
+  impact?: string;
 }
 
 /** Aggregated count for one policy or detector. */
@@ -96,6 +101,21 @@ export interface AuditCount {
   lastSeen?: string;
   /** Up to N example commands/snippets that triggered this (80 chars each). */
   examples: { sessionId: string; cwd: string; timestamp: string; example: string }[];
+  /** User-facing past-tense phrase used in the report. Always populated by the
+   *  orchestrator — falls back to the policy/detector description when no
+   *  `displayTitle` was authored. */
+  displayTitle: string;
+  /** One short clause describing the consequence. May be empty for legacy
+   *  policies without authored impact copy. */
+  impact: string;
+  /** Whether the user currently has this builtin enabled. Drives the
+   *  "already protected" vs "slipping through" split in the report. Always
+   *  `false` for audit-only detectors (they don't have a runtime enforcement
+   *  path today). */
+  enabledInConfig: boolean;
+  /** Pre-built one-line install command (or audit-only notice) the report
+   *  shows next to each row, so users can copy-paste to remediate. */
+  installHint: string;
 }
 
 /** Per-transcript scan result (also the per-transcript cache value). */

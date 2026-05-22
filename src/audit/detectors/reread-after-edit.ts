@@ -26,6 +26,8 @@ export const rereadAfterEdit: Detector = {
   description: "Read of a file that was just Edit'd or Write'n in the same session.",
   category: "Wasteful",
   severity: "info",
+  displayTitle: "Re-read a file it just edited",
+  impact: "Edit/Write already returned the updated content; the second Read is wasted tokens.",
   detect(event, sessionState) {
     const state = getState(sessionState);
     const filePath = (event.toolInput as { file_path?: unknown }).file_path;
