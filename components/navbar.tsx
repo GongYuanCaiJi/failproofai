@@ -4,18 +4,25 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderOpen, Shield } from "lucide-react";
+import { ClipboardCheck, FolderOpen, Shield } from "lucide-react";
 import { ReachDevelopers } from "@/components/reach-developers";
 import { RefreshButton } from "@/app/components/refresh-button";
 
 const NAV_LINKS = [
   { href: "/policies", label: "Policies", icon: Shield },
+  { href: "/audit", label: "Audit", icon: ClipboardCheck },
   { href: "/projects", label: "Projects", icon: FolderOpen },
 ];
 
 const WORDMARK_SRC = "https://d2wq11aau0arks.cloudfront.net/failproof/logo-wordmark.png";
 
-export const Navbar: React.FC<{ disabledPages?: string[] }> = ({ disabledPages = [] }) => {
+export const Navbar: React.FC<{
+  disabledPages?: string[];
+  /** Total slipping-through actions from the latest cached audit. When > 0
+   *  a small chip is rendered next to the Audit nav link. Undefined → no
+   *  chip (no cache yet, or audit disabled). */
+  auditSlippingCount?: number;
+}> = ({ disabledPages = [], auditSlippingCount }) => {
   const pathname = usePathname();
 
   return (
@@ -54,6 +61,10 @@ export const Navbar: React.FC<{ disabledPages?: string[] }> = ({ disabledPages =
                 const active = href === "/projects"
                   ? pathname === "/projects" || pathname.startsWith("/project/")
                   : pathname.startsWith(href);
+                const showAuditBadge =
+                  href === "/audit"
+                  && typeof auditSlippingCount === "number"
+                  && auditSlippingCount > 0;
                 return (
                   <Link
                     key={href}
@@ -66,6 +77,14 @@ export const Navbar: React.FC<{ disabledPages?: string[] }> = ({ disabledPages =
                   >
                     <Icon className={`w-4 h-4 ${active ? "text-primary" : ""}`} />
                     {label}
+                    {showAuditBadge && (
+                      <span
+                        className="ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-[1.125rem] px-1 rounded-full text-[0.625rem] font-medium bg-[var(--chart-3)]/15 text-[var(--chart-3)] border border-[var(--chart-3)]/30"
+                        aria-label={`${auditSlippingCount} slipping through`}
+                      >
+                        {auditSlippingCount}
+                      </span>
+                    )}
                     <span
                       className={`absolute inset-x-1 bottom-0 h-[2px] transition-all ${
                         active ? "bg-primary" : "bg-transparent"

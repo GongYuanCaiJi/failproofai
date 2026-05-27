@@ -231,3 +231,37 @@
 .animate-expand {
   animation: expand-in 150ms ease-out;
 }
+
+/* Audit dashboard: staggered row entry. The component sets `--row-delay`
+   per row inline so each item enters ~50ms after its predecessor. */
+@keyframes audit-row-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.audit-row-enter {
+  opacity: 0;
+  animation: audit-row-in 400ms ease-out forwards;
+  animation-delay: var(--row-delay, 0ms);
+}
+
+/* Audit dashboard: bar fill from 0 → target width. The component sets
+   `--bar-width` to the final value (e.g. "62%") so the keyframe targets
+   it via CSS variables — works for both proportional bars in the policy
+   list and the inline health bar. */
+@keyframes audit-bar-fill {
+  from { width: 0; }
+  to   { width: var(--bar-width, 100%); }
+}
+.audit-bar-fill {
+  width: var(--bar-width, 100%);
+  animation: audit-bar-fill 1000ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation-delay: var(--bar-delay, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audit-row-enter,
+  .audit-bar-fill {
+    animation: none;
+    opacity: 1;
+  }
+}

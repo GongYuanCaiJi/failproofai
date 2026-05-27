@@ -16,7 +16,13 @@
 import type { EvaluationResult } from "../hooks/policy-evaluator";
 import { evaluatePolicies } from "../hooks/policy-evaluator";
 import { BUILTIN_POLICIES, registerBuiltinPolicies } from "../hooks/builtin-policies";
-import { clearPolicies, normalizePolicyName } from "../hooks/policy-registry";
+import {
+  clearPolicies,
+  getAllPolicies,
+  normalizePolicyName,
+  setAllPolicies,
+} from "../hooks/policy-registry";
+import type { RegisteredPolicy } from "../hooks/policy-types";
 import type { SessionMetadata } from "../hooks/types";
 import type { NormalizedToolEvent } from "./types";
 
@@ -29,12 +35,18 @@ const SKIP_POLICIES = new Set(
 );
 
 let initialized = false;
+/** Snapshot of the registry taken at `initReplay()`. Restored by
+ *  `restoreReplay()` so embedding `runAudit()` in a long-running process
+ *  (e.g. the Next.js dashboard) doesn't wipe any prior policy registrations. */
+let savedSnapshot: RegisteredPolicy[] | null = null;
 
 /** Register every builtin policy (regardless of user config) so the replay
  *  shows what *could* be caught, not just what's currently enabled. Called
- *  once per `runAudit` invocation. */
+ *  once per `runAudit` invocation. Snapshots the existing registry so it can
+ *  be restored by `restoreReplay()` once the audit is done. */
 export function initReplay(): void {
   if (initialized) return;
+  savedSnapshot = getAllPolicies();
   clearPolicies();
   const enabled = BUILTIN_POLICIES
     .map((p) => p.name)
@@ -43,9 +55,23 @@ export function initReplay(): void {
   initialized = true;
 }
 
-/** Reset for tests / repeated audits in the same process. */
+/** Restore the registry to whatever was there before `initReplay()`. Safe to
+ *  call when not initialized (no-op). Always paired with `initReplay()` in a
+ *  try/finally inside `runAudit()`. */
+export function restoreReplay(): void {
+  if (!initialized) return;
+  if (savedSnapshot !== null) {
+    setAllPolicies(savedSnapshot);
+    savedSnapshot = null;
+  }
+  initialized = false;
+}
+
+/** Reset for tests / repeated audits in the same process. Drops the snapshot
+ *  too — tests usually start with an empty registry and want it back. */
 export function resetReplay(): void {
   initialized = false;
+  savedSnapshot = null;
   clearPolicies();
 }
 

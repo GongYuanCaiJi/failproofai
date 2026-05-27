@@ -11,6 +11,7 @@ import { GlobalErrorListeners } from "@/app/components/global-error-listeners";
 import { AutoRefreshProvider } from "@/contexts/AutoRefreshContext";
 import { Navbar } from "@/components/navbar";
 import { Toaster } from "@/app/components/toast";
+import { readDashboardCache } from "@/src/audit/dashboard-cache";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -34,13 +35,21 @@ export default function RootLayout({
 }>) {
   const disabledPages = (process.env.FAILPROOFAI_DISABLE_PAGES ?? "")
     .split(",").map((s) => s.trim()).filter(Boolean);
+  // Read the audit cache once per page request to drive the nav badge.
+  // Cheap (single JSON file) and the cache itself returns null on miss.
+  const auditCache = readDashboardCache();
+  const auditSlippingCount = auditCache?.result?.results
+    ? auditCache.result.results
+        .filter((r) => r.source === "audit-detector" || (r.source === "builtin" && !r.enabledInConfig))
+        .reduce((sum, r) => sum + r.hits, 0)
+    : undefined;
   return (
     <html lang="en" className={`${geistMono.variable} dark`}>
       <body className="antialiased">
         <PostHogProvider>
           <GlobalErrorListeners />
           <AutoRefreshProvider>
-            <Navbar disabledPages={disabledPages} />
+            <Navbar disabledPages={disabledPages} auditSlippingCount={auditSlippingCount} />
             {children}
           </AutoRefreshProvider>
           <Toaster />

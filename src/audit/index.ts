@@ -15,7 +15,7 @@ import { INTEGRATION_TYPES, type IntegrationType } from "../hooks/types";
 import { ADAPTERS } from "./cli-adapters";
 import { AUDIT_DETECTORS } from "./detectors";
 import { readCachedTranscriptResult, writeCachedTranscriptResult } from "./cache";
-import { initReplay, replayEvent } from "./replay";
+import { initReplay, replayEvent, restoreReplay } from "./replay";
 import {
   trackAuditCompleted,
   trackAuditInstallCtaShown,
@@ -100,6 +100,8 @@ async function scanOneTranscript(meta: TranscriptMetadata): Promise<TranscriptAu
     sessionId: meta.sessionId,
     mtimeMs: meta.mtimeMs,
     sizeBytes: meta.sizeBytes,
+    cwd: "",
+    eventsScanned: 0,
     hitsByName: {},
     examplesByName: {},
     rangeByName: {},
@@ -111,6 +113,10 @@ async function scanOneTranscript(meta: TranscriptMetadata): Promise<TranscriptAu
   if (events.length === 0) return empty;
 
   const result = empty;
+  result.eventsScanned = events.length;
+  // Capture the session's cwd from the first event that carried one — every
+  // event in a single transcript shares the same cwd by construction.
+  result.cwd = events[0].cwd || "";
   const sessionState: DetectorSessionState = {};
 
   for (const event of events) {
@@ -258,7 +264,17 @@ function aggregateResults(
 export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult> {
   const startedAt = Date.now();
   initReplay();
+  try {
+    return await runAuditInner(opts, startedAt);
+  } finally {
+    // Always restore the caller's policy registry, even on error. Without
+    // this, embedding runAudit() in a long-running process (e.g. the Next.js
+    // dashboard) would clobber any pre-existing policy registrations.
+    restoreReplay();
+  }
+}
 
+async function runAuditInner(opts: RunAuditOptions, startedAt: number): Promise<AuditResult> {
   const outputMode = opts.json ? "json" : opts.noReport ? "text" : "text+markdown";
   trackAuditStarted(opts, outputMode);
 
@@ -331,12 +347,16 @@ export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult>
 
   const totalsHits = results.reduce((sum, r) => sum + r.hits, 0);
   const projectsWithHits = new Set<string>();
+  const projectsScannedSet = new Set<string>();
+  let eventsScanned = 0;
   for (const t of perTranscript) {
     if (Object.keys(t.hitsByName).length > 0) projectsWithHits.add(t.projectName);
+    if (t.cwd) projectsScannedSet.add(t.cwd);
+    eventsScanned += t.eventsScanned ?? 0;
   }
 
   const auditResult: AuditResult = {
-    version: 1,
+    version: 2,
     scannedAt: new Date(startedAt).toISOString(),
     scope: {
       cli: clis,
@@ -354,6 +374,12 @@ export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult>
       hits: totalsHits,
       projectsWithHits: projectsWithHits.size,
     },
+    projectsScanned: [...projectsScannedSet].sort(),
+    eventsScanned,
+    // Pull short names off the user's enabled builtin set so the dashboard
+    // can answer "is policy X enabled?" without iterating result rows.
+    enabledBuiltinNames: [...enabledBuiltins]
+      .map((n) => (n.includes("/") ? n.slice(n.indexOf("/") + 1) : n)),
   };
 
   // Telemetry — fire-and-forget, never blocks the CLI. See src/audit/telemetry.ts
