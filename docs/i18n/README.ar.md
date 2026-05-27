@@ -8,7 +8,7 @@
 
 <div align="center">
 
-<img src="https://d2wq11aau0arks.cloudfront.net/failproof/logo-wordmark.png" alt="failproof ai" width="220" />
+<img src="https://d2wq11aau0arks.cloudfront.net/failproof/fa_updated_full.svg" alt="failproof ai" width="220" />
 
 [![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![CI](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/failproofai/failproofai/actions)
