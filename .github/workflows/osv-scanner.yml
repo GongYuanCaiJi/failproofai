@@ -1,0 +1,53 @@
+# Supply-chain security gate.
+#
+# Scans the resolved dependency tree (bun.lock) against the OSV.dev database —
+# which aggregates GitHub/npm security advisories AND the OpenSSF
+# malicious-packages feed — and FAILS on any known-vulnerable or known-malicious
+# package (block-on-any-finding policy).
+#
+# Runs on every PR (incl. Dependabot bumps), on pushes to main, and weekly to
+# catch advisories disclosed after a dependency was already merged.
+#
+# Triage / allow-listing unfixable advisories: see SECURITY.md and osv-scanner.toml.
+name: Supply Chain
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * 1" # Mondays 04:17 UTC
+  workflow_dispatch:
+
+# Deny-all by default; each job opts into the minimum it needs.
+permissions: {}
+
+jobs:
+  # Pull requests (including Dependabot): full scan, fail on ANY finding.
+  # Only contents:read, so it works with the read-only token on Dependabot PRs;
+  # SARIF upload is disabled here (it needs security-events:write, unavailable then).
+  scan-pr:
+    if: ${{ github.event_name == 'pull_request' }}
+    permissions:
+      contents: read
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+    with:
+      scan-args: |-
+        --lockfile=bun.lock
+      fail-on-vuln: true
+      upload-sarif: false
+
+  # main / scheduled / manual: full scan + publish results to the Security tab.
+  scan-main:
+    if: ${{ github.event_name != 'pull_request' }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+    with:
+      scan-args: |-
+        --lockfile=bun.lock
+      fail-on-vuln: true
+      upload-sarif: true
