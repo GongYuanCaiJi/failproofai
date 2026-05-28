@@ -10,16 +10,16 @@
 
 [![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![CI](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/failproofai/failproofai/actions)
-[![Supply Chain](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/osv-scanner.yml?branch=main&style=flat-square&label=supply%20chain)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
+[![Supply Chain](https://img.shields.io/badge/supply%20chain-secure-brightgreen?style=flat-square)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
 [![Slack](https://img.shields.io/badge/Slack-join%20us-4A154B?style=flat-square&logo=slack)](https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ)
 [![Docs](https://img.shields.io/badge/docs-befailproof.ai-002CA7?style=flat-square)](https://docs.befailproof.ai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](./LICENSE)
 
 **Çeviriler:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**Kodlama aracıları için çalışma zamanı hata çözümü.**
-Claude Code ve Codex ile entegre olur. Döngüleri, tehlikeli işlemleri ve gizli sızıntıları
-bunlar olay haline gelmeden yakalar. Sıfır gecikme. Yerel olarak çalışır.
+**Kodlama ajanları için çalışma zamanı hata çözümü.**
+Claude Code ve Codex'e entegre olur. Döngüleri, tehlikeli işlemleri ve gizli sızıntıları 
+olay haline gelmeden önce yakalar. Sıfır gecikme. Yerel olarak çalışır.
 
 </div>
 
@@ -29,7 +29,7 @@ bunlar olay haline gelmeden yakalar. Sıfır gecikme. Yerel olarak çalışır.
 
 ---
 
-## Desteklenen aracı CLI'ları
+## Desteklenen ajan CLI'ları
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -80,7 +80,7 @@ bunlar olay haline gelmeden yakalar. Sıfır gecikme. Yerel olarak çalışır.
   </a>
 </p>
 
-> Bir veya birden fazla kombinasyon için kanca yükleyin: `failproofai policies --install --cli opencode pi gemini` (veya `--cli claude codex copilot cursor opencode pi gemini`). Yüklü CLI'ları otomatik olarak algılamak ve uyarı almak için `--cli` parametresini atlayın.
+> Hook'ları bir veya herhangi bir kombinasyon için yükleyin: `failproofai policies --install --cli opencode pi gemini` (veya `--cli claude codex copilot cursor opencode pi gemini`). CLI'ları otomatik olarak algılamak ve istemek için `--cli` öğesini atlayın.
 
 ---
 
@@ -88,32 +88,32 @@ bunlar olay haline gelmeden yakalar. Sıfır gecikme. Yerel olarak çalışır.
 
 ```sh
 npm install -g failproofai
-failproofai policies --install   # veya sadece `failproofai` çalıştırın ve ilk çalıştırma uyarısını kabul edin
+failproofai policies --install   # veya sadece `failproofai` çalıştırın ve ilk çalıştırma istemini kabul edin
 failproofai
 ```
 
-30 dahili politika hemen etkinleşir. Kontrol paneli `localhost:8020` adresinde. İlk çalıştırma uyarısını `FAILPROOFAI_NO_FIRST_RUN=1` ile devre dışı bırakın.
+30 yerleşik politika hemen etkinleşir. Pano `localhost:8020` adresinde. İlk çalıştırma istemini `FAILPROOFAI_NO_FIRST_RUN=1` ile devre dışı bırakın.
 
 ---
 
-## Neleri engeller
+## Neyi durdurur
 
-| Politika | Engellediği Şey |
+| Politika | Neyi engeller |
 |---|---|
-| `block-push-master` | `main` / `master` öğesine doğrudan push işlemleri |
+| `block-push-master` | `main` / `master` öğesine doğrudan itme |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | `main` / `master` üzerinde commit, merge, rebase |
+| `block-work-on-main` | `main` / `master` üzerinde commit, merge, rebase işlemleri |
 | `block-rm-rf` | Özyinelemeli dosya silme |
-| `sanitize-api-keys` | API anahtarlarının aracı bağlamına sızması |
+| `sanitize-api-keys` | API anahtarlarının ajan bağlamına sızması |
 
-→ [Tüm 30 dahili politika](https://docs.befailproof.ai/built-in-policies)
+→ [Tüm 30 yerleşik politika](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
 ## Kendi politikalarınız
 
-`.failproofai/policies/` klasörüne bir dosya bırakın — otomatik olarak yüklenir, bayrak gerekmez.
-Commit edin ve tüm takım bir sonraki pull işleminde alır.
+`.failproofai/policies/` klasörüne bir dosya bırakın — hiç bayrak gerekmeden otomatik olarak yüklenir.
+Commit edin ve tüm takım bir sonraki pull'da onu alır.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -123,19 +123,19 @@ customPolicies.add({
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
     if (ctx.toolInput?.file_path?.includes("production"))
-      return deny("Üretim yollarına yazma işlemleri engellenir.");
+      return deny("Production yollarına yazımlar engellenir.");
     return allow();
   },
 });
 ```
 
-Her politika için üç karar mevcuttur:
+Her politika için kullanılabilir üç karar:
 
-| Karar | Etkisi |
+| Karar | Etki |
 |---|---|
 | `allow()` | İşleme izin ver |
-| `deny(message)` | Engelle — ileti aracıya geri döner |
-| `instruct(message)` | Geçir, ancak aracının sonraki istemine bağlam ekle |
+| `deny(message)` | Engelle — ileti ajana geri gönderilir |
+| `instruct(message)` | İzin ver, ancak ajanın sonraki istemine bağlam ekle |
 
 → [Özel politikalar kılavuzu](https://docs.befailproof.ai/custom-policies)
 
@@ -143,9 +143,9 @@ Her politika için üç karar mevcuttur:
 
 ## Oturum görünürlüğü
 
-Aracınızın yaptığı her araç çağrısı yerel olarak kaydedilir. Kontrol paneli neyin çalıştığını,
-neyin engellendiğini ve politikanın aracıya ne söylediğini gösterir — böylece bir şey
-ters gittiğinde tahmin yapmak zorunda kalmazsınız. → [Kontrol paneli kılavuzu](https://docs.befailproof.ai/dashboard)
+Ajanınızın yaptığı her araç çağrısı yerel olarak günlüğe kaydedilir. Pano, neyin çalıştırıldığını,
+neyin engellendiğini ve politikanın ajana ne söylediğini gösterir — böylece bir şey yanlış gittiğinde
+tahmin etmeniz gerekmez. → [Pano kılavuzu](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -154,25 +154,25 @@ ters gittiğinde tahmin yapmak zorunda kalmazsınız. → [Kontrol paneli kılav
 | | |
 |---|---|
 | [Başlangıç](https://docs.befailproof.ai/getting-started) | Kurulum ve ilk adımlar |
-| [Dahili Politikalar](https://docs.befailproof.ai/built-in-policies) | Tüm 30 politika parametreleriyle |
-| [Özel Politikalar](https://docs.befailproof.ai/custom-policies) | Kendinizin yazın |
+| [Yerleşik Politikalar](https://docs.befailproof.ai/built-in-policies) | Tüm 30 politika ve parametreleri |
+| [Özel Politikalar](https://docs.befailproof.ai/custom-policies) | Kendi politikalarınızı yazın |
 | [Yapılandırma](https://docs.befailproof.ai/configuration) | Yapılandırma kapsamları ve birleştirme kuralları |
-| [Kontrol Paneli](https://docs.befailproof.ai/dashboard) | Oturum monitörü ve politika etkinliği |
-| [Mimari](https://docs.befailproof.ai/architecture) | Kanca sistemi nasıl çalışır |
+| [Pano](https://docs.befailproof.ai/dashboard) | Oturum monitörü ve politika etkinliği |
+| [Mimari](https://docs.befailproof.ai/architecture) | Hook sistemi nasıl çalışır |
 
 ---
 
 ## Lisans
 
-[Commons Clause](https://commonsclause.com/) ile MIT — dahili ve kişisel kullanım için özgür; failproofai'nin kendisinin ticari olarak yeniden satılması ayrı bir anlaşma gerektirir. Tam metin için [LICENSE](./LICENSE) bölümüne bakın.
+MIT ve [Commons Clause](https://commonsclause.com/) — iç ve kişisel kullanım için ücretsiz; failproofai'nin ticari yeniden satışı ayrı bir anlaşma gerektirir. Tam metin için [LICENSE](./LICENSE) bölümüne bakın.
 
 ---
 
-## Katkıda Bulunma
+## Katkıda bulunma
 
-[CONTRIBUTING.md](./CONTRIBUTING.md) bölümüne bakın. Yeni politikalar, kenar durumları ve çeviriler hoşlanır.
+[CONTRIBUTING.md](./CONTRIBUTING.md) bölümüne bakın. Yeni politikalar, kenar durumlar ve çeviriler hoş karşılanır.
 
 ---
 
-[Nivedit Jain](https://github.com/NiveditJain) ve [Nikita Agarwal](https://github.com/nk-ag) tarafından oluşturulmuştur.
+[Nivedit Jain](https://github.com/NiveditJain) ve [Nikita Agarwal](https://github.com/nk-ag) tarafından yapılmıştır.
 [befailproof.ai](https://befailproof.ai)

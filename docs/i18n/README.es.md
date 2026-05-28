@@ -10,7 +10,7 @@
 
 [![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![CI](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/failproofai/failproofai/actions)
-[![Supply Chain](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/osv-scanner.yml?branch=main&style=flat-square&label=supply%20chain)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
+[![Supply Chain](https://img.shields.io/badge/supply%20chain-secure-brightgreen?style=flat-square)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
 [![Slack](https://img.shields.io/badge/Slack-join%20us-4A154B?style=flat-square&logo=slack)](https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ)
 [![Docs](https://img.shields.io/badge/docs-befailproof.ai-002CA7?style=flat-square)](https://docs.befailproof.ai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](./LICENSE)
@@ -18,8 +18,8 @@
 **Traducciones:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
 **Resolución de fallos en tiempo de ejecución para agentes de código.**
-Se integra con Claude Code y Codex. Detecta bucles, acciones peligrosas y filtraciones de secretos
-antes de que se conviertan en incidentes. Sin latencia. Se ejecuta localmente.
+Se integra con Claude Code y Codex. Detecta bucles, acciones peligrosas y fugas de secretos
+antes de que se conviertan en incidentes. Latencia cero. Se ejecuta localmente.
 
 </div>
 
@@ -88,11 +88,11 @@ antes de que se conviertan en incidentes. Sin latencia. Se ejecuta localmente.
 
 ```sh
 npm install -g failproofai
-failproofai policies --install   # o simplemente ejecuta `failproofai` y acepta el asistente de primera ejecución
+failproofai policies --install   # o simplemente ejecuta `failproofai` y acepta el aviso del primer uso
 failproofai
 ```
 
-30 políticas integradas se activan de inmediato. Panel de control en `localhost:8020`. Desactiva el asistente de primera ejecución con `FAILPROOFAI_NO_FIRST_RUN=1`.
+Se activan inmediatamente 30 políticas integradas. Panel de control en `localhost:8020`. Desactiva el aviso del primer uso con `FAILPROOFAI_NO_FIRST_RUN=1`.
 
 ---
 
@@ -100,7 +100,7 @@ failproofai
 
 | Política | Qué bloquea |
 |---|---|
-| `block-push-master` | Pushes directos a `main` / `master` |
+| `block-push-master` | Envíos directos a `main` / `master` |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | Commits, merges y rebases en `main` / `master` |
 | `block-rm-rf` | Eliminación recursiva de archivos |
@@ -112,8 +112,8 @@ failproofai
 
 ## Tus propias políticas
 
-Coloca un archivo en `.failproofai/policies/` — se carga automáticamente, sin necesidad de flags.
-Confírmalo en el repositorio y todo el equipo lo recibirá en el próximo pull.
+Coloca un archivo en `.failproofai/policies/` — se carga automáticamente, sin flags adicionales.
+Confírmalo en el repositorio y todo el equipo lo obtendrá en el próximo pull.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -143,8 +143,8 @@ Tres decisiones disponibles para cada política:
 
 ## Visibilidad de la sesión
 
-Cada llamada de herramienta que realiza tu agente se registra localmente. El panel de control muestra qué se ejecutó,
-qué fue bloqueado y qué le comunicó la política al agente — para que no tengas que adivinar
+Cada llamada a herramientas que realiza tu agente se registra localmente. El panel de control muestra qué se ejecutó,
+qué fue bloqueado y qué le indicó la política al agente — para que no tengas que adivinar
 cuando algo sale mal. → [Guía del panel de control](https://docs.befailproof.ai/dashboard)
 
 ---
@@ -155,8 +155,8 @@ cuando algo sale mal. → [Guía del panel de control](https://docs.befailproof.
 |---|---|
 | [Primeros pasos](https://docs.befailproof.ai/getting-started) | Instalación y pasos iniciales |
 | [Políticas integradas](https://docs.befailproof.ai/built-in-policies) | Las 30 políticas con sus parámetros |
-| [Políticas personalizadas](https://docs.befailproof.ai/custom-policies) | Escribe las tuyas |
-| [Configuración](https://docs.befailproof.ai/configuration) | Ámbitos de configuración y reglas de fusión |
+| [Políticas personalizadas](https://docs.befailproof.ai/custom-policies) | Escribe las tuyas propias |
+| [Configuración](https://docs.befailproof.ai/configuration) | Alcances de configuración y reglas de fusión |
 | [Panel de control](https://docs.befailproof.ai/dashboard) | Monitor de sesión y actividad de políticas |
 | [Arquitectura](https://docs.befailproof.ai/architecture) | Cómo funciona el sistema de hooks |
 
@@ -164,13 +164,13 @@ cuando algo sale mal. → [Guía del panel de control](https://docs.befailproof.
 
 ## Licencia
 
-MIT con [Commons Clause](https://commonsclause.com/) — gratuito para uso interno y personal; la reventa comercial de failproofai en sí requiere un acuerdo separado. Consulta [LICENSE](./LICENSE) para el texto completo.
+MIT con [Commons Clause](https://commonsclause.com/) — gratuito para uso interno y personal; la reventa comercial de failproofai en sí requiere un acuerdo aparte. Consulta [LICENSE](./LICENSE) para el texto completo.
 
 ---
 
-## Contribuir
+## Contribuciones
 
-Consulta [CONTRIBUTING.md](./CONTRIBUTING.md). Se aceptan con gusto nuevas políticas, casos límite y traducciones.
+Consulta [CONTRIBUTING.md](./CONTRIBUTING.md). Son bienvenidas nuevas políticas, casos límite y traducciones.
 
 ---
 

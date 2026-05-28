@@ -10,15 +10,15 @@
 
 [![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![CI](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/failproofai/failproofai/actions)
-[![Supply Chain](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/osv-scanner.yml?branch=main&style=flat-square&label=supply%20chain)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
+[![Supply Chain](https://img.shields.io/badge/supply%20chain-secure-brightgreen?style=flat-square)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
 [![Slack](https://img.shields.io/badge/Slack-join%20us-4A154B?style=flat-square&logo=slack)](https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ)
 [![Docs](https://img.shields.io/badge/docs-befailproof.ai-002CA7?style=flat-square)](https://docs.befailproof.ai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](./LICENSE)
 
 **अनुवाद:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**कोडिंग एजेंट्स के लिए रनटाइम विफलता समाधान।**
-Claude Code और Codex में हुक करता है। लूप्स, खतरनाक क्रियाओं और सीक्रेट लीक को
+**कोडिंग एजेंटों के लिए रनटाइम विफलता समाधान।**
+Claude Code और Codex में हुक करता है। लूप्स, खतरनाक कार्यों, और गुप्त रिसाव को
 घटनाओं में बदलने से पहले पकड़ता है। शून्य विलंबता। स्थानीय रूप से चलता है।
 
 </div>
@@ -80,7 +80,7 @@ Claude Code और Codex में हुक करता है। लूप्
   </a>
 </p>
 
-> एक या किसी भी संयोजन के लिए हुक इंस्टॉल करें: `failproofai policies --install --cli opencode pi gemini` (या `--cli claude codex copilot cursor opencode pi gemini`)। स्वयं स्थापित CLIs को डिटेक्ट करने और प्रॉम्प्ट करने के लिए `--cli` को छोड़ें।
+> एक या किसी भी संयोजन के लिए हुक इंस्टॉल करें: `failproofai policies --install --cli opencode pi gemini` (या `--cli claude codex copilot cursor opencode pi gemini`)। स्वचालित रूप से इंस्टॉल किए गए CLIs का पता लगाने और संकेत देने के लिए `--cli` को छोड़ दें।
 
 ---
 
@@ -88,32 +88,32 @@ Claude Code और Codex में हुक करता है। लूप्
 
 ```sh
 npm install -g failproofai
-failproofai policies --install   # या बस `failproofai` चलाएं और पहले प्रॉम्प्ट को स्वीकार करें
+failproofai policies --install   # या बस `failproofai` चलाएं और पहली बार चलाने पर स्वीकृति दें
 failproofai
 ```
 
-30 बिल्ट-इन नीतियां तुरंत सक्रिय हो जाती हैं। डैशबोर्ड `localhost:8020` पर है। पहले-रन प्रॉम्प्ट को `FAILPROOFAI_NO_FIRST_RUN=1` के साथ अक्षम करें।
+30 अंतर्निहित नीतियां तुरंत सक्रिय हो जाती हैं। डैशबोर्ड `localhost:8020` पर। पहली बार चलाने के संकेत को `FAILPROOFAI_NO_FIRST_RUN=1` से अक्षम करें।
 
 ---
 
 ## यह क्या रोकता है
 
-| नीति | यह क्या ब्लॉक करता है |
+| नीति | जो ब्लॉक करता है |
 |---|---|
-| `block-push-master` | `main` / `master` के लिए सीधे पुश |
+| `block-push-master` | `main` / `master` को सीधे पुश |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | `main` / `master` पर कमिट, मर्ज, रीबेस |
+| `block-work-on-main` | `main` / `master` पर कमिट, मर्ज, रिबेस |
 | `block-rm-rf` | पुनरावर्ती फाइल हटाना |
-| `sanitize-api-keys` | एजेंट संदर्भ में API कुंजियां लीक होना |
+| `sanitize-api-keys` | एजेंट संदर्भ में API कुंजी रिसाव |
 
-→ [सभी 30 बिल्ट-इन नीतियां](https://docs.befailproof.ai/built-in-policies)
+→ [सभी 30 अंतर्निहित नीतियां](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
-## आपकी स्वयं की नीतियां
+## आपकी अपनी नीतियां
 
-`.failproofai/policies/` में एक फाइल छोड़ें — यह स्वचालित रूप से लोड हो जाती है, कोई फ्लैग की जरूरत नहीं।
-इसे कमिट करें और पूरी टीम को अगले पुल पर यह मिलेगा।
+`.failproofai/policies/` में एक फाइल डालें — यह स्वचालित रूप से लोड होती है, किसी फ्लैग की आवश्यकता नहीं।
+इसे कमिट करें और पूरी टीम को अगले पुल पर यह मिलेगी।
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -133,9 +133,9 @@ customPolicies.add({
 
 | निर्णय | प्रभाव |
 |---|---|
-| `allow()` | ऑपरेशन को अनुमति दें |
-| `deny(message)` | इसे ब्लॉक करें — संदेश एजेंट को वापस जाता है |
-| `instruct(message)` | इसे चलने दें, लेकिन एजेंट के अगले प्रॉम्प्ट में संदर्भ जोड़ें |
+| `allow()` | ऑपरेशन की अनुमति दें |
+| `deny(message)` | इसे ब्लॉक करें — संदेश एजेंट को वापस चला जाता है |
+| `instruct(message)` | इसे होने दें, लेकिन एजेंट के अगले प्रॉम्प्ट में संदर्भ जोड़ें |
 
 → [कस्टम नीतियां गाइड](https://docs.befailproof.ai/custom-policies)
 
@@ -143,9 +143,9 @@ customPolicies.add({
 
 ## सत्र दृश्यता
 
-आपके एजेंट की हर टूल कॉल को स्थानीय रूप से लॉग किया जाता है। डैशबोर्ड दिखाता है कि क्या चला,
-क्या ब्लॉक किया गया, और नीति ने एजेंट को क्या बताया — तो आप अनुमान नहीं लगा रहे हैं
-जब कुछ गलत हो जाता है। → [डैशबोर्ड गाइड](https://docs.befailproof.ai/dashboard)
+आपके एजेंट द्वारा किया जाने वाला हर टूल कॉल स्थानीय रूप से लॉग किया जाता है। डैशबोर्ड दिखाता है कि क्या चला,
+क्या ब्लॉक किया गया, और नीति ने एजेंट को क्या कहा — इसलिए जब कुछ गलत हो तो आप
+अनुमान नहीं लगा रहे हैं। → [डैशबोर्ड गाइड](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -154,8 +154,8 @@ customPolicies.add({
 | | |
 |---|---|
 | [शुरुआत करना](https://docs.befailproof.ai/getting-started) | इंस्टॉलेशन और पहले कदम |
-| [बिल्ट-इन नीतियां](https://docs.befailproof.ai/built-in-policies) | सभी 30 नीतियां पैरामीटर के साथ |
-| [कस्टम नीतियां](https://docs.befailproof.ai/custom-policies) | अपनी स्वयं की लिखें |
+| [अंतर्निहित नीतियां](https://docs.befailproof.ai/built-in-policies) | सभी 30 नीतियां पैरामीटर के साथ |
+| [कस्टम नीतियां](https://docs.befailproof.ai/custom-policies) | अपनी खुद की लिखें |
 | [कॉन्फ़िगरेशन](https://docs.befailproof.ai/configuration) | कॉन्फ़िग स्कोप और मर्ज नियम |
 | [डैशबोर्ड](https://docs.befailproof.ai/dashboard) | सत्र मॉनिटर और नीति गतिविधि |
 | [आर्किटेक्चर](https://docs.befailproof.ai/architecture) | हुक सिस्टम कैसे काम करता है |
@@ -164,15 +164,15 @@ customPolicies.add({
 
 ## लाइसेंस
 
-MIT with [Commons Clause](https://commonsclause.com/) — आंतरिक और व्यक्तिगत उपयोग के लिए मुक्त; failproofai के व्यावसायिक पुनर्विक्रय के लिए अलग समझौते की आवश्यकता है। पूरे पाठ के लिए [LICENSE](./LICENSE) देखें।
+MIT with [Commons Clause](https://commonsclause.com/) — आंतरिक और व्यक्तिगत उपयोग के लिए निःशुल्क; failproofai का वाणिज्यिक पुनर्विक्रय एक अलग समझौते की आवश्यकता है। पूर्ण पाठ के लिए [LICENSE](./LICENSE) देखें।
 
 ---
 
 ## योगदान
 
-[CONTRIBUTING.md](./CONTRIBUTING.md) देखें। नई नीतियां, किनारे की स्थितियां, और अनुवाद सभी स्वागत हैं।
+[CONTRIBUTING.md](./CONTRIBUTING.md) देखें। नई नीतियां, किनारे के मामले, और अनुवाद सभी का स्वागत है।
 
 ---
 
-[Nivedit Jain](https://github.com/NiveditJain) और [Nikita Agarwal](https://github.com/nk-ag) द्वारा बनाया गया।
+[Nivedit Jain](https://github.com/NiveditJain) और [Nikita Agarwal](https://github.com/nk-ag) द्वारा निर्मित।
 [befailproof.ai](https://befailproof.ai)

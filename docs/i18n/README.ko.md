@@ -10,7 +10,7 @@
 
 [![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![CI](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/failproofai/failproofai/actions)
-[![Supply Chain](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/osv-scanner.yml?branch=main&style=flat-square&label=supply%20chain)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
+[![Supply Chain](https://img.shields.io/badge/supply%20chain-secure-brightgreen?style=flat-square)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
 [![Slack](https://img.shields.io/badge/Slack-join%20us-4A154B?style=flat-square&logo=slack)](https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ)
 [![Docs](https://img.shields.io/badge/docs-befailproof.ai-002CA7?style=flat-square)](https://docs.befailproof.ai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](./LICENSE)
@@ -18,8 +18,8 @@
 **번역:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
 **코딩 에이전트를 위한 런타임 장애 해결 도구.**
-Claude Code 및 Codex에 연결되어 루프, 위험한 작업, 시크릿 유출을
-인시던트가 되기 전에 차단합니다. 레이턴시 없음. 로컬에서 실행.
+Claude Code 및 Codex에 연동됩니다. 루프, 위험한 동작, 시크릿 유출을
+인시던트가 되기 전에 차단합니다. 지연 없음. 로컬에서 실행.
 
 </div>
 
@@ -80,7 +80,7 @@ Claude Code 및 Codex에 연결되어 루프, 위험한 작업, 시크릿 유출
   </a>
 </p>
 
-> 하나 또는 여러 CLI를 조합하여 훅을 설치할 수 있습니다: `failproofai policies --install --cli opencode pi gemini` (또는 `--cli claude codex copilot cursor opencode pi gemini`). `--cli`를 생략하면 설치된 CLI를 자동으로 감지하고 선택 프롬프트를 표시합니다.
+> 하나 또는 여러 CLI를 선택해 훅을 설치하세요: `failproofai policies --install --cli opencode pi gemini` (또는 `--cli claude codex copilot cursor opencode pi gemini`). `--cli`를 생략하면 설치된 CLI를 자동으로 감지하고 선택을 안내합니다.
 
 ---
 
@@ -88,17 +88,17 @@ Claude Code 및 Codex에 연결되어 루프, 위험한 작업, 시크릿 유출
 
 ```sh
 npm install -g failproofai
-failproofai policies --install   # 또는 `failproofai`를 실행하고 첫 실행 프롬프트에서 수락
+failproofai policies --install   # 또는 `failproofai`를 실행하고 최초 실행 프롬프트에서 수락
 failproofai
 ```
 
-30개의 내장 정책이 즉시 활성화됩니다. 대시보드는 `localhost:8020`에서 확인할 수 있습니다. `FAILPROOFAI_NO_FIRST_RUN=1`로 첫 실행 프롬프트를 비활성화할 수 있습니다.
+30개의 기본 정책이 즉시 활성화됩니다. 대시보드는 `localhost:8020`에서 확인할 수 있습니다. `FAILPROOFAI_NO_FIRST_RUN=1`로 최초 실행 프롬프트를 비활성화할 수 있습니다.
 
 ---
 
-## 차단하는 항목
+## 차단 대상
 
-| 정책 | 차단 대상 |
+| 정책 | 차단 내용 |
 |---|---|
 | `block-push-master` | `main` / `master` 브랜치로의 직접 푸시 |
 | `block-force-push` | `git push --force` |
@@ -106,14 +106,14 @@ failproofai
 | `block-rm-rf` | 재귀적 파일 삭제 |
 | `sanitize-api-keys` | 에이전트 컨텍스트로 유출되는 API 키 |
 
-→ [내장 정책 30개 전체 보기](https://docs.befailproof.ai/built-in-policies)
+→ [30개 기본 정책 전체 보기](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
 ## 커스텀 정책
 
-`.failproofai/policies/` 디렉터리에 파일을 추가하면 별도 플래그 없이 자동으로 로드됩니다.
-커밋하면 팀 전체가 다음 풀 시 적용받습니다.
+`.failproofai/policies/` 디렉터리에 파일을 추가하면 별도의 설정 없이 자동으로 로드됩니다.
+커밋하면 팀 전체가 다음 풀 시 동일한 정책을 적용받습니다.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -129,13 +129,13 @@ customPolicies.add({
 });
 ```
 
-모든 정책에서 사용 가능한 세 가지 결정:
+모든 정책에서 사용할 수 있는 세 가지 결정:
 
 | 결정 | 효과 |
 |---|---|
-| `allow()` | 작업 허용 |
-| `deny(message)` | 차단 — 메시지가 에이전트에게 반환됨 |
-| `instruct(message)` | 허용하되, 에이전트의 다음 프롬프트에 컨텍스트 추가 |
+| `allow()` | 작업을 허용합니다 |
+| `deny(message)` | 작업을 차단하고 메시지를 에이전트에게 반환합니다 |
+| `instruct(message)` | 작업을 허용하되, 에이전트의 다음 프롬프트에 컨텍스트를 추가합니다 |
 
 → [커스텀 정책 가이드](https://docs.befailproof.ai/custom-policies)
 
@@ -143,9 +143,9 @@ customPolicies.add({
 
 ## 세션 가시성
 
-에이전트가 실행한 모든 도구 호출은 로컬에 기록됩니다. 대시보드에서 실행된 내용,
-차단된 내용, 정책이 에이전트에게 전달한 내용을 확인할 수 있어 — 문제가 발생했을 때
-추측할 필요가 없습니다. → [대시보드 가이드](https://docs.befailproof.ai/dashboard)
+에이전트가 수행한 모든 툴 호출은 로컬에 기록됩니다. 대시보드에서 실행된 작업,
+차단된 작업, 정책이 에이전트에게 전달한 내용을 확인할 수 있어 — 문제가 발생했을 때
+더 이상 추측할 필요가 없습니다. → [대시보드 가이드](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -154,23 +154,23 @@ customPolicies.add({
 | | |
 |---|---|
 | [시작하기](https://docs.befailproof.ai/getting-started) | 설치 및 첫 번째 단계 |
-| [내장 정책](https://docs.befailproof.ai/built-in-policies) | 파라미터와 함께 30개 정책 전체 설명 |
+| [기본 정책](https://docs.befailproof.ai/built-in-policies) | 파라미터 포함 30개 정책 전체 |
 | [커스텀 정책](https://docs.befailproof.ai/custom-policies) | 직접 정책 작성하기 |
 | [설정](https://docs.befailproof.ai/configuration) | 설정 범위 및 병합 규칙 |
 | [대시보드](https://docs.befailproof.ai/dashboard) | 세션 모니터 및 정책 활동 |
-| [아키텍처](https://docs.befailproof.ai/architecture) | 훅 시스템 작동 방식 |
+| [아키텍처](https://docs.befailproof.ai/architecture) | 훅 시스템 동작 방식 |
 
 ---
 
 ## 라이선스
 
-[Commons Clause](https://commonsclause.com/)가 포함된 MIT 라이선스 — 내부 및 개인 사용은 무료이며, failproofai 자체의 상업적 재판매는 별도 계약이 필요합니다. 전문은 [LICENSE](./LICENSE)를 참고하세요.
+MIT with [Commons Clause](https://commonsclause.com/) — 내부 및 개인 사용은 무료이며, failproofai 자체의 상업적 재판매는 별도 계약이 필요합니다. 전문은 [LICENSE](./LICENSE)를 참조하세요.
 
 ---
 
-## 기여하기
+## 기여
 
-[CONTRIBUTING.md](./CONTRIBUTING.md)를 참고하세요. 새로운 정책, 엣지 케이스, 번역 모두 환영합니다.
+[CONTRIBUTING.md](./CONTRIBUTING.md)를 참조하세요. 새로운 정책, 엣지 케이스, 번역 기여를 환영합니다.
 
 ---
 

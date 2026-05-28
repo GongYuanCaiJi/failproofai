@@ -10,7 +10,7 @@
 
 [![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![CI](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/failproofai/failproofai/actions)
-[![Supply Chain](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/osv-scanner.yml?branch=main&style=flat-square&label=supply%20chain)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
+[![Supply Chain](https://img.shields.io/badge/supply%20chain-secure-brightgreen?style=flat-square)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
 [![Slack](https://img.shields.io/badge/Slack-join%20us-4A154B?style=flat-square&logo=slack)](https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ)
 [![Docs](https://img.shields.io/badge/docs-befailproof.ai-002CA7?style=flat-square)](https://docs.befailproof.ai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](./LICENSE)
@@ -18,8 +18,8 @@
 **Übersetzungen:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
 **Laufzeit-Fehlerbehebung für Coding-Agenten.**
-Klinkt sich in Claude Code und Codex ein. Erkennt Endlosschleifen, gefährliche Aktionen und geheimnisgefährdende Leaks,
-bevor sie zu Vorfällen werden. Keine Latenz. Läuft lokal.
+Greift in Claude Code und Codex ein. Erkennt Schleifen, gefährliche Aktionen und Secret-Leaks,
+bevor sie zu Vorfällen werden. Null Latenz. Läuft lokal.
 
 </div>
 
@@ -29,7 +29,7 @@ bevor sie zu Vorfällen werden. Keine Latenz. Läuft lokal.
 
 ---
 
-## Unterstützte Agent-CLIs
+## Unterstützte Agenten-CLIs
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -80,7 +80,7 @@ bevor sie zu Vorfällen werden. Keine Latenz. Läuft lokal.
   </a>
 </p>
 
-> Hooks für eine oder mehrere Kombinationen installieren: `failproofai policies --install --cli opencode pi gemini` (oder `--cli claude codex copilot cursor opencode pi gemini`). `--cli` weglassen, um installierte CLIs automatisch zu erkennen und eine Auswahl anzuzeigen.
+> Hooks für eine oder mehrere Kombinationen installieren: `failproofai policies --install --cli opencode pi gemini` (oder `--cli claude codex copilot cursor opencode pi gemini`). `--cli` weglassen, um installierte CLIs automatisch zu erkennen und eine Auswahl zu erhalten.
 
 ---
 
@@ -98,13 +98,13 @@ failproofai
 
 ## Was blockiert wird
 
-| Richtlinie | Was sie blockiert |
+| Richtlinie | Was sie verhindert |
 |---|---|
 | `block-push-master` | Direkte Pushes auf `main` / `master` |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | Commits, Merges und Rebases auf `main` / `master` |
 | `block-rm-rf` | Rekursives Löschen von Dateien |
-| `sanitize-api-keys` | API-Schlüssel, die in den Agenten-Kontext gelangen |
+| `sanitize-api-keys` | API-Keys, die in den Agenten-Kontext gelangen |
 
 → [Alle 30 integrierten Richtlinien](https://docs.befailproof.ai/built-in-policies)
 
@@ -129,13 +129,13 @@ customPolicies.add({
 });
 ```
 
-Jede Richtlinie kann drei Entscheidungen treffen:
+Jede Richtlinie hat drei mögliche Entscheidungen:
 
 | Entscheidung | Wirkung |
 |---|---|
-| `allow()` | Operation erlauben |
+| `allow()` | Operation zulassen |
 | `deny(message)` | Blockieren — die Nachricht wird an den Agenten zurückgegeben |
-| `instruct(message)` | Durchlassen, aber Kontext zum nächsten Prompt des Agenten hinzufügen |
+| `instruct(message)` | Durchlassen, aber dem nächsten Prompt des Agenten Kontext hinzufügen |
 
 → [Leitfaden für eigene Richtlinien](https://docs.befailproof.ai/custom-policies)
 
@@ -155,22 +155,22 @@ wenn etwas schiefläuft. → [Dashboard-Leitfaden](https://docs.befailproof.ai/d
 |---|---|
 | [Erste Schritte](https://docs.befailproof.ai/getting-started) | Installation und Einstieg |
 | [Integrierte Richtlinien](https://docs.befailproof.ai/built-in-policies) | Alle 30 Richtlinien mit Parametern |
-| [Eigene Richtlinien](https://docs.befailproof.ai/custom-policies) | Eigene Richtlinien erstellen |
+| [Eigene Richtlinien](https://docs.befailproof.ai/custom-policies) | Eigene Richtlinien schreiben |
 | [Konfiguration](https://docs.befailproof.ai/configuration) | Konfigurationsbereiche und Zusammenführungsregeln |
 | [Dashboard](https://docs.befailproof.ai/dashboard) | Sitzungsmonitor und Richtlinienaktivität |
-| [Architektur](https://docs.befailproof.ai/architecture) | Wie das Hook-System funktioniert |
+| [Architektur](https://docs.befailproof.ai/architecture) | Funktionsweise des Hook-Systems |
 
 ---
 
 ## Lizenz
 
-MIT mit [Commons Clause](https://commonsclause.com/) — kostenlos für den internen und persönlichen Einsatz; der kommerzielle Weiterverkauf von failproofai selbst erfordert eine gesonderte Vereinbarung. Den vollständigen Text findet man in [LICENSE](./LICENSE).
+MIT mit [Commons Clause](https://commonsclause.com/) — kostenlos für den internen und persönlichen Gebrauch; der kommerzielle Weiterverkauf von failproofai selbst erfordert eine gesonderte Vereinbarung. Den vollständigen Text findet man in [LICENSE](./LICENSE).
 
 ---
 
 ## Mitwirken
 
-Siehe [CONTRIBUTING.md](./CONTRIBUTING.md). Neue Richtlinien, Randfälle und Übersetzungen sind herzlich willkommen.
+Siehe [CONTRIBUTING.md](./CONTRIBUTING.md). Neue Richtlinien, Grenzfälle und Übersetzungen sind herzlich willkommen.
 
 ---
 

@@ -10,16 +10,16 @@
 
 [![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![CI](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/failproofai/failproofai/actions)
-[![Supply Chain](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/osv-scanner.yml?branch=main&style=flat-square&label=supply%20chain)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
+[![Supply Chain](https://img.shields.io/badge/supply%20chain-secure-brightgreen?style=flat-square)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
 [![Slack](https://img.shields.io/badge/Slack-join%20us-4A154B?style=flat-square&logo=slack)](https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ)
 [![Docs](https://img.shields.io/badge/docs-befailproof.ai-002CA7?style=flat-square)](https://docs.befailproof.ai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](./LICENSE)
 
 **Bản dịch:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**Giải pháp xử lý lỗi runtime cho các agent lập trình.**
-Tích hợp với Claude Code và Codex. Phát hiện các vòng lặp, hành động nguy hiểm và rò rỉ bí mật
-trước khi chúng trở thành sự cố. Không có độ trễ. Chạy cục bộ.
+**Giải pháp xử lý lỗi thời gian chạy cho các agent code.**
+Tích hợp vào Claude Code và Codex. Bắt các vòng lặp, hành động nguy hiểm, và rò rỉ bí mật
+trước khi chúng trở thành sự cố. Độ trễ bằng không. Chạy cục bộ.
 
 </div>
 
@@ -29,7 +29,7 @@ trước khi chúng trở thành sự cố. Không có độ trễ. Chạy cục
 
 ---
 
-## CLIs agent được hỗ trợ
+## CLI agent được hỗ trợ
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -80,7 +80,7 @@ trước khi chúng trở thành sự cố. Không có độ trễ. Chạy cục
   </a>
 </p>
 
-> Cài đặt hook cho một hoặc nhiều loại: `failproofai policies --install --cli opencode pi gemini` (hoặc `--cli claude codex copilot cursor opencode pi gemini`). Bỏ qua `--cli` để tự động phát hiện CLIs đã cài đặt và nhắc nhở.
+> Cài đặt hook cho một hoặc bất kỳ kết hợp nào: `failproofai policies --install --cli opencode pi gemini` (hoặc `--cli claude codex copilot cursor opencode pi gemini`). Bỏ qua `--cli` để tự động phát hiện các CLI được cài đặt và nhắc nhở.
 
 ---
 
@@ -88,32 +88,32 @@ trước khi chúng trở thành sự cố. Không có độ trễ. Chạy cục
 
 ```sh
 npm install -g failproofai
-failproofai policies --install   # hoặc chỉ cần chạy `failproofai` và chấp nhận prompt lần đầu tiên
+failproofai policies --install   # hoặc chỉ chạy `failproofai` và chấp nhận lời nhắc lần đầu tiên
 failproofai
 ```
 
-30 chính sách tích hợp sẽ được kích hoạt ngay lập tức. Bảng điều khiển tại `localhost:8020`. Vô hiệu hóa prompt lần đầu tiên bằng `FAILPROOFAI_NO_FIRST_RUN=1`.
+30 chính sách tích hợp sẵn được kích hoạt ngay lập tức. Bảng điều khiển tại `localhost:8020`. Tắt lời nhắc lần đầu tiên bằng `FAILPROOFAI_NO_FIRST_RUN=1`.
 
 ---
 
-## Những gì nó chặn
+## Những gì nó ngăn chặn
 
-| Chính sách | Điều gì bị chặn |
+| Chính sách | Những gì nó chặn |
 |---|---|
-| `block-push-master` | Push trực tiếp vào `main` / `master` |
+| `block-push-master` | Đẩy trực tiếp tới `main` / `master` |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | Commits, merges, rebases trên `main` / `master` |
-| `block-rm-rf` | Xóa tệp đệ quy |
-| `sanitize-api-keys` | API keys rò rỉ vào ngữ cảnh agent |
+| `block-work-on-main` | Commit, merge, rebase trên `main` / `master` |
+| `block-rm-rf` | Xóa file đệ quy |
+| `sanitize-api-keys` | API key rò rỉ vào ngữ cảnh agent |
 
-→ [Tất cả 30 chính sách tích hợp](https://docs.befailproof.ai/built-in-policies)
+→ [Tất cả 30 chính sách tích hợp sẵn](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
 ## Chính sách của riêng bạn
 
-Thả một tệp vào `.failproofai/policies/` — nó tải tự động, không cần cờ nào.
-Commit nó và toàn bộ đội sẽ nhận được nó ở lần pull tiếp theo.
+Thả một tệp vào `.failproofai/policies/` — nó tự động tải mà không cần cờ nào.
+Commit nó và toàn bộ đội của bạn sẽ nhận được nó khi pull tiếp theo.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -129,13 +129,13 @@ customPolicies.add({
 });
 ```
 
-Ba quyết định có sẵn cho mọi chính sách:
+Ba quyết định khả dụng cho mọi chính sách:
 
-| Quyết định | Hiệu quả |
+| Quyết định | Hiệu ứng |
 |---|---|
-| `allow()` | Cho phép thao tác |
-| `deny(message)` | Chặn nó — thông báo được gửi lại cho agent |
-| `instruct(message)` | Cho phép nó đi qua, nhưng thêm ngữ cảnh vào prompt tiếp theo của agent |
+| `allow()` | Cho phép thực hiện |
+| `deny(message)` | Chặn nó — thông điệp trở về agent |
+| `instruct(message)` | Để nó qua, nhưng thêm ngữ cảnh vào lời nhắc tiếp theo của agent |
 
 → [Hướng dẫn chính sách tùy chỉnh](https://docs.befailproof.ai/custom-policies)
 
@@ -143,9 +143,9 @@ Ba quyết định có sẵn cho mọi chính sách:
 
 ## Khả năng hiển thị phiên
 
-Mọi lệnh gọi công cụ mà agent của bạn thực hiện đều được ghi nhật ký cục bộ. Bảng điều khiển hiển thị những gì đã chạy,
-những gì bị chặn và những gì chính sách nói với agent — vì vậy bạn không cần đoán
-khi có điều gì đó không ổn. → [Hướng dẫn bảng điều khiển](https://docs.befailproof.ai/dashboard)
+Mọi lệnh gọi công cụ mà agent của bạn thực hiện đều được ghi lại cục bộ. Bảng điều khiển hiển thị những gì đã chạy,
+những gì bị chặn, và những gì chính sách đã báo cho agent — vì vậy bạn không phải đoán
+khi có điều gì đó trở nên sai. → [Hướng dẫn bảng điều khiển](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -154,23 +154,23 @@ khi có điều gì đó không ổn. → [Hướng dẫn bảng điều khiển
 | | |
 |---|---|
 | [Bắt đầu](https://docs.befailproof.ai/getting-started) | Cài đặt và bước đầu tiên |
-| [Chính sách tích hợp](https://docs.befailproof.ai/built-in-policies) | Tất cả 30 chính sách với tham số |
-| [Chính sách tùy chỉnh](https://docs.befailproof.ai/custom-policies) | Viết chính sách của riêng bạn |
-| [Cấu hình](https://docs.befailproof.ai/configuration) | Phạm vi cấu hình và quy tắc hợp nhất |
-| [Bảng điều khiển](https://docs.befailproof.ai/dashboard) | Trình giám sát phiên và hoạt động chính sách |
+| [Chính sách tích hợp sẵn](https://docs.befailproof.ai/built-in-policies) | Tất cả 30 chính sách với tham số |
+| [Chính sách tùy chỉnh](https://docs.befailproof.ai/custom-policies) | Viết của riêng bạn |
+| [Cấu hình](https://docs.befailproof.ai/configuration) | Phạm vi cấu hình và quy tắc merge |
+| [Bảng điều khiển](https://docs.befailproof.ai/dashboard) | Giám sát phiên và hoạt động chính sách |
 | [Kiến trúc](https://docs.befailproof.ai/architecture) | Cách hệ thống hook hoạt động |
 
 ---
 
 ## Giấy phép
 
-MIT với [Commons Clause](https://commonsclause.com/) — miễn phí để sử dụng nội bộ và cá nhân; bán lại thương mại failproofai yêu cầu một thỏa thuận riêng. Xem [LICENSE](./LICENSE) để biết toàn bộ văn bản.
+MIT với [Commons Clause](https://commonsclause.com/) — miễn phí cho sử dụng nội bộ và cá nhân; bán lại thương mại chính failproofai yêu cầu một thỏa thuận riêng. Xem [LICENSE](./LICENSE) để biết toàn bộ văn bản.
 
 ---
 
 ## Đóng góp
 
-Xem [CONTRIBUTING.md](./CONTRIBUTING.md). Chính sách mới, trường hợp cạnh và bản dịch đều được chào đón.
+Xem [CONTRIBUTING.md](./CONTRIBUTING.md). Chúng tôi hoan nghênh các chính sách mới, trường hợp cạnh, và bản dịch.
 
 ---
 
