@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout FailproofAI/platform main
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: FailproofAI/platform
           token: ${{ secrets.PLATFORM_BUMP_TOKEN }}
@@ -28,14 +28,20 @@ jobs:
           fetch-depth: 1
           # Don't fetch submodule contents — we only edit the gitlink.
           submodules: false
+          # Don't persist the cross-repo token in git config; auth is
+          # set inline on the push/fetch commands below.
+          persist-credentials: false
 
       - name: Bump failproofai/oss gitlink and push
         env:
           NEW_SHA: ${{ github.sha }}
           COMMIT_SUBJECT: ${{ github.event.head_commit.message }}
           UPSTREAM_REPO: ${{ github.repository }}
+          PLATFORM_BUMP_TOKEN: ${{ secrets.PLATFORM_BUMP_TOKEN }}
         run: |
           set -euo pipefail
+
+          AUTH_HEADER="Authorization: bearer ${PLATFORM_BUMP_TOKEN}"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -64,12 +70,12 @@ jobs:
           # Race-safe push: if platform main moved between checkout and push,
           # rebase the single bump commit on top and try again.
           for attempt in 1 2 3; do
-            if git push origin main; then
+            if git -c http.extraheader="$AUTH_HEADER" push origin main; then
               echo "Pushed bump on attempt $attempt"
               exit 0
             fi
             echo "Push failed on attempt $attempt — rebasing onto latest main"
-            git fetch origin main
+            git -c http.extraheader="$AUTH_HEADER" fetch origin main
             git rebase origin/main
           done
 
