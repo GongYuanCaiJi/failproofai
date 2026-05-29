@@ -95,6 +95,29 @@ describe("auth/api-client", () => {
         .rejects.toThrow("The code is invalid or has expired.");
     });
 
+    it("wraps a network failure into CliError instead of letting it bubble as Unexpected error", async () => {
+      vi.stubGlobal("fetch", vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }));
+      const { verifyLoginCode } = await import("../../src/auth/api-client");
+      const err = await verifyLoginCode("http://localhost:8080", "a@b.c", "111111")
+        .then(() => null, (e: Error) => e);
+      expect(err).not.toBeNull();
+      expect(err?.name).toBe("CliError");
+      expect(err?.message).toContain("Network error");
+    });
+
+    it("wraps an AbortError-style timeout into CliError", async () => {
+      const timeoutErr = new Error("timed out");
+      timeoutErr.name = "TimeoutError";
+      vi.stubGlobal("fetch", vi.fn(async () => { throw timeoutErr; }));
+      const { verifyLoginCode } = await import("../../src/auth/api-client");
+      const err = await verifyLoginCode("http://localhost:8080", "a@b.c", "111111")
+        .then(() => null, (e: Error) => e);
+      expect(err?.name).toBe("CliError");
+      expect(err?.message).toContain("timed out");
+    });
+
     it("surfaces the Retry-After hint on 429", async () => {
       mockFetch(() => ({
         status: 429,

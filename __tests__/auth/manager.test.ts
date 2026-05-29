@@ -206,5 +206,43 @@ describe("auth/manager", () => {
       expect(sessionMocks.clearSession).toHaveBeenCalledTimes(1);
       expect(apiClientMocks.refreshTokens).not.toHaveBeenCalled();
     });
+
+    it("clears the session on 401 from the refresh endpoint (truly invalid token)", async () => {
+      sessionMocks.readSession.mockReturnValue({
+        user: { id: "u", email: "a@b.c" },
+        access_token: "stale-atk",
+        access_expires_at: Date.now() - 1000,
+        refresh_token: "rtk-revoked",
+        refresh_expires_at: Date.now() + 10_000,
+        api_base_url: "http://localhost:8080",
+      });
+      const apiErr = Object.assign(new Error("Session expired, please log in again."), {
+        name: "CliError", exitCode: 1 as const, status: 401,
+      });
+      apiClientMocks.refreshTokens.mockRejectedValue(apiErr);
+
+      const { whoamiCmd } = await import("../../src/auth/manager");
+      await expect(whoamiCmd()).rejects.toThrow(/Session expired/);
+      expect(sessionMocks.clearSession).toHaveBeenCalledTimes(1);
+    });
+
+    it("preserves the session on a transient refresh failure (network / 5xx / timeout)", async () => {
+      sessionMocks.readSession.mockReturnValue({
+        user: { id: "u", email: "a@b.c" },
+        access_token: "stale-atk",
+        access_expires_at: Date.now() - 1000,
+        refresh_token: "rtk-good",
+        refresh_expires_at: Date.now() + 10_000,
+        api_base_url: "http://localhost:8080",
+      });
+      const apiErr = Object.assign(new Error("Network error contacting http://localhost:8080/v0/auth/token/refresh: fetch failed"), {
+        name: "CliError", exitCode: 1 as const,
+      });
+      apiClientMocks.refreshTokens.mockRejectedValue(apiErr);
+
+      const { whoamiCmd } = await import("../../src/auth/manager");
+      await expect(whoamiCmd()).rejects.toThrow(/Could not refresh session/);
+      expect(sessionMocks.clearSession).not.toHaveBeenCalled();
+    });
   });
 });

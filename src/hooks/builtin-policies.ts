@@ -179,11 +179,13 @@ const FORCE_PUSH_RE = /(?:--force|-f\b)/;
 
 // blockSecretsWrite — match well-known secret files only, never source code
 // (e.g. `src/auth/session-store.ts` is not a secret even though it deals with
-// session tokens; `id_rsa_backup.md` is documentation, not a key).
+// session tokens; `id_rsa_backup.md` is documentation, not a key). Patterns
+// accept both POSIX `/` and Windows `\` path separators so e.g.
+// `C:\Users\me\.ssh\id_rsa` is still caught.
 const SECRET_FILE_RE = /\.(?:pem|key|p12|pfx|jks)$/;
-const SECRET_FILE_ID_RSA_RE = /(?:^|\/)id_(?:rsa|dsa|ecdsa|ed25519)(?:\.pub)?$/;
+const SECRET_FILE_ID_RSA_RE = /(?:^|[\\/])id_(?:rsa|dsa|ecdsa|ed25519)$/;
 const SECRET_FILE_CREDENTIALS_RE =
-  /(?:^|\/)\.(?:aws|docker|kube|azure|gcloud|config\/gcloud)\/credentials(?:\.db|\.json)?$|(?:^|\/)\.netrc$/;
+  /(?:^|[\\/])\.(?:aws|docker|kube|azure|gcloud)[\\/]credentials(?:\.db|\.json)?$|[\\/]\.config[\\/]gcloud[\\/]credentials(?:\.db|\.json)?$|(?:^|[\\/])\.netrc$/;
 
 // blockWorkOnMain
 const GIT_COMMIT_MERGE_RE = /git\s+(commit|merge|rebase|cherry-pick)\b/;

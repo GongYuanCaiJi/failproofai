@@ -69,6 +69,28 @@ async function readErrorDetail(response: Response): Promise<string> {
   return `${response.status} ${response.statusText}`;
 }
 
+/** Network/timeout failures: convert into a `CliError` so they land on the
+ *  "Error: ..." exit-1 path instead of getting tagged "Unexpected error". The
+ *  status field on the thrown error is left undefined for these so callers
+ *  (whoamiCmd) can distinguish "transient" from "401, session is dead". */
+function wrapFetchFailure(err: unknown, url: string): CliError {
+  if (err instanceof Error && err.name === "TimeoutError") {
+    return new CliError(`Request to ${url} timed out`);
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  return new CliError(`Network error contacting ${url}: ${msg}`);
+}
+
+interface ApiError extends CliError {
+  status?: number;
+}
+
+function apiErrorFromResponse(detail: string, status: number): ApiError {
+  const err = new CliError(detail) as ApiError;
+  err.status = status;
+  return err;
+}
+
 async function postJson<T>(
   url: string,
   body: unknown,
@@ -77,21 +99,26 @@ async function postJson<T>(
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (init?.authToken) headers["Authorization"] = `Bearer ${init.authToken}`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(init?.timeoutMs ?? 15_000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(init?.timeoutMs ?? 15_000),
+    });
+  } catch (err) {
+    throw wrapFetchFailure(err, url);
+  }
 
   if (!response.ok) {
     const detail = await readErrorDetail(response);
     if (response.status === 429) {
       const retryAfter = response.headers.get("retry-after");
       const hint = retryAfter ? ` (retry after ${retryAfter}s)` : "";
-      throw new CliError(`${detail}${hint}`);
+      throw apiErrorFromResponse(`${detail}${hint}`, 429);
     }
-    throw new CliError(detail);
+    throw apiErrorFromResponse(detail, response.status);
   }
 
   if (response.status === 204) return undefined as T;
@@ -99,13 +126,18 @@ async function postJson<T>(
 }
 
 async function getJson<T>(url: string, authToken: string, timeoutMs = 15_000): Promise<T> {
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${authToken}` },
-    signal: AbortSignal.timeout(timeoutMs),
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${authToken}` },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    throw wrapFetchFailure(err, url);
+  }
   if (!response.ok) {
-    throw new CliError(await readErrorDetail(response));
+    throw apiErrorFromResponse(await readErrorDetail(response), response.status);
   }
   return (await response.json()) as T;
 }

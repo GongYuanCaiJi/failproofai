@@ -92,9 +92,16 @@ export async function whoamiCmd(): Promise<void> {
       writeSession(rotated);
       accessToken = refreshed.access_token;
     } catch (err) {
-      clearSession();
+      // Only nuke the local session when the server actively rejects the
+      // refresh token (401/403) — transient failures (network, 5xx, timeout)
+      // should leave the session intact so the user can just retry.
+      const status = (err as { status?: number } | null)?.status;
       const msg = err instanceof Error ? err.message : String(err);
-      throw new CliError(`Session expired (${msg}). Run \`failproofai auth login\`.`);
+      if (status === 401 || status === 403) {
+        clearSession();
+        throw new CliError(`Session expired. Run \`failproofai auth login\`.`);
+      }
+      throw new CliError(`Could not refresh session: ${msg}. Try again or run \`failproofai auth login\`.`);
     }
   }
 

@@ -939,6 +939,29 @@ describe("hooks/builtin-policies", () => {
         expect((await policy.fn(ctx)).decision, file_path).toBe("deny");
       }
     });
+
+    it("allows ssh public keys (.pub) since they are not secrets", async () => {
+      for (const file_path of [
+        "/home/user/.ssh/id_rsa.pub",
+        "/home/user/.ssh/id_ed25519.pub",
+        "/home/user/.ssh/id_ecdsa.pub",
+      ]) {
+        const ctx = makeCtx({ toolName: "Write", toolInput: { file_path } });
+        expect((await policy.fn(ctx)).decision, file_path).toBe("allow");
+      }
+    });
+
+    it("blocks Windows-style secret paths too", async () => {
+      for (const file_path of [
+        "C:\\Users\\me\\.ssh\\id_rsa",
+        "C:\\Users\\me\\.aws\\credentials",
+        "C:\\Users\\me\\.docker\\credentials.json",
+        "C:\\Users\\me\\.netrc",
+      ]) {
+        const ctx = makeCtx({ toolName: "Write", toolInput: { file_path } });
+        expect((await policy.fn(ctx)).decision, file_path).toBe("deny");
+      }
+    });
   });
 
   describe("block-work-on-main", () => {
