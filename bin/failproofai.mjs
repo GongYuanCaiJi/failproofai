@@ -7,6 +7,7 @@
  *   --version / -v        Print version and exit
  *   --help / -h           Show usage and exit
  *   policies              Manage policies (list / install / uninstall)
+ *   auth                  Email-OTP login against the failproofai api-server
  *   (default)             Launch production dashboard
  */
 import { realpathSync } from "node:fs";
@@ -103,7 +104,7 @@ if (hookIdx >= 0) {
  */
 async function runCli() {
   // --help / -h  (only when not inside a subcommand that handles its own --help)
-  const SUBCOMMANDS = ["policies", "audit"];
+  const SUBCOMMANDS = ["policies", "audit", "auth"];
   if ((args.includes("--help") || args.includes("-h")) && !SUBCOMMANDS.includes(args[0])) {
     const extraArgs = args.filter((a) => a !== "--help" && a !== "-h");
     if (extraArgs.length > 0) {
@@ -158,6 +159,11 @@ COMMANDS
     --json                         Print JSON to stdout instead of the table.
     --no-cache                     Bypass the per-transcript cache.
   audit --help, -h               Show this help for the audit command
+
+  auth login [--email <addr>]    Log in via email + one-time code
+  auth logout                    Sign out and clear the local session
+  auth whoami                    Show the currently signed-in user
+  auth --help, -h                Show this help for the auth command
 
   --version, -v                  Print version and exit
   --help, -h                     Show this help message
@@ -622,6 +628,81 @@ EXAMPLES
     process.exit(0);
   }
 
+  // auth — email-OTP login against the failproofai api-server.
+  if (args[0] === "auth") {
+    const subArgs = args.slice(1);
+
+    if (subArgs.length === 0 || subArgs.includes("--help") || subArgs.includes("-h")) {
+      console.log(`
+failproofai auth — log in to the failproofai api-server
+
+USAGE
+  failproofai auth login [--email <addr>]    Send a one-time code and exchange
+                                             it for a session
+  failproofai auth logout                    Revoke the session and clear local
+                                             state
+  failproofai auth whoami                    Show the currently signed-in user
+  failproofai auth --help, -h                Show this help
+
+ENVIRONMENT
+  FAILPROOFAI_API_BASE_URL   Override the api-server URL (default:
+                             https://api.befailproof.ai).
+
+EXAMPLES
+  failproofai auth login
+  failproofai auth login --email me@example.com
+  failproofai auth whoami
+  failproofai auth logout
+`.trimStart());
+      process.exit(0);
+    }
+
+    const verb = subArgs[0];
+    lastSubcommand = `auth_${verb}`;
+
+    if (verb === "login") {
+      const rest = subArgs.slice(1);
+      const emailIdx = rest.indexOf("--email");
+      let email;
+      if (emailIdx >= 0) {
+        email = rest[emailIdx + 1];
+        if (!email || email.startsWith("-")) {
+          throw new CliError("Missing value for --email. Usage: --email <addr>");
+        }
+        rest.splice(emailIdx, 2);
+      }
+      for (const arg of rest) {
+        throw new CliError(`Unexpected argument: ${arg}\nRun \`failproofai auth --help\` for usage.`);
+      }
+      const { loginCmd } = await import("../src/auth/manager");
+      await loginCmd({ email });
+      await track("cli_auth_login_success", {});
+      process.exit(0);
+    }
+
+    if (verb === "logout") {
+      if (subArgs.length > 1) {
+        throw new CliError(`Unexpected argument: ${subArgs[1]}\nRun \`failproofai auth --help\` for usage.`);
+      }
+      const { logoutCmd } = await import("../src/auth/manager");
+      await logoutCmd();
+      await track("cli_auth_logout_success", {});
+      process.exit(0);
+    }
+
+    if (verb === "whoami") {
+      if (subArgs.length > 1) {
+        throw new CliError(`Unexpected argument: ${subArgs[1]}\nRun \`failproofai auth --help\` for usage.`);
+      }
+      const { whoamiCmd } = await import("../src/auth/manager");
+      await whoamiCmd();
+      await track("cli_auth_whoami_success", {});
+      process.exit(0);
+    }
+
+    throw new CliError(`Unknown auth subcommand: ${verb}\nRun \`failproofai auth --help\` for usage.`);
+  }
+
   // Unknown flag guard — must appear after all known-flag branches
   const knownFlags = ["--version", "-v", "--help", "-h", "--hook"];
   const unknownFlag = args.find(a => a.startsWith("-") && !knownFlags.includes(a));
@@ -640,7 +721,7 @@ EXAMPLES
       return dp[m][n];
     }
 
-    const primary = ["--version", "--help", "--hook", "policies", "audit"];
+    const primary = ["--version", "--help", "--hook", "policies", "audit", "auth"];
     const closest = primary.reduce((best, flag) => {
       const dist = levenshtein(unknownFlag, flag);
       return dist < best.dist ? { flag, dist } : best;
@@ -682,11 +763,23 @@ EXAMPLES
 // ── Import CliError for use in the guard above ────────────────────────────────
 const { CliError } = await import("../src/cli-error");
 
+// bun's bundler can emit multiple copies of the CliError class when it shows
+// up via both a static import (inside a dynamically-imported subcommand
+// handler) and the dynamic import on the line above. `instanceof` then
+// returns false across the two copies and a clean user-facing error gets
+// reported as "Unexpected error". Duck-type instead.
+function isCliError(err) {
+  return (
+    err instanceof CliError
+    || (err && err.name === "CliError" && (err.exitCode === 1 || err.exitCode === 2))
+  );
+}
+
 // ── Run ───────────────────────────────────────────────────────────────────────
 try {
   await runCli();
 } catch (err) {
-  if (err instanceof CliError) {
+  if (isCliError(err)) {
     if (lastSubcommand === "install") {
       await track("cli_install_failure", { error_type: "cli_error", exit_code: err.exitCode });
     } else if (lastSubcommand === "uninstall") {

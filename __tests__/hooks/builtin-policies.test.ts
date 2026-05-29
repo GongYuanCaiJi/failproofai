@@ -185,6 +185,30 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
     });
+
+    it("allows shell pipelines whose args contain a scheme-like alternation", async () => {
+      // grep -E 'postgres://|mysql://|@host:1234/' is a regex pattern, not a
+      // leaked connection string. The detector should not see this as a hit.
+      for (const output of [
+        "grep -nE 'postgres://|mysql://|@[a-z]+:[0-9]+/' file.txt",
+        "perl -ne '/postgres:\\/\\/[a-z]+@[a-z]+/'",
+        "echo 'allowed schemes: postgres://, mysql://, mongodb://'",
+      ]) {
+        const ctx = makeCtx({ eventType: "PostToolUse", payload: { output } });
+        const result = await policy.fn(ctx);
+        expect(result.decision, output).toBe("allow");
+      }
+    });
+
+    it("still detects real connection strings even alongside other text", async () => {
+      const ctx = makeCtx({
+        eventType: "PostToolUse",
+        payload: {
+          output: "DB up: postgresql://app_user:hunter2@db.internal:5432/app",
+        },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
   });
 
   describe("sanitize-private-key-content", () => {
@@ -877,6 +901,44 @@ describe("hooks/builtin-policies", () => {
       const ctx = makeCtx({ toolName: "Read", toolInput: { file_path: "/home/user/cert.pem" } });
       expect((await policy.fn(ctx)).decision).toBe("allow");
     });
+
+    it("allows source files whose path contains the word credentials", async () => {
+      // Source code that *deals with* credentials is not itself a credential file.
+      for (const file_path of [
+        "/repo/src/auth/credentials.ts",
+        "/repo/lib/credentials-helper.js",
+        "/repo/docs/credentials.md",
+        "/repo/__tests__/credentials.test.ts",
+      ]) {
+        const ctx = makeCtx({ toolName: "Write", toolInput: { file_path } });
+        expect((await policy.fn(ctx)).decision, file_path).toBe("allow");
+      }
+    });
+
+    it("allows source files whose path contains the substring id_rsa", async () => {
+      // Files named after id_rsa (notes, backups, docs) but not in ~/.ssh/.
+      for (const file_path of [
+        "/repo/notes/id_rsa_recovery.md",
+        "/repo/docs/setup-id_rsa.md",
+        "/repo/src/id_rsa-rotator.ts",
+      ]) {
+        const ctx = makeCtx({ toolName: "Write", toolInput: { file_path } });
+        expect((await policy.fn(ctx)).decision, file_path).toBe("allow");
+      }
+    });
+
+    it("still blocks ssh private keys and well-known credential paths", async () => {
+      for (const file_path of [
+        "/home/user/.ssh/id_rsa",
+        "/home/user/.ssh/id_ed25519",
+        "/home/user/.aws/credentials",
+        "/home/user/.docker/credentials.json",
+        "/home/user/.netrc",
+      ]) {
+        const ctx = makeCtx({ toolName: "Write", toolInput: { file_path } });
+        expect((await policy.fn(ctx)).decision, file_path).toBe("deny");
+      }
+    });
   });
 
   describe("block-work-on-main", () => {
@@ -1445,6 +1507,64 @@ describe("hooks/builtin-policies", () => {
       const ctx = makeCtx({
         toolName: "Read",
         toolInput: { file_path: "/foo/bar.ts" },
+        session: { transcriptPath: "/tmp/transcript.jsonl" },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+    });
+
+    it("does not fire again for a fingerprint already warned", async () => {
+      // Second time the agent hits the same fingerprint after we already
+      // warned — keep quiet so the warning doesn't pile up turn after turn.
+      const fingerprint = JSON.stringify({ tool: "Read", input: { file_path: "/foo/bar.ts" } });
+      vi.mocked(readFile).mockResolvedValue(
+        JSON.stringify({ counts: { [fingerprint]: 7 }, warned: { [fingerprint]: true } }),
+      );
+
+      const ctx = makeCtx({
+        toolName: "Read",
+        toolInput: { file_path: "/foo/bar.ts" },
+        session: { transcriptPath: "/tmp/transcript.jsonl" },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+    });
+
+    it("canonicalizes input key order so reordered identical calls match", async () => {
+      // Tracker recorded { file_path, offset } in one order; live call sends
+      // them in the opposite order. Should still fingerprint as the same call.
+      const canonicalFp = JSON.stringify({
+        tool: "Read",
+        input: { file_path: "/foo/bar.ts", offset: 100 },
+      });
+      vi.mocked(readFile).mockResolvedValue(
+        JSON.stringify({ counts: { [canonicalFp]: 3 }, warned: {} }),
+      );
+
+      const ctx = makeCtx({
+        toolName: "Read",
+        // Reverse key order — JSON.stringify alone would not match the bucket.
+        toolInput: { offset: 100, file_path: "/foo/bar.ts" } as Record<string, unknown>,
+        session: { transcriptPath: "/tmp/transcript.jsonl" },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("instruct");
+    });
+
+    it("treats reads with different offset/limit as distinct fingerprints", async () => {
+      // Three prior reads of the same file at offset 0, but the current call
+      // is at offset 500 — that's a genuinely new call, do not warn.
+      const otherFp = JSON.stringify({
+        tool: "Read",
+        input: { file_path: "/foo/bar.ts", offset: 0 },
+      });
+      vi.mocked(readFile).mockResolvedValue(
+        JSON.stringify({ counts: { [otherFp]: 3 }, warned: {} }),
+      );
+
+      const ctx = makeCtx({
+        toolName: "Read",
+        toolInput: { file_path: "/foo/bar.ts", offset: 500 },
         session: { transcriptPath: "/tmp/transcript.jsonl" },
       });
       const result = await policy.fn(ctx);

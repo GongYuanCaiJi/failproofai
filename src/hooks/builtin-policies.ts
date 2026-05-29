@@ -131,7 +131,10 @@ const API_KEY_PATTERNS: Array<[RegExp, string]> = [
 ];
 
 // sanitizeConnectionStrings
-const CONNECTION_STRING_RE = /(?:postgresql|postgres|mysql|mongodb(?:\+srv)?|redis|amqps?|smtps?):\/\/[^@\s]+@/;
+// Require a URL-safe user:password@host shape so regex patterns or example
+// snippets that merely contain a scheme name (e.g. a grep pattern like
+// `postgres://|mongodb://|@foo:1/`) do not get flagged as leaked secrets.
+const CONNECTION_STRING_RE = /(?:postgresql|postgres|mysql|mongodb(?:\+srv)?|redis|amqps?|smtps?):\/\/[\w.\-+%]+:[^@\s:|&?#]+@[\w.\-]+/;
 
 // sanitizePrivateKeyContent
 const PRIVATE_KEY_RE = /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/;
@@ -174,10 +177,13 @@ const PS_WEB_PIPE_RE = /(?:Invoke-WebRequest|iwr|Invoke-RestMethod|irm)\s+.*\|\s
 // blockForcePush
 const FORCE_PUSH_RE = /(?:--force|-f\b)/;
 
-// blockSecretsWrite
-const SECRET_FILE_RE = /\.(?:pem|key)$/;
-const SECRET_FILE_ID_RSA_RE = /id_rsa/;
-const SECRET_FILE_CREDENTIALS_RE = /credentials/;
+// blockSecretsWrite — match well-known secret files only, never source code
+// (e.g. `src/auth/session-store.ts` is not a secret even though it deals with
+// session tokens; `id_rsa_backup.md` is documentation, not a key).
+const SECRET_FILE_RE = /\.(?:pem|key|p12|pfx|jks)$/;
+const SECRET_FILE_ID_RSA_RE = /(?:^|\/)id_(?:rsa|dsa|ecdsa|ed25519)(?:\.pub)?$/;
+const SECRET_FILE_CREDENTIALS_RE =
+  /(?:^|\/)\.(?:aws|docker|kube|azure|gcloud|config\/gcloud)\/credentials(?:\.db|\.json)?$|(?:^|\/)\.netrc$/;
 
 // blockWorkOnMain
 const GIT_COMMIT_MERGE_RE = /git\s+(commit|merge|rebase|cherry-pick)\b/;
@@ -904,36 +910,80 @@ function blockGhPipeline(ctx: PolicyContext): PolicyResult {
 // than growing the file unboundedly.
 const TOOL_CALL_TRACKER_MAX_BYTES = 65_536; // 64 KB
 
+/** Stable JSON: sort object keys recursively so {a:1,b:2} and {b:2,a:1}
+ *  produce the same fingerprint. Without this, a tool input with the same
+ *  fields in different orders fingerprints differently and the policy misses
+ *  real repetitions; worse, it can over-fire when one ordering accumulates
+ *  count and a later identical-but-reordered call lands on a different bucket.
+ */
+function canonicalize(value: unknown): unknown {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(canonicalize);
+  const obj = value as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(obj).sort()) {
+    out[k] = canonicalize(obj[k]);
+  }
+  return out;
+}
+
+interface RepeatedCallsTracker {
+  counts: Record<string, number>;
+  warned: Record<string, true>;
+}
+
+function parseTracker(raw: string): RepeatedCallsTracker {
+  const parsed: unknown = JSON.parse(raw);
+  if (parsed && typeof parsed === "object" && "counts" in (parsed as object)) {
+    const obj = parsed as Partial<RepeatedCallsTracker>;
+    return {
+      counts: obj.counts ?? {},
+      warned: obj.warned ?? {},
+    };
+  }
+  // Back-compat: older sessions wrote bare `{ fingerprint: count }`.
+  return { counts: (parsed ?? {}) as Record<string, number>, warned: {} };
+}
+
 async function warnRepeatedToolCalls(ctx: PolicyContext): Promise<PolicyResult> {
   const THRESHOLD = 3;
   const transcriptPath = ctx.session?.transcriptPath;
   if (!transcriptPath || !ctx.toolName || !ctx.toolInput) return allow();
 
-  // Sidecar file tracks { fingerprint: count } — O(1) per call vs O(transcript) per call.
+  // Sidecar file tracks { counts, warned } per session — O(1) per call vs
+  // O(transcript) per call.
   const trackerPath = `${transcriptPath}.tool-calls.json`;
-  const fingerprint = JSON.stringify({ tool: ctx.toolName, input: ctx.toolInput });
+  const fingerprint = JSON.stringify({
+    tool: ctx.toolName,
+    input: canonicalize(ctx.toolInput),
+  });
 
-  let counts: Record<string, number> = {};
+  let tracker: RepeatedCallsTracker = { counts: {}, warned: {} };
   try {
-    const raw = await readFile(trackerPath, "utf8");
-    counts = JSON.parse(raw) as Record<string, number>;
+    tracker = parseTracker(await readFile(trackerPath, "utf8"));
   } catch { /* first call or unreadable — start fresh */ }
 
-  const prevCount = counts[fingerprint] ?? 0;
-  if (prevCount >= THRESHOLD) {
-    return instruct(
-      `STOP: You have already called ${ctx.toolName} ${prevCount} times with identical parameters. This is wasteful and unproductive. Do NOT repeat this call — use a different approach or ask the user for clarification.`,
-    );
-  }
+  const prevCount = tracker.counts[fingerprint] ?? 0;
+  // Fire only when we cross the threshold AND we have not already warned for
+  // this fingerprint. Repeated warnings on the same input add noise without
+  // adding information; the agent already got the message the first time.
+  const shouldWarn = prevCount >= THRESHOLD && !tracker.warned[fingerprint];
 
-  counts[fingerprint] = prevCount + 1;
+  tracker.counts[fingerprint] = prevCount + 1;
+  if (shouldWarn) tracker.warned[fingerprint] = true;
+
   try {
-    const serialized = JSON.stringify(counts);
+    const serialized = JSON.stringify(tracker);
     if (serialized.length <= TOOL_CALL_TRACKER_MAX_BYTES) {
       await writeFile(trackerPath, serialized, "utf8");
     }
   } catch { /* non-fatal */ }
 
+  if (shouldWarn) {
+    return instruct(
+      `STOP: You have already called ${ctx.toolName} ${prevCount} times with identical parameters. This is wasteful and unproductive. Do NOT repeat this call — use a different approach or ask the user for clarification.`,
+    );
+  }
   return allow();
 }
 
