@@ -8,11 +8,17 @@
  * Layout uses the ported `.archetype-frame` / `.arch-mast` / `.arch-body`
  * classes from audit-styles.css. Data sources from `src/audit/archetypes.ts`.
  *
+ * The variant copy (tagline / keywords / common / risk / closing) is
+ * picked deterministically from a multi-variant catalog using the `seed`
+ * prop — typically the inferred project name. Same seed → same persona
+ * blurb across renders; different seeds → different copy. So two users
+ * who both land on "the optimist" see different language for it.
+ *
  * Exposes a `frameRef` forwarded onto the `.archetype-frame` element so
  * the ShowOff "make poster" action can capture it via html2canvas.
  */
 import React, { forwardRef } from "react";
-import { ARCHETYPES, type ArchetypeKey } from "@/src/audit/archetypes";
+import { ARCHETYPES, pickArchetypeVariant, type ArchetypeKey } from "@/src/audit/archetypes";
 import { Sigil } from "./sigil";
 
 interface Props {
@@ -22,13 +28,15 @@ interface Props {
   sessions: number;
   /** "30d", "7d", etc. shown in the target line; "all time" otherwise. */
   window: string;
+  /** Stable seed for variant selection (project name is the natural fit). */
+  seed: string;
 }
 
 export const IdentitySection = forwardRef<HTMLDivElement, Props>(function IdentitySection(
-  { archetypeKey, secondaryKey, toolCalls, sessions, window }: Props,
+  { archetypeKey, secondaryKey, toolCalls, sessions, window, seed }: Props,
   frameRef,
 ) {
-  const archetype = ARCHETYPES[archetypeKey];
+  const archetype = pickArchetypeVariant(archetypeKey, seed);
   const secondary = secondaryKey !== archetypeKey ? ARCHETYPES[secondaryKey] : null;
 
   return (

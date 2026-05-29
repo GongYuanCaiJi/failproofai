@@ -187,10 +187,19 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
   /** Identity hero ref — captured to PNG by the "make poster" button. */
   const identityFrameRef = useRef<HTMLDivElement>(null);
 
-  /** Scroll to the ShowOff CTA — the share button entry point per spec. */
+  /** Scroll to the ShowOff CTA — the share button entry point per spec.
+   *  Uses manual y-coord scrolling instead of scrollIntoView so we can
+   *  account for the sticky .app-header (≈52px) that would otherwise
+   *  cover the section. */
   const scrollToShowOff = () => {
-    const el = document.querySelector('[data-screen-label="01b Show off"]');
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const el = document.querySelector<HTMLElement>(".showoff");
+    if (!el) return;
+    const headerEl = document.querySelector<HTMLElement>(".app-header");
+    const offset = (headerEl?.offsetHeight ?? 0) + 16;
+    // `window` is shadowed by the inferWindow() string prop; use globalThis.
+    const w = globalThis as typeof globalThis & Window;
+    const targetY = el.getBoundingClientRect().top + w.scrollY - offset;
+    w.scrollTo({ top: targetY, behavior: "smooth" });
   };
 
   return (
@@ -206,6 +215,7 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
             toolCalls={result.eventsScanned ?? 0}
             sessions={result.transcripts.scanned}
             window={window}
+            seed={project}
           />
           <ShowOffCTA
             archetypeKey={classification.archetype}

@@ -435,6 +435,70 @@ a { color: inherit; text-decoration: none; }
 }
 .sigil-label .ix { color: var(--accent-pink); margin-right: 6px; }
 
+/* ───────────── poster capture mode (applied during html2canvas) ─────────────
+   The live layout uses clamp()/vw font sizes, soft grid columns, and a
+   stamp text-shadow. html2canvas does NOT support clamp() or text-shadow
+   reliably — it picks a fallback that misaligns metrics and the giant
+   archetype name ends up overlapping the tagline + sigil column.
+
+   `.capturing` is added by show-off-cta.tsx right before capture and
+   removed in the finally block. It locks every viewport-relative size to
+   an absolute value tuned for the ~1100px capture width, fixes the grid
+   columns, and clears the stamp shadow + box shadow that html2canvas
+   would otherwise crop.                                                  */
+.archetype-frame.capturing {
+  min-width: 1080px;
+  max-width: 1180px;
+  padding: 72px 64px 64px;
+  box-shadow: none;
+}
+.archetype-frame.capturing .arch-name {
+  font-size: 88px;
+  line-height: 1;
+  margin: 0 0 24px;
+  text-shadow: none;
+  letter-spacing: 0.06em;
+}
+.archetype-frame.capturing .arch-tagline {
+  font-size: 16px;
+  max-width: 560px;
+  margin: 0 0 32px;
+}
+.archetype-frame.capturing .arch-secondary {
+  margin-bottom: 32px;
+}
+.archetype-frame.capturing .arch-keywords {
+  font-size: 24px;
+  letter-spacing: 0.09em;
+  padding: 16px 0 12px;
+  gap: 14px;
+  max-width: 560px;
+}
+.archetype-frame.capturing .arch-body {
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr);
+  gap: 56px;
+  align-items: start;
+}
+.archetype-frame.capturing .arch-meta-grid {
+  margin-top: 32px;
+  padding-top: 26px;
+  gap: 28px;
+}
+.archetype-frame.capturing .arch-closing {
+  font-size: 22px;
+  margin-top: 32px;
+  padding-top: 26px;
+}
+.archetype-frame.capturing .sigil-wrap {
+  position: sticky;
+  top: 0;
+  align-self: center;
+  padding-top: 48px;
+}
+.archetype-frame.capturing .sigil {
+  box-shadow: 6px 6px 0 0 var(--accent-pink-shadow);
+}
+
 /* ───────────────────────── 02 STRENGTHS ───────────────────────── */
 
 .strengths-grid {
@@ -800,6 +864,8 @@ a { color: inherit; text-decoration: none; }
   padding: 0 0 32px;
   border-bottom: 1px solid var(--line);
   margin-bottom: 0;
+  /* Clear the sticky .app-header (≈52px tall) when scroll-anchored. */
+  scroll-margin-top: 80px;
 }
 .showoff-cta {
   display: grid;

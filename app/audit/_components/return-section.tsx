@@ -4,7 +4,7 @@
  * Section 06 — NEXT AUDIT / "come back better." Re-audit loop CTA.
  *
  * Two actions: [ set a reminder ] (placeholder, future feature) and
- * [ install all N policies ] which copies the bulk install command.
+ * [ install policies ] which copies the bulk install command.
  */
 import React, { useState } from "react";
 import type { AuditResult } from "@/src/audit/types";
@@ -18,21 +18,18 @@ function shortName(name: string): string {
   return slash >= 0 ? name.slice(slash + 1) : name;
 }
 
+const BULK_INSTALL_CMD = "failproofai policies --install";
+
 export function ReturnSection({ result }: Props) {
-  const unenabledShortNames = result.results
-    .filter((r) => r.source === "builtin" && !r.enabledInConfig && r.hits > 0)
-    .map((r) => shortName(r.name));
+  const hasUnenabled = result.results.some(
+    (r) => r.source === "builtin" && !r.enabledInConfig && r.hits > 0,
+  );
 
   const [copied, setCopied] = useState(false);
 
-  const bulkInstall = unenabledShortNames.length > 0
-    ? `failproofai policies --install ${unenabledShortNames.join(" ")}`
-    : null;
-
   const handleInstall = async () => {
-    if (!bulkInstall) return;
     try {
-      await navigator.clipboard.writeText(bulkInstall);
+      await navigator.clipboard.writeText(BULK_INSTALL_CMD);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch { /* ignore */ }
@@ -62,11 +59,11 @@ export function ReturnSection({ result }: Props) {
           <button type="button" className="share-btn">
             [ set a reminder ]
           </button>
-          {bulkInstall && (
+          {hasUnenabled && (
             <button type="button" className="share-btn alt" onClick={handleInstall}>
               {copied
                 ? `[ ✓ copied — paste in your shell ]`
-                : `[ install all ${unenabledShortNames.length} polic${unenabledShortNames.length === 1 ? "y" : "ies"} ]`}
+                : `[ install policies ]`}
             </button>
           )}
         </div>

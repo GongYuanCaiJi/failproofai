@@ -32,14 +32,34 @@ export function ShowOffCTA({ archetypeKey, identityFrameRef }: Props) {
     const node = identityFrameRef.current;
     if (!node || state === "busy") return;
     setState("busy");
+    /** Add a capture-only class that locks font sizes, the grid layout,
+     *  and disables clamp()/text-shadow rules html2canvas renders
+     *  unreliably. CSS lives in audit-styles.css under `.capturing`. */
+    node.classList.add("capturing");
     try {
+      // Wait for the display font (Architype Stedelijk) to load — otherwise
+      // html2canvas captures a fallback that has different metrics and the
+      // archetype name overlaps the tagline / sigil column.
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+      // Force a single rAF so the .capturing class is applied to layout
+      // before html2canvas reads computed styles.
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
       const html2canvas = (await import("html2canvas")).default;
+      // Bleed: include the frame's 8px box-shadow in the capture rect.
+      const bleed = 12;
       const canvas = await html2canvas(node, {
-        // Match the audit canvas color so any rounding artifacts blend in.
         backgroundColor: "#131316",
-        scale: 2, // retina-grade PNG for sharing
+        scale: 2,
         logging: false,
         useCORS: true,
+        x: -bleed,
+        y: -bleed,
+        width: node.offsetWidth + bleed * 2,
+        height: node.offsetHeight + bleed * 2,
+        windowWidth: Math.max(1100, node.offsetWidth + bleed * 2),
       });
       await new Promise<void>((resolve) => {
         canvas.toBlob((blob) => {
@@ -61,6 +81,8 @@ export function ShowOffCTA({ archetypeKey, identityFrameRef }: Props) {
       console.error("poster capture failed:", err);
       setState("error");
       setTimeout(() => setState("idle"), 2000);
+    } finally {
+      node.classList.remove("capturing");
     }
   };
 
