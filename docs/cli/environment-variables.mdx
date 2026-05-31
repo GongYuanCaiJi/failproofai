@@ -25,6 +25,13 @@ description: "Configure failproofai behavior with environment variables"
 |----------|-------------|
 | `FAILPROOFAI_TELEMETRY_DISABLED=1` | Disable anonymous usage telemetry |
 
+## Authentication
+
+| Variable | Description |
+|----------|-------------|
+| `FAILPROOF_API_URL` | Override the api-server base URL used by `failproofai auth` and the dashboard auth dialog. Useful when running a local api-server. |
+| `FAILPROOFAI_AUTH_DIR` | Override where `auth.json` is stored (default: `~/.failproofai`). Mostly useful for isolated tests. |
+
 ## First-run prompt
 
 | Variable | Description |

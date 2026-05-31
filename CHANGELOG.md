@@ -11,6 +11,9 @@
 
 - Stamp `product: "failproofai-oss"` on every PostHog event across all four telemetry channels — hooks/audit (`trackHookEvent`), server (`trackEvent`), web UI (`captureClientEvent`), and npm-lifecycle install/uninstall (`trackInstallEvent`) — so OSS events stay distinguishable from any future hosted surface. The value lives in a single `POSTHOG_PRODUCT` constant in `src/posthog-key.ts`, reused by the three TypeScript channels; the standalone `scripts/install-telemetry.mjs` inlines the same literal because it can't import the TS module at install time. Honors `FAILPROOFAI_TELEMETRY_DISABLED=1` like all other telemetry (#380).
 
+### Docs
+- Document the new `failproofai auth --login | --logout | --whoami` subcommand in a dedicated `docs/cli/auth.mdx` page (mirrors the style of `cli/audit.mdx`: usage block, sign-in / sign-out / whoami sections, on-disk `auth.json` shape, env-var table, and a short troubleshooting list for the common `Could not reach the api-server` / `Rate limited` / `Code rejected` cases). Add an Authentication section to `docs/cli/environment-variables.mdx` covering `FAILPROOF_API_URL` (override the api-server base URL) and `FAILPROOFAI_AUTH_DIR` (override where `auth.json` is stored). i18n mirrors left for the translation-sync workflow.
+
 ## 0.0.11-beta.2 — 2026-05-21
 
 ### Features
