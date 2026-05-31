@@ -1,20 +1,24 @@
-/** Top navigation bar — wordmark, primary nav, refresh + reach-developers controls. */
+/** Top navigation bar — wordmark, primary nav, refresh + reach-developers controls.
+ *
+ * Restyled to the audit / brutalist-pixel-craft system: the wordmark uses the
+ * same pixel pink mark + Architype Stedelijk lowercase name as the audit
+ * report, and each nav link is a `.tab` with a sharp pink underline on the
+ * active route. No lucide icons in the bar itself — the chrome stays text-
+ * forward to match the rest of the design system.
+ */
 "use client";
 
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardCheck, FolderOpen, Shield } from "lucide-react";
 import { ReachDevelopers } from "@/components/reach-developers";
 import { RefreshButton } from "@/app/components/refresh-button";
 
 const NAV_LINKS = [
-  { href: "/policies", label: "Policies", icon: Shield },
-  { href: "/audit", label: "Audit", icon: ClipboardCheck },
-  { href: "/projects", label: "Projects", icon: FolderOpen },
+  { href: "/policies", label: "policies" },
+  { href: "/audit", label: "audit" },
+  { href: "/projects", label: "projects" },
 ];
-
-const WORDMARK_SRC = "https://d2wq11aau0arks.cloudfront.net/failproof/logo-wordmark.png";
 
 export const Navbar: React.FC<{
   disabledPages?: string[];
@@ -25,82 +29,96 @@ export const Navbar: React.FC<{
 }> = ({ disabledPages = [], auditSlippingCount }) => {
   const pathname = usePathname();
 
+  const sectionLabel = (() => {
+    if (pathname.startsWith("/policies")) return "policies";
+    if (pathname.startsWith("/audit")) return "audit";
+    if (pathname.startsWith("/projects") || pathname.startsWith("/project/")) return "projects";
+    return "";
+  })();
+
   return (
-    <header className="relative z-50 border-b border-border bg-card/60 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-3">
-            <a
-              href="https://github.com/failproofai/failproofai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center hover:opacity-80 transition-opacity"
-              aria-label="failproof ai · GitHub"
+    <header className="app-header">
+      <a
+        href="https://github.com/failproofai/failproofai"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="h-brand"
+        aria-label="failproof ai · GitHub"
+      >
+        <span className="h-brand-mark" aria-hidden="true">▮▮</span>
+        <span className="h-brand-name">failproof_ai</span>
+        {process.env.NEXT_PUBLIC_APP_VERSION && (
+          <span className="h-brand-sep" aria-hidden="true">·</span>
+        )}
+        {process.env.NEXT_PUBLIC_APP_VERSION && (
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--dim)",
+            }}
+          >
+            v{process.env.NEXT_PUBLIC_APP_VERSION}
+          </span>
+        )}
+        {sectionLabel && <span className="h-brand-sep" aria-hidden="true">·</span>}
+        {sectionLabel && <span className="h-brand-section">{sectionLabel}</span>}
+      </a>
+
+      <nav className="tabs" style={{ border: "none", padding: 0, gap: 0 }}>
+        {NAV_LINKS.filter(({ href }) => {
+          const key = href.slice(1);
+          return !disabledPages.includes(key);
+        }).map(({ href, label }) => {
+          const active = href === "/projects"
+            ? pathname === "/projects" || pathname.startsWith("/project/")
+            : pathname.startsWith(href);
+          const showAuditBadge =
+            href === "/audit"
+            && typeof auditSlippingCount === "number"
+            && auditSlippingCount > 0;
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`tab${active ? " is-active" : ""}`}
+              aria-current={active ? "page" : undefined}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={WORDMARK_SRC}
-                alt="failproof ai"
-                style={{ height: 24, width: "auto" }}
-                className="select-none"
-              />
-            </a>
-            {process.env.NEXT_PUBLIC_APP_VERSION && (
-              <span className="font-mono text-[0.6rem] leading-none text-muted-foreground/70 border border-border/60 rounded px-1.5 py-0.5 select-none tracking-wider uppercase">
-                v{process.env.NEXT_PUBLIC_APP_VERSION}
-              </span>
-            )}
+              <span style={{ color: "var(--dim)", letterSpacing: "-2px", marginRight: 2 }}>━━</span>
+              {label}
+              {showAuditBadge && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: "1.4rem",
+                    height: "1rem",
+                    padding: "0 6px",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                    letterSpacing: "0.05em",
+                    background: "var(--amber-bg)",
+                    color: "var(--amber)",
+                    border: "1px solid var(--amber)",
+                    marginLeft: 2,
+                  }}
+                  aria-label={`${auditSlippingCount} slipping through`}
+                >
+                  {auditSlippingCount}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
 
-            <div className="w-px h-8 bg-border ml-2" />
-
-            <nav className="flex items-center h-16">
-              {NAV_LINKS.filter(({ href }) => {
-                const key = href.slice(1);
-                return !disabledPages.includes(key);
-              }).map(({ href, label, icon: Icon }) => {
-                const active = href === "/projects"
-                  ? pathname === "/projects" || pathname.startsWith("/project/")
-                  : pathname.startsWith(href);
-                const showAuditBadge =
-                  href === "/audit"
-                  && typeof auditSlippingCount === "number"
-                  && auditSlippingCount > 0;
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={`relative flex items-center gap-1.5 px-3 h-full text-sm transition-colors ${
-                      active
-                        ? "text-foreground font-medium"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 ${active ? "text-primary" : ""}`} />
-                    {label}
-                    {showAuditBadge && (
-                      <span
-                        className="ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-[1.125rem] px-1 rounded-full text-[0.625rem] font-medium bg-[var(--chart-3)]/15 text-[var(--chart-3)] border border-[var(--chart-3)]/30"
-                        aria-label={`${auditSlippingCount} slipping through`}
-                      >
-                        {auditSlippingCount}
-                      </span>
-                    )}
-                    <span
-                      className={`absolute inset-x-1 bottom-0 h-[2px] transition-all ${
-                        active ? "bg-primary" : "bg-transparent"
-                      }`}
-                    />
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-          <div className="flex items-center gap-1">
-            <RefreshButton />
-            <div className="w-px h-6 bg-border mx-1" />
-            <ReachDevelopers />
-          </div>
-        </div>
+      <div className="h-actions">
+        <RefreshButton />
+        <span style={{ width: 1, height: 18, background: "var(--line)", margin: "0 6px" }} />
+        <ReachDevelopers />
       </div>
     </header>
   );

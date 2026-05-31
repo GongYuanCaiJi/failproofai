@@ -5,7 +5,6 @@
  * `<html>` so there's no theme indeterminacy and no inline script is needed.
  */
 import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
 import { PostHogProvider } from "@/contexts/PostHogContext";
 import { GlobalErrorListeners } from "@/app/components/global-error-listeners";
 import { AutoRefreshProvider } from "@/contexts/AutoRefreshContext";
@@ -14,11 +13,10 @@ import { Toaster } from "@/app/components/toast";
 import { readDashboardCache } from "@/src/audit/dashboard-cache";
 import "./globals.css";
 
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
-});
+// Site-wide mono font is JetBrains Mono, loaded via the Google Fonts @import
+// at the top of globals.css alongside the audit display font. Keeping the
+// import in CSS (rather than next/font) is intentional so the same stylesheet
+// is the single source of truth — see the design-system note in globals.css.
 
 export const metadata: Metadata = {
   title: "Failproof AI - Hooks & Project Monitor",
@@ -44,7 +42,7 @@ export default function RootLayout({
         .reduce((sum, r) => sum + r.hits, 0)
     : undefined;
   return (
-    <html lang="en" className={`${geistMono.variable} dark`}>
+    <html lang="en" className="dark">
       <body className="antialiased">
         <PostHogProvider>
           <GlobalErrorListeners />

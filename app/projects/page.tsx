@@ -1,4 +1,12 @@
-/** Projects page — lists all Claude Agent SDK project folders. */
+/** Projects page — lists all Claude Agent SDK project folders.
+ *
+ * Wrapped in the audit `.report` + `.section` chrome so the page picks up
+ * the unified design system: mono fonts, section masthead with the ━━
+ * glyph + green eyebrow label, and the dashed-frame `.panel` around the
+ * project list when it's populated. The inner ProjectList component is
+ * unchanged — every Tailwind utility it uses (bg-card, text-foreground,
+ * border-border, …) now resolves to the audit palette globally.
+ */
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getCachedProjectFolders } from "@/lib/projects";
@@ -13,27 +21,56 @@ export default async function ProjectsPage() {
   if (disabled.includes("projects")) notFound();
 
   const folders = await getCachedProjectFolders();
+  const count = folders.length;
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="container mx-auto p-8">
-        <div className="bg-card text-card-foreground rounded-lg border border-border p-6 shadow-sm">
-          <h2 className="text-2xl font-semibold mb-4">Projects</h2>
-
-          {folders.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-2">
-                No projects found in the .claude/projects directory.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Make sure the directory exists and contains project folders.
-              </p>
-            </div>
-          ) : (
-            <Suspense><ProjectList folders={folders} /></Suspense>
-          )}
+    <main className="report">
+      <section className="section" data-screen-label="projects">
+        <div className="section-mast">
+          <div className="section-label">
+            <span className="glyph">━━</span> projects{" "}
+            <span style={{ color: "var(--dim)" }}>·</span> agent SDK folders
+          </div>
+          <div className="section-meta">
+            {count > 0 ? (
+              <>
+                <span className="g">●</span> {count} folder{count === 1 ? "" : "s"} indexed
+              </>
+            ) : (
+              <>
+                <span style={{ color: "var(--dim)" }}>○</span> empty
+              </>
+            )}
+          </div>
         </div>
-      </div>
+        <h2 className="section-h">your agent footprint.</h2>
+
+        {count === 0 ? (
+          <div
+            className="panel"
+            style={{ textAlign: "center", padding: "48px 32px" }}
+          >
+            <p style={{ color: "var(--ink-2)", marginBottom: 8 }}>
+              no projects found in the .claude/projects directory.
+            </p>
+            <p
+              style={{
+                color: "var(--dim)",
+                fontSize: 12,
+                letterSpacing: "0.05em",
+              }}
+            >
+              make sure the directory exists and contains project folders.
+            </p>
+          </div>
+        ) : (
+          <div className="panel" style={{ padding: 0 }}>
+            <Suspense>
+              <ProjectList folders={folders} />
+            </Suspense>
+          </div>
+        )}
+      </section>
     </main>
   );
 }

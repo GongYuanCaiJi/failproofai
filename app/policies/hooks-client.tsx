@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, useTransition
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
-  ArrowLeft,
   ShieldCheck,
   ShieldX,
   ShieldAlert,
@@ -1546,18 +1545,15 @@ function TabBar({
     { id: "policies", label: "Configure" },
   ];
   return (
-    <div className="inline-flex items-center rounded-md border border-border bg-muted/30 p-0.5 mb-5">
+    <div className="tabs" style={{ padding: 0, marginBottom: 24 }}>
       {tabs.map((tab) => (
         <button
           key={tab.id}
+          type="button"
           onClick={() => onChange(tab.id)}
-          className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
-            activeTab === tab.id
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
+          className={`tab${activeTab === tab.id ? " is-active" : ""}`}
         >
-          {tab.label}
+          {tab.label.toLowerCase()}
         </button>
       ))}
     </div>
@@ -1602,41 +1598,76 @@ export default function HooksClient({ initialTab = "activity" }: { initialTab?: 
   };
 
   return (
-    <div className="min-h-screen bg-background px-4 py-6 sm:px-6 lg:px-10">
-      {/* Header */}
-      <div className="mb-6">
-        <Link
-          href="/projects"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back
-        </Link>
-        <div className="flex items-center gap-3 mt-3">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Policies
-          </h1>
-          {activeTab === "activity" && (
-            <span className="relative flex h-2.5 w-2.5 mt-0.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-            </span>
-          )}
+    <main className="report">
+      <section className="section" data-screen-label="policies">
+        <div className="section-mast">
+          <div className="section-label">
+            <span className="glyph">━━</span> policies{" "}
+            <span style={{ color: "var(--dim)" }}>·</span>{" "}
+            {activeTab === "activity" ? "live evaluation" : "configure"}
+          </div>
+          <div className="section-meta">
+            {activeTab === "activity" && (
+              <>
+                <span className="g">●</span> evaluating in real time
+              </>
+            )}
+            {activeTab === "policies" && policyCounts && (
+              <>
+                <span style={{ color: "var(--accent-pink)" }}>
+                  {policyCounts.enabled}
+                </span>
+                /{policyCounts.total} enabled
+              </>
+            )}
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h2 className="section-h">
+          {activeTab === "activity" ? "what your agents tried." : "what to stop them doing."}
+        </h2>
+        <p
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 13,
+            color: "var(--ink-2)",
+            lineHeight: 1.7,
+            maxWidth: 720,
+            margin: "0 0 24px",
+          }}
+        >
           {activeTab === "activity" ? (
             <>
-              {evaluationsHeading}
+              {evaluationsHeading.toLowerCase()}
               {policyCounts && (
-                <span className="text-muted-foreground/60">
+                <span style={{ color: "var(--dim)" }}>
                   {" · "}enabled policies{" "}
-                  <span className="font-mono text-foreground/70">{policyCounts.enabled}/{policyCounts.total}</span>
+                  <span style={{ color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>
+                    {policyCounts.enabled}/{policyCounts.total}
+                  </span>
                 </span>
               )}
-              <span className="block text-xs text-muted-foreground/50 mt-0.5">
-                To configure policies,{" "}
+              <span
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  color: "var(--dim)",
+                  marginTop: 6,
+                  letterSpacing: "0.05em",
+                }}
+              >
+                to configure policies,{" "}
                 <button
-                  className="underline underline-offset-2 hover:text-foreground transition-colors"
+                  type="button"
+                  style={{
+                    color: "var(--accent-pink)",
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    textUnderlineOffset: 3,
+                    font: "inherit",
+                  }}
                   onClick={() => handleTabChange("policies")}
                 >
                   go here
@@ -1644,18 +1675,18 @@ export default function HooksClient({ initialTab = "activity" }: { initialTab?: 
               </span>
             </>
           ) : (
-            "Configure Policies"
+            "switch policies on or off across your installed agent CLIs."
           )}
         </p>
-      </div>
 
-      <TabBar activeTab={activeTab} onChange={handleTabChange} />
+        <TabBar activeTab={activeTab} onChange={handleTabChange} />
 
-      {activeTab === "activity" ? (
-        <ActivityTab hooksInstalled={hooksInstalled} onSwitchTab={handleTabChange} />
-      ) : (
-        <PoliciesTab onHooksInstallChange={setHooksInstalled} />
-      )}
-    </div>
+        {activeTab === "activity" ? (
+          <ActivityTab hooksInstalled={hooksInstalled} onSwitchTab={handleTabChange} />
+        ) : (
+          <PoliciesTab onHooksInstallChange={setHooksInstalled} />
+        )}
+      </section>
+    </main>
   );
 }

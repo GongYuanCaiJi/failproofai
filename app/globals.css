@@ -1,79 +1,155 @@
 @import "tailwindcss";
 
+/* ============================================================
+   failproof_ai — unified design system
+   Single source of truth for fonts, color palette, and every
+   class that used to live in app/audit/audit-styles.css for the
+   /audit page only. After this change those classes (.section,
+   .share-btn, .btn-press, …) are available on every route, and
+   navigating between /audit and /policies no longer leaks
+   one-off resets in either direction.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=VT323&display=swap');
+
+@font-face {
+  font-family: 'Architype Stedelijk';
+  src: url('/audit/fonts/architype-stedelijk.woff2') format('woff2'),
+       url('/audit/fonts/architype-stedelijk.ttf') format('truetype');
+  font-display: swap;
+  font-weight: 400;
+  font-style: normal;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --radius: 0.5rem;
+  /* ── audit-native tokens (used by .section / .share-btn / etc.) ── */
+  --bg: #131316;
+  --bg-2: #0e0e11;
+  --bg-3: #1a1a1f;
+  --bg-row-hover: #17171c;
+  --ink: #d8d6d2;
+  --ink-2: #9a9892;
+  --dim: #5e5c58;
+  --line: #25252b;
+  --line-2: #32323a;
+  --accent-pink: #e4587d;
+  --accent-pink-soft: rgba(228, 88, 125, 0.7);
+  --accent-pink-shadow: #a83a5a;
+  --accent-pink-bg: rgba(228, 88, 125, 0.12);
+  --accent-green: #66d1b5;
+  --accent-green-shadow: #3e9a82;
+  --accent-green-bg: rgba(102, 209, 181, 0.10);
+  --amber: #e8c46a;
+  --amber-bg: rgba(232, 196, 106, 0.10);
 
-  /* Near-black canvas + brand pink accent — failproofai brand: pink primary
-     (#e4587d, from docs/docs.json colors.light) with green status reserved
-     for chart-2 / success indicators (the leaf gradient family). */
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --card: #141416;
-  --card-foreground: #fafafa;
-  --popover: #141416;
-  --popover-foreground: #fafafa;
-  --primary: #e4587d;
-  --primary-foreground: #0a0a0a;
-  --secondary: #1f1f22;
-  --secondary-foreground: #fafafa;
-  --muted: #1f1f22;
-  --muted-foreground: #a1a1aa;
-  --accent: #e4587d;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-display: "Architype Stedelijk", "VT323", "JetBrains Mono", monospace;
+
+  /* ── shadcn-compatible aliases (used by Tailwind utilities + the
+     hooks-client component tree). All point at the audit palette so
+     `bg-card`, `text-foreground`, `border-border`, etc. produce
+     audit visuals everywhere without rewriting any class names. ── */
+  --radius: 0;
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--bg-2);
+  --card-foreground: var(--ink);
+  --popover: var(--bg-2);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent-pink);
+  --primary-foreground: var(--bg);
+  --secondary: var(--bg-3);
+  --secondary-foreground: var(--ink);
+  --muted: var(--bg-3);
+  --muted-foreground: var(--ink-2);
+  --accent: var(--accent-pink);
   --accent-light: #f08aa6;
   --accent-lighter: #f7b3c5;
   --accent-lightest: #fbd5de;
-  --accent-foreground: #0a0a0a;
-  --destructive: #ef4444;
-  --border: #27272a;
-  --input: #27272a;
-  --ring: #e4587d;
-  --chart-1: #e4587d;
-  --chart-2: #4ade80;
-  --chart-3: #fbbf24;
+  --accent-foreground: var(--bg);
+  --destructive: var(--accent-pink);
+  --border: var(--line);
+  --input: var(--line-2);
+  --ring: var(--accent-pink);
+  --chart-1: var(--accent-pink);
+  --chart-2: var(--accent-green);
+  --chart-3: var(--amber);
   --chart-4: #f87171;
   --chart-5: #a78bfa;
-  --sidebar: #141416;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #e4587d;
-  --sidebar-primary-foreground: #0a0a0a;
-  --sidebar-accent: #1f1f22;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #27272a;
-  --sidebar-ring: #e4587d;
+  --sidebar: var(--bg-2);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--accent-pink);
+  --sidebar-primary-foreground: var(--bg);
+  --sidebar-accent: var(--bg-3);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--accent-pink);
 }
 
-/* Custom Scrollbar Styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--muted);
-  border-radius: var(--radius);
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 1200px 800px at 70% -10%, rgba(228, 88, 125, 0.055) 0%, transparent 60%),
+    radial-gradient(ellipse 1000px 700px at 0% 100%, rgba(102, 209, 181, 0.04) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 100% at 50% 50%, transparent 50%, rgba(0,0,0,0.45) 100%),
+    linear-gradient(180deg, #16161a 0%, #0f0f12 100%);
+  background-attachment: fixed;
+  position: relative;
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: var(--radius);
-  transition: background 0.2s ease;
+button { font-family: inherit; cursor: pointer; }
+a { color: inherit; }
+
+/* engineering-plate cross-hatch + grain — site-wide atmosphere */
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background-image:
+    linear-gradient(0deg, rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size: 96px 96px, 96px 96px, 24px 24px, 24px 24px;
+  opacity: 0.7;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 2;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.85  0 0 0 0 0.82  0 0 0 0 0.78  0 0 0 0.16 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  opacity: 0.4;
+  mix-blend-mode: overlay;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
+body > * {
+  position: relative;
+  z-index: 3;
 }
 
-::-webkit-scrollbar-corner {
-  background: var(--muted);
-}
+/* shrink scrollbars without breaking the dark theme */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-2); }
+::-webkit-scrollbar-thumb { background: var(--line-2); }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-pink); }
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) var(--bg-2); }
 
-/* Firefox scrollbar styling */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) var(--muted);
-}
+input[type="checkbox"] { accent-color: var(--accent-pink); }
+select { color-scheme: dark; }
+select option { background-color: var(--bg-2); color: var(--ink); }
+input[type="date"] { color-scheme: dark; }
 
 @theme inline {
   --color-background: var(--background);
@@ -82,8 +158,8 @@
   --color-accent-light: var(--accent-light);
   --color-accent-lighter: var(--accent-lighter);
   --color-accent-lightest: var(--accent-lightest);
-  --font-sans: var(--font-sans, system-ui, -apple-system, sans-serif);
-  --font-mono: var(--font-mono, ui-monospace, monospace);
+  --font-sans: var(--font-mono);
+  --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -112,10 +188,10 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
 }
 
 @layer base {
@@ -123,95 +199,148 @@
     @apply border-border outline-ring/50;
   }
   html {
-    font-size: 120%;
-  }
-  body {
-    @apply bg-background text-foreground font-sans;
-
-    position: relative;
-  }
-  /* Faint pink vignette at the top — atmosphere without ornament. */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background:
-      radial-gradient(ellipse 90% 60% at 50% -10%, rgba(228, 88, 125, 0.07), transparent 65%);
-  }
-  body > * {
-    position: relative;
-    z-index: 1;
-  }
-  input[type="checkbox"] {
-    accent-color: var(--primary);
-  }
-
-  select {
-    color-scheme: dark;
-  }
-
-  select option {
-    background-color: var(--popover);
-    color: var(--popover-foreground);
-  }
-
-  /* Date Input Styling */
-  input[type="date"] {
-    position: relative;
-    overflow: visible;
-    color-scheme: dark;
-  }
-
-  input[type="date"]::-webkit-calendar-picker-indicator {
-    display: none;
-    opacity: 0;
-    position: absolute;
-    right: 0;
-    width: 0;
-    height: 0;
-    cursor: pointer;
-  }
-
-  input[type="date"]::-webkit-datetime-edit {
-    display: inline-flex;
-    align-items: center;
-    width: 100%;
-    padding: 0;
-    gap: 0;
-  }
-
-  input[type="date"]::-webkit-datetime-edit-text {
-    color: var(--muted-foreground);
-    padding: 0 0.2rem;
-  }
-
-  input[type="date"]::-webkit-datetime-edit-month-field,
-  input[type="date"]::-webkit-datetime-edit-day-field {
-    color: var(--foreground);
-    padding: 0 0.15rem;
-    width: 2.5ch;
-    min-width: 2.5ch;
-  }
-
-  input[type="date"]::-webkit-datetime-edit-year-field {
-    color: var(--foreground);
-    padding: 0 0.15rem;
-    width: 5ch;
-    min-width: 5ch;
-    max-width: 5ch;
-    overflow: visible;
-  }
-
-  input[type="date"]::-webkit-datetime-edit-month-field:focus,
-  input[type="date"]::-webkit-datetime-edit-day-field:focus,
-  input[type="date"]::-webkit-datetime-edit-year-field:focus {
-    background-color: var(--muted);
-    color: var(--foreground);
-    border-radius: 0.25rem;
+    font-size: 100%;
   }
 }
+
+/* ───────────────────────── app chrome (shared) ───────────────────────── */
+
+.app-shell { position: relative; z-index: 3; min-height: 100vh; display: flex; flex-direction: column; }
+
+.app-header {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(10,10,10,0.85);
+  backdrop-filter: blur(8px);
+  position: sticky; top: 0; z-index: 50;
+}
+.h-brand { display: inline-flex; align-items: baseline; gap: 10px; flex: 1; min-width: 0; color: var(--ink); text-decoration: none; }
+.h-brand-mark {
+  color: var(--accent-pink);
+  font-family: var(--font-mono);
+  font-size: 18px;
+  letter-spacing: -3px;
+  font-weight: 700;
+  line-height: 1;
+}
+.h-brand-name {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.11em;
+  text-transform: lowercase;
+  color: var(--ink);
+}
+.h-brand-sep { color: var(--dim); font-size: 12px; }
+.h-brand-section {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-green);
+}
+.h-actions { display: flex; align-items: center; gap: 8px; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
+  border: 1px solid var(--line-2); background: transparent; color: var(--ink);
+  transition: all 120ms ease; white-space: nowrap;
+}
+.btn:hover { border-color: var(--ink); background: rgba(255,255,255,0.03); }
+.btn-primary { border-color: var(--accent-pink); color: var(--accent-pink); }
+.btn-primary:hover { background: var(--accent-pink); color: var(--bg); }
+.btn-press {
+  box-shadow: 4px 4px 0 0 var(--accent-pink-shadow);
+  transition: box-shadow 120ms, transform 120ms;
+}
+.btn-press:hover { box-shadow: 2px 2px 0 0 var(--accent-pink-shadow); transform: translate(2px, 2px); }
+
+/* primary tab strip — used by both the audit page and the policies/projects nav rows */
+.tabs {
+  display: flex; gap: 0; padding: 0 24px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto; scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 16px;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
+  color: var(--ink-2);
+  border-bottom: 1px solid transparent; margin-bottom: -1px;
+  transition: color 120ms, border-color 120ms; white-space: nowrap;
+  background: transparent;
+}
+.tab:hover { color: var(--ink); }
+.tab.is-active { color: var(--accent-pink); border-bottom-color: var(--accent-pink); }
+
+/* ───────────────────────── canonical page chrome ───────────────────────── */
+
+.report {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.section {
+  padding: 48px 0;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+}
+.section:last-child { border-bottom: none; }
+
+.section-mast {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 24px; margin-bottom: 24px; flex-wrap: wrap;
+}
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--accent-green);
+  display: inline-flex; align-items: baseline; gap: 10px;
+}
+.section-label .glyph { color: var(--accent-pink); letter-spacing: -2px; }
+.section-meta {
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--dim);
+}
+.section-meta .g { color: var(--accent-green); }
+.section-meta .p { color: var(--accent-pink); }
+.section-h {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.05; letter-spacing: 0.11em;
+  font-weight: 400; color: var(--ink);
+  margin: 0 0 18px;
+  text-transform: lowercase;
+  text-wrap: balance;
+}
+
+/* ───────────────────────── reusable bracket panel ───────────────────────── */
+
+.panel {
+  position: relative;
+  border: 1px solid var(--line-2);
+  background: var(--bg-2);
+  padding: 28px;
+}
+.panel::before {
+  content: ""; position: absolute; top: -1px; left: -1px;
+  width: 10px; height: 10px;
+  border-top: 1px solid var(--accent-pink);
+  border-left: 1px solid var(--accent-pink);
+}
+.panel::after {
+  content: ""; position: absolute; bottom: -1px; right: -1px;
+  width: 10px; height: 10px;
+  border-bottom: 1px solid var(--accent-pink);
+  border-right: 1px solid var(--accent-pink);
+}
+
+/* ───────────────────────── animations (preserved from previous globals) ───────────────────────── */
 
 @keyframes entry-highlight {
   0%   { background-color: color-mix(in oklch, var(--primary), transparent 82%); }
@@ -221,7 +350,6 @@
   animation: entry-highlight 3s ease-out forwards;
   outline: 1px solid color-mix(in oklch, var(--primary), transparent 55%);
   outline-offset: -1px;
-  border-radius: var(--radius);
 }
 
 @keyframes expand-in {
@@ -232,8 +360,6 @@
   animation: expand-in 150ms ease-out;
 }
 
-/* Audit dashboard: staggered row entry. The component sets `--row-delay`
-   per row inline so each item enters ~50ms after its predecessor. */
 @keyframes audit-row-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -244,10 +370,6 @@
   animation-delay: var(--row-delay, 0ms);
 }
 
-/* Audit dashboard: bar fill from 0 → target width. The component sets
-   `--bar-width` to the final value (e.g. "62%") so the keyframe targets
-   it via CSS variables — works for both proportional bars in the policy
-   list and the inline health bar. */
 @keyframes audit-bar-fill {
   from { width: 0; }
   to   { width: var(--bar-width, 100%); }
