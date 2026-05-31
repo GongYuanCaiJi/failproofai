@@ -5,71 +5,101 @@
  * not emit granular progress events, so we animate through 4 plausible
  * stages on a fixed 4s interval. The user sees motion + a clear "this is
  * still working" signal.
+ *
+ * Visual: audit pixel-craft. A `.panel` with pink corner brackets, a
+ * scanline-style spinner header, a stack of stages with green "✓" /
+ * pink "▮▮" / dim "○" markers, and a marquee progress bar at the bottom
+ * filling pink-on-dark as the run advances.
  */
 import React, { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
 
 const STAGES = [
-  { label: "Discovering transcripts", detail: "Walking ~/.claude, ~/.codex, ~/.cursor, …" },
-  { label: "Parsing session logs", detail: "Reading JSONL + SQLite session stores" },
-  { label: "Running policy checks", detail: "Replaying through 30 builtin policies" },
-  { label: "Aggregating results", detail: "Counting hits, ranking by frequency" },
+  { label: "discovering transcripts", detail: "walking ~/.claude, ~/.codex, ~/.cursor, …" },
+  { label: "parsing session logs",   detail: "reading JSONL + sqlite session stores" },
+  { label: "running policy checks",  detail: "replaying through 30 builtin policies" },
+  { label: "aggregating results",    detail: "counting hits, ranking by frequency" },
 ];
 
 const STAGE_DURATION_MS = 4000;
 
 export function RunProgress() {
   const [stage, setStage] = useState(0);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => {
+    const stageTimer = setInterval(() => {
       setStage((s) => Math.min(s + 1, STAGES.length - 1));
     }, STAGE_DURATION_MS);
-    return () => clearInterval(id);
+    const tickTimer = setInterval(() => setTick((t) => (t + 1) % 4), 350);
+    return () => {
+      clearInterval(stageTimer);
+      clearInterval(tickTimer);
+    };
   }, []);
 
+  const dots = ".".repeat(tick + 1);
+
   return (
-    <div className="rounded-lg border border-border bg-card p-10 mt-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
-        <h2 className="text-base font-semibold text-foreground">Scanning sessions…</h2>
+    <section className="section running-section" data-screen-label="00 Running">
+      <div className="section-mast">
+        <div className="section-label">
+          <span className="glyph">━━</span> audit{" "}
+          <span style={{ color: "var(--dim)" }}>·</span> in progress
+        </div>
+        <div className="section-meta">
+          <span style={{ color: "var(--accent-pink)" }}>●</span> scanning
+        </div>
       </div>
-      <ul className="space-y-3">
-        {STAGES.map((s, i) => {
-          const done = i < stage;
-          const active = i === stage;
-          return (
-            <li key={i} className="flex items-start gap-3">
-              <span
-                className={cn(
-                  "mt-1 w-2 h-2 rounded-full shrink-0",
-                  done && "bg-[var(--chart-2)]",
-                  active && "bg-primary animate-pulse",
-                  !done && !active && "bg-border",
-                )}
-              />
-              <div>
-                <div
-                  className={cn(
-                    "text-sm",
-                    done && "text-muted-foreground line-through",
-                    active && "text-foreground font-medium",
-                    !done && !active && "text-muted-foreground/60",
-                  )}
-                >
-                  {s.label}
+      <h2 className="section-h">scanning sessions{dots}</h2>
+
+      <div className="panel running-panel">
+        <div className="running-header">
+          <span className="running-prompt">$</span>
+          <span className="running-cmd">failproofai audit --since 30d</span>
+          <span className="running-cursor" aria-hidden="true">▮</span>
+        </div>
+
+        <ul className="running-stages">
+          {STAGES.map((s, i) => {
+            const done = i < stage;
+            const active = i === stage;
+            return (
+              <li
+                key={i}
+                className={"running-stage" + (done ? " done" : active ? " active" : " queued")}
+              >
+                <span className="running-marker" aria-hidden="true">
+                  {done ? "✓" : active ? "▮▮" : "○"}
+                </span>
+                <div className="running-stage-body">
+                  <div className="running-stage-label">{s.label}</div>
+                  {active && <div className="running-stage-detail">{s.detail}</div>}
                 </div>
                 {active && (
-                  <div className="text-[0.7rem] text-muted-foreground mt-0.5">{s.detail}</div>
+                  <span className="running-stage-spin" aria-hidden="true">
+                    {["⠋", "⠙", "⠹", "⠸"][tick]}
+                  </span>
                 )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      <p className="text-xs text-muted-foreground mt-6">
-        This usually takes 10–30 seconds depending on session history.
-      </p>
-    </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="running-bar-label">
+          <span>progress</span>
+          <span style={{ color: "var(--dim)" }}>{stage + 1}/{STAGES.length}</span>
+        </div>
+        <div className="running-bar-track">
+          <div
+            className="running-bar-fill"
+            style={{ width: `${((stage + 1) / STAGES.length) * 100}%` }}
+          />
+        </div>
+
+        <p className="running-foot">
+          this usually takes 10–30 seconds depending on how much session history you have.
+        </p>
+      </div>
+    </section>
   );
 }

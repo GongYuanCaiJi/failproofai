@@ -15,11 +15,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { getAuditResultAction } from "@/app/actions/get-audit-result";
 import type { AuditResult, RunAuditOptions } from "@/src/audit/types";
 import { classifyAgent } from "@/src/audit/archetypes";
-import { COHORT_SIZE, deriveScore, gradeFor, projectedScore, syntheticRank } from "@/src/audit/scoring";
+import { COHORT_SIZE, deriveScore, gradeFor, projectedScore } from "@/src/audit/scoring";
 import { deriveStrengths } from "@/src/audit/strengths";
 import { deriveFindings } from "@/src/audit/findings";
 
-import { AppHeader } from "./app-header";
 import { IdentitySection } from "./identity-section";
 import { ShowOffCTA } from "./show-off-cta";
 import { StrengthsSection } from "./strengths-section";
@@ -140,7 +139,6 @@ export function AuditDashboard({ initial, projectFromUrl, totalCatalogSize }: Pr
       <div className="app">
         <div className="scanline-overlay" />
         <div className="app-shell">
-          <AppHeader />
           <div className="report">
             <RunProgress />
           </div>
@@ -176,7 +174,6 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
   const projected = useMemo(() => projectedScore(result, score), [result, score]);
   const grade = gradeFor(score);
   const projectedGrade = gradeFor(projected);
-  const rank = useMemo(() => syntheticRank(score), [score]);
   const strengths = useMemo(() => deriveStrengths(result), [result]);
   const findings = useMemo(() => deriveFindings(result), [result]);
   const project = useMemo(() => inferProjectName(result, projectFromUrl), [result, projectFromUrl]);
@@ -187,26 +184,10 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
   /** Identity hero ref — captured to PNG by the "make poster" button. */
   const identityFrameRef = useRef<HTMLDivElement>(null);
 
-  /** Scroll to the ShowOff CTA — the share button entry point per spec.
-   *  Uses manual y-coord scrolling instead of scrollIntoView so we can
-   *  account for the sticky .app-header (≈52px) that would otherwise
-   *  cover the section. */
-  const scrollToShowOff = () => {
-    const el = document.querySelector<HTMLElement>(".showoff");
-    if (!el) return;
-    const headerEl = document.querySelector<HTMLElement>(".app-header");
-    const offset = (headerEl?.offsetHeight ?? 0) + 16;
-    // `window` is shadowed by the inferWindow() string prop; use globalThis.
-    const w = globalThis as typeof globalThis & Window;
-    const targetY = el.getBoundingClientRect().top + w.scrollY - offset;
-    w.scrollTo({ top: targetY, behavior: "smooth" });
-  };
-
   return (
     <div className="app">
       <div className="scanline-overlay" />
       <div className="app-shell">
-        <AppHeader onShare={scrollToShowOff} />
         <div className="report">
           <IdentitySection
             ref={identityFrameRef}
@@ -227,9 +208,9 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
             totalDetectorsAvailable={totalCatalogSize}
           />
           <ScoreSection
+            result={result}
             score={score}
             grade={grade}
-            rank={rank}
             cohort={COHORT_SIZE}
             archetypeKey={classification.archetype}
             project={project}
@@ -259,7 +240,6 @@ function ShellEmpty({ running, mode = "no-cache", onStarted, onCompleted }: Shel
     <div className="app">
       <div className="scanline-overlay" />
       <div className="app-shell">
-        <AppHeader />
         <div className="report">
           {running ? (
             <RunProgress />

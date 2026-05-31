@@ -3,31 +3,59 @@
 /**
  * Section 06 — NEXT AUDIT / "come back better." Re-audit loop CTA.
  *
- * Two actions: [ set a reminder ] gates on auth — if the visitor isn't
- * signed in, we open the AuthDialog to collect their email + verify a
- * one-time code. The actual mail scheduling is wired later; this just
- * proves identity for now.
+ * Behavior matrix:
+ *   - unknown (probe in flight)  → buttons disabled
+ *   - anon (no session)          → [ set a reminder ] opens AuthDialog,
+ *                                  on success persists the 7-day reminder
+ *                                  and we flip to the authed state below.
+ *   - authed + no reminder       → [ set a reminder ] writes the timestamp,
+ *                                  no auth dialog needed.
+ *   - authed + reminder set      → button collapses to a status pill showing
+ *                                  the email and the relative "next audit
+ *                                  in X days" line. The reminder persists
+ *                                  across reloads via ~/.failproofai/next-
+ *                                  audit.json — same as the CLI's auth.json.
  *
- * [ install policies ] copies the bulk install command (unchanged).
+ * Also exposes [ re-audit now ] next to [ install policies ] so the user
+ * can trigger a fresh scan inline without leaving the page. The button
+ * fires POST /api/audit/run (same backend the empty-state CTA uses).
  */
 import React, { useCallback, useEffect, useState } from "react";
 import type { AuditResult } from "@/src/audit/types";
 import { AuthDialog, type AuthedUser } from "./auth-dialog";
+import { triggerRun } from "./rerun-button";
 
 interface Props {
   result: AuditResult;
 }
 
 const BULK_INSTALL_CMD = "failproofai policies --install";
+const DEFAULT_REMINDER_DAYS = 7;
 
 type AuthStatus =
   | { kind: "unknown" }
   | { kind: "anon" }
   | { kind: "authed"; user: { id: string; email: string } };
 
-type ReminderState =
-  | { kind: "idle" }
-  | { kind: "queued" };
+interface Reminder {
+  next_audit_at: number; // unix seconds
+  user_email: string;
+  set_at: number;
+}
+
+function daysUntil(unixSecs: number): number {
+  const nowSecs = Math.floor(Date.now() / 1000);
+  return Math.max(0, Math.ceil((unixSecs - nowSecs) / 86400));
+}
+
+function formatNextAudit(unixSecs: number): string {
+  const d = new Date(unixSecs * 1000);
+  return d.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export function ReturnSection({ result }: Props) {
   const hasUnenabled = result.results.some(
@@ -36,33 +64,54 @@ export function ReturnSection({ result }: Props) {
 
   const [copied, setCopied] = useState(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus>({ kind: "unknown" });
+  const [reminder, setReminder] = useState<Reminder | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [reminder, setReminder] = useState<ReminderState>({ kind: "idle" });
+  const [reminderBusy, setReminderBusy] = useState(false);
+  const [rerunBusy, setRerunBusy] = useState(false);
 
-  // Probe /api/auth/status once on mount. The endpoint is cheap and never
-  // throws — it returns { authenticated: false } when no session exists.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/auth/status", { cache: "no-store" });
-        const body = (await res.json()) as {
-          authenticated?: boolean;
-          user?: { id: string; email: string };
-        };
-        if (cancelled) return;
-        if (body.authenticated && body.user) {
-          setAuthStatus({ kind: "authed", user: body.user });
-        } else {
-          setAuthStatus({ kind: "anon" });
-        }
-      } catch {
-        if (!cancelled) setAuthStatus({ kind: "anon" });
+  // Probe /api/auth/status on mount — also returns the persisted reminder
+  // when one exists and belongs to the active session.
+  const refreshStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/status", { cache: "no-store" });
+      const body = (await res.json()) as {
+        authenticated?: boolean;
+        user?: { id: string; email: string };
+        reminder?: Reminder | null;
+      };
+      if (body.authenticated && body.user) {
+        setAuthStatus({ kind: "authed", user: body.user });
+        setReminder(body.reminder ?? null);
+      } else {
+        setAuthStatus({ kind: "anon" });
+        setReminder(null);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    } catch {
+      setAuthStatus({ kind: "anon" });
+      setReminder(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshStatus();
+  }, [refreshStatus]);
+
+  const persistReminder = useCallback(async (): Promise<Reminder | null> => {
+    try {
+      setReminderBusy(true);
+      const res = await fetch("/api/auth/reminder", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ in_days: DEFAULT_REMINDER_DAYS }),
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as { reminder?: Reminder };
+      return body.reminder ?? null;
+    } catch {
+      return null;
+    } finally {
+      setReminderBusy(false);
+    }
   }, []);
 
   const handleInstall = async () => {
@@ -75,30 +124,53 @@ export function ReturnSection({ result }: Props) {
     }
   };
 
-  const handleReminderClick = useCallback(() => {
+  const handleSetReminder = useCallback(async () => {
+    if (authStatus.kind === "unknown") return;
     if (authStatus.kind === "authed") {
-      // Mail-scheduling implementation is deferred; for now just confirm.
-      setReminder({ kind: "queued" });
-      setTimeout(() => setReminder({ kind: "idle" }), 3500);
+      const next = await persistReminder();
+      if (next) setReminder(next);
       return;
     }
     setDialogOpen(true);
-  }, [authStatus.kind]);
+  }, [authStatus, persistReminder]);
 
-  const handleAuthed = useCallback((user: AuthedUser) => {
-    setAuthStatus({ kind: "authed", user });
-    // Treat a successful sign-in via this dialog as intent to set the
-    // reminder. Once mail scheduling is wired, swap this for a real POST.
-    setReminder({ kind: "queued" });
-    setTimeout(() => setReminder({ kind: "idle" }), 3500);
+  const handleAuthed = useCallback(
+    async (user: AuthedUser) => {
+      setAuthStatus({ kind: "authed", user });
+      // The dialog opened because the user wanted a reminder → persist
+      // immediately, no second click required.
+      const next = await persistReminder();
+      if (next) setReminder(next);
+    },
+    [persistReminder],
+  );
+
+  const handleClearReminder = useCallback(async () => {
+    try {
+      setReminderBusy(true);
+      await fetch("/api/auth/reminder", { method: "DELETE" });
+      setReminder(null);
+    } finally {
+      setReminderBusy(false);
+    }
   }, []);
 
-  const reminderLabel =
-    reminder.kind === "queued"
-      ? `[ ✓ reminder queued for ${
-          authStatus.kind === "authed" ? authStatus.user.email : "you"
-        } ]`
-      : "[ set a reminder ]";
+  const handleRerun = useCallback(async () => {
+    if (rerunBusy) return;
+    setRerunBusy(true);
+    try {
+      await triggerRun({ cli: [], since: "30d" });
+      // Reload the page after the run so the cached result + dashboard cache
+      // get re-hydrated against the new scan. Cheaper than threading state.
+      window.location.reload();
+    } finally {
+      setRerunBusy(false);
+    }
+  }, [rerunBusy]);
+
+  const authed = authStatus.kind === "authed";
+  const hasReminder = authed && reminder !== null;
+  const days = reminder ? daysUntil(reminder.next_audit_at) : 0;
 
   return (
     <section className="section" data-screen-label="06 Next audit">
@@ -107,41 +179,99 @@ export function ReturnSection({ result }: Props) {
           <span className="glyph">━━</span> next audit{" "}
           <span style={{ color: "var(--dim)" }}>·</span> improvement
         </div>
-        <div className="section-meta"><span className="g">●</span> recommended in 7d</div>
+        <div className="section-meta">
+          <span className="g">●</span> recommended in 7d
+        </div>
       </div>
       <h2 className="section-h">come back better.</h2>
+
       <div className="return-hook">
         <div className="label">━━ the loop</div>
         <h3>re-audit in 7 days.</h3>
         <p>
-          after the prescribed policies have been live for a week, we&apos;ll
-          show your before/after score and which detectors went quiet.
+          after the prescribed policies have been live for a week, we&apos;ll show
+          your before/after score and which detectors went quiet.
         </p>
         <p style={{ marginTop: 16, color: "var(--dim)" }}>
           most agents move from C to B in one session. some make it in a day.
         </p>
-        <div className="return-actions">
-          <button
-            type="button"
-            className="share-btn"
-            onClick={handleReminderClick}
-            disabled={authStatus.kind === "unknown"}
-          >
-            {reminderLabel}
-          </button>
-          {hasUnenabled && (
-            <button type="button" className="share-btn alt" onClick={handleInstall}>
-              {copied
-                ? `[ ✓ copied — paste in your shell ]`
-                : `[ install policies ]`}
-            </button>
-          )}
-        </div>
-        {authStatus.kind === "authed" && (
-          <div className="auth-status-pill">
-            <span className="dot" aria-hidden="true" />
-            signed in as <span className="email">{authStatus.user.email}</span>
+
+        {/* Authed + reminder set → status panel + dismiss; else the
+            classic CTA + install + (re-audit when there's data). */}
+        {hasReminder && reminder ? (
+          <div className="return-status">
+            <div className="rs-row rs-row-primary">
+              <span className="rs-dot rs-dot-pink" aria-hidden="true" />
+              <span>
+                next audit set for{" "}
+                <span className="rs-strong">{formatNextAudit(reminder.next_audit_at)}</span>
+                {" "}<span style={{ color: "var(--dim)" }}>·</span>{" "}
+                <span className="rs-strong">in {days} day{days === 1 ? "" : "s"}</span>
+              </span>
+            </div>
+            <div className="rs-row">
+              <span className="rs-dot rs-dot-green" aria-hidden="true" />
+              <span>
+                signed in as <span className="rs-email">{(authStatus as { user: { email: string } }).user.email}</span>
+              </span>
+            </div>
+            <div className="return-actions" style={{ marginTop: 18 }}>
+              <button
+                type="button"
+                className="share-btn"
+                onClick={handleRerun}
+                disabled={rerunBusy}
+              >
+                {rerunBusy ? "[ scanning… ]" : "[ re-audit now ]"}
+              </button>
+              {hasUnenabled && (
+                <button type="button" className="share-btn alt" onClick={handleInstall}>
+                  {copied ? "[ ✓ copied — paste in your shell ]" : "[ install policies ]"}
+                </button>
+              )}
+              <button
+                type="button"
+                className="rs-clear"
+                onClick={handleClearReminder}
+                disabled={reminderBusy}
+              >
+                clear reminder
+              </button>
+            </div>
           </div>
+        ) : (
+          <>
+            <div className="return-actions">
+              <button
+                type="button"
+                className="share-btn"
+                onClick={handleSetReminder}
+                disabled={authStatus.kind === "unknown" || reminderBusy}
+              >
+                {reminderBusy ? "[ saving… ]" : "[ set a reminder ]"}
+              </button>
+              <button
+                type="button"
+                className="share-btn alt"
+                onClick={handleRerun}
+                disabled={rerunBusy}
+              >
+                {rerunBusy ? "[ scanning… ]" : "[ re-audit now ]"}
+              </button>
+              {hasUnenabled && (
+                <button type="button" className="share-btn alt" onClick={handleInstall}>
+                  {copied ? "[ ✓ copied — paste in your shell ]" : "[ install policies ]"}
+                </button>
+              )}
+            </div>
+            {authed && (
+              <div className="auth-status-pill">
+                <span className="dot" aria-hidden="true" />
+                signed in as{" "}
+                <span className="email">{(authStatus as { user: { email: string } }).user.email}</span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -152,7 +282,7 @@ export function ReturnSection({ result }: Props) {
         onClose={() => setDialogOpen(false)}
         onAuthed={(u) => {
           setDialogOpen(false);
-          handleAuthed(u);
+          void handleAuthed(u);
         }}
       />
     </section>

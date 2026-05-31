@@ -1,14 +1,18 @@
 "use client";
 
 /**
- * Two-mode empty state:
+ * Two-mode empty state for /audit, styled to the audit pixel-craft system:
+ *
  *   - "no-cache" — first time the user visits /audit. CTA to run.
  *   - "zero-sessions" — ran a scan but no transcripts were found. Likely the
  *     user hasn't installed hooks for any CLI yet.
+ *
+ * Both modes use the shared `.panel` chrome with pink corner brackets, a
+ * green section eyebrow, an Architype Stedelijk display headline, and a
+ * sharp `.btn-press` action button. Sized so it occupies the same vertical
+ * space as the loaded dashboard does on its hero — no more cramped popover.
  */
 import React from "react";
-import { ClipboardCheck, FolderSearch } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { triggerRun } from "./rerun-button";
 
 interface Props {
@@ -30,43 +34,101 @@ export function EmptyState({ mode, running, onStarted, onCompleted }: Props) {
 
   if (mode === "no-cache") {
     return (
-      <div className="rounded-lg border border-border bg-card p-12 flex flex-col items-center text-center">
-        <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-5">
-          <ClipboardCheck className="w-7 h-7 text-muted-foreground" />
+      <section className="section empty-section" data-screen-label="00 Empty">
+        <div className="section-mast">
+          <div className="section-label">
+            <span className="glyph">━━</span> audit{" "}
+            <span style={{ color: "var(--dim)" }}>·</span> first run
+          </div>
+          <div className="section-meta">
+            <span style={{ color: "var(--dim)" }}>○</span> no cache yet
+          </div>
         </div>
-        <h2 className="text-lg font-semibold text-foreground mb-2">No audit data yet</h2>
-        <p className="text-sm text-muted-foreground max-w-md mb-6">
-          Run your first audit to see how your agents have been behaving across all past sessions.
-        </p>
-        <Button variant="default" disabled={running} onClick={handleRun}>
-          {running ? "Scanning…" : "Run audit"}
-        </Button>
-        <p className="text-[0.7rem] text-muted-foreground mt-3">
-          Scans the last 30 days across every installed CLI. Takes 10–30 seconds.
-        </p>
-      </div>
+        <h2 className="section-h">scan and see.</h2>
+
+        <div className="panel empty-panel">
+          <div className="empty-glyph" aria-hidden="true">
+            <div className="empty-glyph-grid">
+              {Array.from({ length: 36 }).map((_, i) => {
+                // Form the word "GO" inside an 8x6 grid using a sparse hard-coded
+                // mask. Pure decoration — the grid layout sells the pixel-craft.
+                const on = ["1", "5", "8", "10", "13", "17", "20", "23", "25", "30", "32"].includes(String(i));
+                return <span key={i} className={"px" + (on ? " on" : "")} />;
+              })}
+            </div>
+            <div className="empty-glyph-label">▮▮ no audit data yet</div>
+          </div>
+
+          <h3 className="empty-headline">run your first audit.</h3>
+          <p className="empty-sub">
+            we&apos;ll walk every transcript across your installed CLIs — Claude Code,
+            Codex, Copilot, Cursor, OpenCode, Pi, Gemini — and count every wasteful
+            or risky action. you&apos;ll get a tier, a score, and a punch-list.
+          </p>
+
+          <div className="empty-actions">
+            <button
+              type="button"
+              className="btn btn-primary btn-press empty-cta"
+              onClick={handleRun}
+              disabled={running}
+            >
+              {running ? "[ scanning… ]" : "[ run audit ]"}
+            </button>
+            <span className="empty-meta">
+              scans the last 30 days · all installed CLIs · 10–30s
+            </span>
+          </div>
+        </div>
+      </section>
     );
   }
 
   // mode === "zero-sessions"
   return (
-    <div className="rounded-lg border border-border bg-card p-12 flex flex-col items-center text-center">
-      <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-5">
-        <FolderSearch className="w-7 h-7 text-muted-foreground" />
+    <section className="section empty-section" data-screen-label="00 Empty">
+      <div className="section-mast">
+        <div className="section-label">
+          <span className="glyph">━━</span> audit{" "}
+          <span style={{ color: "var(--dim)" }}>·</span> zero transcripts
+        </div>
+        <div className="section-meta">
+          <span style={{ color: "var(--amber)" }}>●</span> hooks not installed
+        </div>
       </div>
-      <h2 className="text-lg font-semibold text-foreground mb-2">No sessions found</h2>
-      <p className="text-sm text-muted-foreground max-w-md mb-2">
-        Failproof AI couldn&apos;t find any transcripts to scan. Install the hooks
-        for at least one CLI to start collecting sessions.
-      </p>
-      <a
-        href="https://docs.befailproof.ai/getting-started"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-sm text-primary hover:underline"
-      >
-        See the install guide →
-      </a>
-    </div>
+      <h2 className="section-h">nothing to read.</h2>
+
+      <div className="panel empty-panel">
+        <div className="empty-glyph" aria-hidden="true">
+          <div className="empty-glyph-grid">
+            {Array.from({ length: 36 }).map((_, i) => {
+              const on = ["2", "4", "9", "11", "16", "18", "23", "25", "27", "30", "33"].includes(String(i));
+              return <span key={i} className={"px" + (on ? " on" : "")} />;
+            })}
+          </div>
+          <div className="empty-glyph-label">▮▮ no sessions found</div>
+        </div>
+
+        <h3 className="empty-headline">install hooks first.</h3>
+        <p className="empty-sub">
+          failproofai couldn&apos;t find any transcripts to scan on this machine.
+          install the hooks for at least one CLI and come back.
+        </p>
+
+        <div className="empty-actions">
+          <a
+            href="https://docs.befailproof.ai/getting-started"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-primary btn-press empty-cta"
+          >
+            [ install guide → ]
+          </a>
+          <span className="empty-meta">
+            takes about 30 seconds · one command per CLI
+          </span>
+        </div>
+      </div>
+    </section>
   );
 }

@@ -45,6 +45,62 @@ export function getAuthFilePath(): string {
   return join(getAuthDir(), "auth.json");
 }
 
+/** Location of the persisted re-audit reminder (separate from auth.json so
+ *  the reminder survives unrelated session refreshes). */
+export function getReminderFilePath(): string {
+  return join(getAuthDir(), "next-audit.json");
+}
+
+export interface StoredReminder {
+  /** Unix seconds. */
+  next_audit_at: number;
+  /** Email the reminder was set for. Used to invalidate the reminder if the
+   *  active session belongs to a different user. */
+  user_email: string;
+  /** Unix seconds. */
+  set_at: number;
+}
+
+export function readReminder(): StoredReminder | null {
+  const p = getReminderFilePath();
+  if (!existsSync(p)) return null;
+  try {
+    const raw = readFileSync(p, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<StoredReminder>;
+    if (
+      typeof parsed.next_audit_at !== "number" ||
+      typeof parsed.user_email !== "string" ||
+      typeof parsed.set_at !== "number"
+    ) {
+      return null;
+    }
+    return {
+      next_audit_at: parsed.next_audit_at,
+      user_email: parsed.user_email,
+      set_at: parsed.set_at,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function writeReminder(reminder: StoredReminder): void {
+  const p = getReminderFilePath();
+  const dir = dirname(p);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
+  writeFileSync(p, JSON.stringify(reminder, null, 2), { mode: 0o600 });
+  try {
+    if (statSync(p).mode & 0o077) chmodSync(p, 0o600);
+  } catch {
+    // best-effort
+  }
+}
+
+export function deleteReminder(): void {
+  const p = getReminderFilePath();
+  if (existsSync(p)) rmSync(p, { force: true });
+}
+
 export function readAuth(): StoredAuth | null {
   const p = getAuthFilePath();
   if (!existsSync(p)) return null;
