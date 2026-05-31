@@ -37,6 +37,22 @@ failproofai auth --whoami
 
 Prints `<email> (<user uuid>)` and exits 0 when a valid session exists, or `not signed in` and exits 1 otherwise. Silently refreshes the access token in the background if it's within a minute of expiring.
 
+## Persistent re-audit reminder
+
+When you click **`[ set a reminder ]`** on the `/audit` page (or sign in via the modal that the button gates on), the dashboard writes a small companion file at `~/.failproofai/next-audit.json`:
+
+```json
+{
+  "next_audit_at": 1780765200,
+  "user_email": "you@example.com",
+  "set_at": 1780160574
+}
+```
+
+This file is scoped to the email it was set for — switching the CLI session to a different account hides any reminder that belongs to the previous user. Default offset is **7 days**, configurable later when the scheduler lands. Created with `0600` perms like `auth.json`.
+
+The dashboard's `/api/auth/reminder` endpoint exposes `GET` (read), `POST` (set / reschedule), and `DELETE` (clear) and requires an active session.
+
 ## What's in `~/.failproofai/auth.json`
 
 ```json
