@@ -8,6 +8,7 @@
  */
 import React, { useState } from "react";
 import type { FindingCard } from "@/src/audit/findings";
+import { usePostHog } from "@/contexts/PostHogContext";
 
 interface Props {
   findings: FindingCard[];
@@ -37,6 +38,7 @@ export function FindingsSection({ findings }: Props) {
 }
 
 function Finding({ f }: { f: FindingCard }) {
+  const { capture } = usePostHog();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -44,6 +46,12 @@ function Finding({ f }: { f: FindingCard }) {
     try {
       await navigator.clipboard.writeText(f.fix.install);
       setCopied(true);
+      capture("audit_copy_clicked", {
+        source: "findings_section",
+        item_type: "single_policy_install_command",
+        policy_name: f.fix.slug,
+        finding_slug: f.sourceSlug,
+      });
       setTimeout(() => setCopied(false), 1500);
     } catch { /* ignore */ }
   };

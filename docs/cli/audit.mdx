@@ -22,7 +22,6 @@ For each transcript, every tool-use event is replayed through the 39 builtin pol
 
 | Flag | Description |
 |------|-------------|
-| `--cli claude\|codex\|copilot\|cursor\|opencode\|pi\|gemini` | Restrict to one or more CLIs (space-separated or repeated). Default: all 7. |
 | `--project <path>` | Restrict to sessions whose `cwd` matches this path. Repeatable. |
 | `--since 7d\|30d\|2026-04-01` | Only sessions whose transcript mtime is within the window. |
 | `--policy <name>` | Restrict to one policy or detector name. Repeatable. |
@@ -82,8 +81,8 @@ Default output is an ANSI table to stdout plus a sectioned markdown report at `.
 # Scan everything across every CLI on this machine
 failproofai audit
 
-# Just the last 30 days, Claude only
-failproofai audit --cli claude --since 30d
+# Last 30 days
+failproofai audit --since 30d
 
 # Show examples for the top hits
 failproofai audit --show-examples --limit 10

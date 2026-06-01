@@ -18,6 +18,7 @@ import { classifyAgent } from "@/src/audit/archetypes";
 import { COHORT_SIZE, deriveScore, gradeFor, projectedScore, type Grade } from "@/src/audit/scoring";
 import { deriveStrengths } from "@/src/audit/strengths";
 import { deriveFindings } from "@/src/audit/findings";
+import { usePostHog } from "@/contexts/PostHogContext";
 
 import { IdentitySection } from "./identity-section";
 import { StrengthsSection } from "./strengths-section";
@@ -80,6 +81,11 @@ function inferProjectName(result: AuditResult, override?: string): string {
 export function AuditDashboard({ initial, projectFromUrl, totalCatalogSize }: Props) {
   const [cache, setCache] = useState<Initial>(initial);
   const [running, setRunning] = useState(false);
+  const { capture } = usePostHog();
+  const pageViewStateRef = useRef<string | null>(null);
+  const scrollTrackedRef = useRef(false);
+  const transcriptsScanned = cache.status === "cached" ? cache.result.transcripts.scanned : 0;
+  const resultsCount = cache.status === "cached" ? cache.result.results.length : 0;
 
   const refreshFromCache = useCallback(async () => {
     const payload = await getAuditResultAction();
@@ -93,6 +99,46 @@ export function AuditDashboard({ initial, projectFromUrl, totalCatalogSize }: Pr
     document.body.classList.add("audit-body");
     return () => document.body.classList.remove("audit-body");
   }, []);
+
+  useEffect(() => {
+    const viewState =
+      running
+        ? "running"
+        : cache.status === "empty"
+          ? "empty"
+          : transcriptsScanned === 0
+            ? "zero_sessions"
+            : "report";
+    if (pageViewStateRef.current === viewState) return;
+    pageViewStateRef.current = viewState;
+    capture("audit_page_viewed", {
+      state: viewState,
+      has_cache: cache.status === "cached",
+    });
+  }, [cache.status, capture, running, transcriptsScanned]);
+
+  useEffect(() => {
+    scrollTrackedRef.current = false;
+  }, [cache.status, running, transcriptsScanned]);
+
+  useEffect(() => {
+    if (running || cache.status !== "cached" || transcriptsScanned === 0) return;
+    const onScroll = () => {
+      if (scrollTrackedRef.current) return;
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      if (maxScroll <= 0) return;
+      const reachedBottom = window.scrollY >= maxScroll - 24;
+      if (!reachedBottom) return;
+      scrollTrackedRef.current = true;
+      capture("audit_page_scrolled_to_end", {
+        results_count: resultsCount,
+        transcripts_scanned: transcriptsScanned,
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [cache.status, capture, resultsCount, running, transcriptsScanned]);
 
   /* ---- empty / first-run ----------------------------------------- */
   if (cache.status === "empty" && !running) {
@@ -259,4 +305,3 @@ function ShellEmpty({ running, mode = "no-cache", onStarted, onCompleted }: Shel
     </div>
   );
 }
-

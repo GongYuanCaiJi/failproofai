@@ -11,6 +11,7 @@
  */
 import React, { useState } from "react";
 import { ARCHETYPES, type ArchetypeKey } from "@/src/audit/archetypes";
+import { usePostHog } from "@/contexts/PostHogContext";
 import { Sigil } from "./sigil";
 
 interface Props {
@@ -26,11 +27,15 @@ function buildFilename(archetypeKey: ArchetypeKey): string {
 
 export function ShowOffCTA({ archetypeKey, identityFrameRef }: Props) {
   const archetype = ARCHETYPES[archetypeKey];
+  const { capture } = usePostHog();
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
 
   const handleMakePoster = async () => {
     const node = identityFrameRef.current;
     if (!node || state === "busy") return;
+    capture("audit_poster_clicked", {
+      archetype: archetypeKey,
+    });
     setState("busy");
     /** Add a capture-only class that locks font sizes, the grid layout,
      *  and disables clamp()/text-shadow rules html2canvas renders
@@ -75,10 +80,18 @@ export function ShowOffCTA({ archetypeKey, identityFrameRef }: Props) {
           resolve();
         }, "image/png");
       });
+      capture("audit_poster_completed", {
+        status: "success",
+        archetype: archetypeKey,
+      });
       setState("done");
       setTimeout(() => setState("idle"), 2000);
     } catch (err) {
       console.error("poster capture failed:", err);
+      capture("audit_poster_completed", {
+        status: "error",
+        archetype: archetypeKey,
+      });
       setState("error");
       setTimeout(() => setState("idle"), 2000);
     } finally {

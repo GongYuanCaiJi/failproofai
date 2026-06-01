@@ -9,6 +9,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthApiError, verifyLoginCode } from "@/lib/auth/api-server-client";
 import { authFromTokenResponse, writeAuth } from "@/lib/auth/auth-store";
+import { initTelemetry, trackEvent } from "@/lib/telemetry";
+import { getInstanceId } from "@/lib/telemetry-id";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +41,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const tokens = await verifyLoginCode(body.email, body.code);
     writeAuth(authFromTokenResponse(tokens));
+    await initTelemetry();
+    trackEvent("audit_user_identity_linked", {
+      source: "audit_set_reminder_auth_dialog",
+      user_id: tokens.user.id,
+      user_email: tokens.user.email,
+      local_random_id: getInstanceId(),
+    });
     return NextResponse.json(
       {
         authenticated: true,

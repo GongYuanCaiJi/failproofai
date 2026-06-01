@@ -20,6 +20,7 @@
 import React, { forwardRef, useState } from "react";
 import { ARCHETYPES, pickArchetypeVariant, type ArchetypeKey } from "@/src/audit/archetypes";
 import { type Grade } from "@/src/audit/scoring";
+import { usePostHog } from "@/contexts/PostHogContext";
 import { Sigil } from "./sigil";
 
 const SITE_URL = "https://failproof.ai";
@@ -67,6 +68,7 @@ export const IdentitySection = forwardRef<HTMLDivElement, Props>(function Identi
 ) {
   const archetype = pickArchetypeVariant(archetypeKey, seed);
   const secondary = secondaryKey !== archetypeKey ? ARCHETYPES[secondaryKey] : null;
+  const { capture } = usePostHog();
   const [downloadState, setDownloadState] = useState<"idle" | "busy" | "done" | "error">("idle");
 
   const captureCard = async (): Promise<boolean> => {
@@ -105,12 +107,25 @@ export const IdentitySection = forwardRef<HTMLDivElement, Props>(function Identi
 
   const handleDownload = async () => {
     if (downloadState === "busy") return;
+    capture("audit_card_download_clicked", {
+      score,
+      grade,
+      missing_policies: missing,
+    });
     setDownloadState("busy");
     try {
-      await captureCard();
+      const captured = await captureCard();
+      capture("audit_card_capture_completed", {
+        trigger: "download",
+        status: captured ? "success" : "no_frame",
+      });
       setDownloadState("done");
       setTimeout(() => setDownloadState("idle"), 2000);
     } catch {
+      capture("audit_card_capture_completed", {
+        trigger: "download",
+        status: "error",
+      });
       setDownloadState("error");
       setTimeout(() => setDownloadState("idle"), 2000);
     }
@@ -118,13 +133,33 @@ export const IdentitySection = forwardRef<HTMLDivElement, Props>(function Identi
 
   const handleShareX = async () => {
     const text = buildXTemplate(score, archetype.name, grade, missing);
-    await captureCard().catch(() => null);
+    capture("audit_card_share_clicked", {
+      channel: "x",
+      score,
+      grade,
+      missing_policies: missing,
+    });
+    const captured = await captureCard().catch(() => false);
+    capture("audit_card_capture_completed", {
+      trigger: "share_x",
+      status: captured ? "success" : "error",
+    });
     globalThis.open(X_INTENT(text), "_blank", "noopener,noreferrer");
   };
 
   const handleShareLI = async () => {
     const text = buildLinkedInTemplate(score, archetype.name, grade, missing);
-    await captureCard().catch(() => null);
+    capture("audit_card_share_clicked", {
+      channel: "linkedin",
+      score,
+      grade,
+      missing_policies: missing,
+    });
+    const captured = await captureCard().catch(() => false);
+    capture("audit_card_capture_completed", {
+      trigger: "share_linkedin",
+      status: captured ? "success" : "error",
+    });
     globalThis.open(LI_INTENT(text), "_blank", "noopener,noreferrer");
   };
 

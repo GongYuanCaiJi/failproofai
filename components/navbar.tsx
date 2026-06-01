@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReachDevelopers } from "@/components/reach-developers";
 import { RefreshButton } from "@/app/components/refresh-button";
+import { usePostHog } from "@/contexts/PostHogContext";
 
 const NAV_LINKS = [
   { href: "/policies", label: "policies" },
@@ -28,6 +29,7 @@ export const Navbar: React.FC<{
   auditSlippingCount?: number;
 }> = ({ disabledPages = [], auditSlippingCount }) => {
   const pathname = usePathname();
+  const { capture } = usePostHog();
 
   const sectionLabel = (() => {
     if (pathname.startsWith("/policies")) return "policies";
@@ -70,6 +72,15 @@ export const Navbar: React.FC<{
               href={href}
               className={`tab${active ? " is-active" : ""}`}
               aria-current={active ? "page" : undefined}
+              onClick={() => {
+                if (href !== "/audit") return;
+                capture("audit_nav_clicked", {
+                  from_path: pathname,
+                  is_active_tab: active,
+                  has_badge: showAuditBadge,
+                  slipping_count: typeof auditSlippingCount === "number" ? auditSlippingCount : null,
+                });
+              }}
             >
               <span style={{ color: "var(--dim)", letterSpacing: "-2px", marginRight: 2 }}>━━</span>
               {label}

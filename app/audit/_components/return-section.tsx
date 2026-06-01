@@ -22,6 +22,7 @@
  */
 import React, { useCallback, useEffect, useState } from "react";
 import type { AuditResult } from "@/src/audit/types";
+import { usePostHog } from "@/contexts/PostHogContext";
 import { AuthDialog, type AuthedUser } from "./auth-dialog";
 import { triggerRun } from "./rerun-button";
 
@@ -58,6 +59,7 @@ function formatNextAudit(unixSecs: number): string {
 }
 
 export function ReturnSection({ result }: Props) {
+  const { capture } = usePostHog();
   const hasUnenabled = result.results.some(
     (r) => r.source === "builtin" && !r.enabledInConfig && r.hits > 0,
   );
@@ -119,18 +121,33 @@ export function ReturnSection({ result }: Props) {
       });
       if (!res.ok) return null;
       const body = (await res.json()) as { reminder?: Reminder };
+      capture("audit_reminder_saved", {
+        status: body.reminder ? "success" : "empty",
+        source: "return_section",
+      });
       return body.reminder ?? null;
     } catch {
+      capture("audit_reminder_saved", {
+        status: "error",
+        source: "return_section",
+      });
       return null;
     } finally {
       setReminderBusy(false);
     }
-  }, []);
+  }, [capture]);
 
   const handleInstall = async () => {
+    capture("audit_install_policies_clicked", {
+      source: "return_section",
+    });
     try {
       await navigator.clipboard.writeText(BULK_INSTALL_CMD);
       setCopied(true);
+      capture("audit_copy_clicked", {
+        source: "return_section_install_policies",
+        item_type: "bulk_install_command",
+      });
       setTimeout(() => setCopied(false), 1500);
     } catch {
       /* ignore */
@@ -139,27 +156,39 @@ export function ReturnSection({ result }: Props) {
 
   const handleSetReminder = useCallback(async () => {
     if (authStatus.kind === "unknown") return;
+    capture("audit_set_reminder_clicked", {
+      auth_state: authStatus.kind,
+      has_existing_reminder: reminder !== null,
+      source: "return_section",
+    });
     if (authStatus.kind === "authed") {
       const next = await persistReminder();
       if (next) setReminder(next);
       return;
     }
     setDialogOpen(true);
-  }, [authStatus, persistReminder]);
+  }, [authStatus, capture, persistReminder, reminder]);
 
   const handleAuthed = useCallback(
     async (user: AuthedUser) => {
       setAuthStatus({ kind: "authed", user });
+      capture("audit_auth_completed", {
+        source: "return_section",
+      });
       // The dialog opened because the user wanted a reminder → persist
       // immediately, no second click required.
       const next = await persistReminder();
       if (next) setReminder(next);
     },
-    [persistReminder],
+    [capture, persistReminder],
   );
 
   const handleRerun = useCallback(async () => {
     if (rerunBusy) return;
+    capture("audit_rerun_clicked", {
+      source: "return_section",
+      since: "30d",
+    });
     setRerunBusy(true);
     try {
       await triggerRun({ cli: [], since: "30d" });
@@ -169,7 +198,7 @@ export function ReturnSection({ result }: Props) {
     } finally {
       setRerunBusy(false);
     }
-  }, [rerunBusy]);
+  }, [capture, rerunBusy]);
 
   const authed = authStatus.kind === "authed";
   const hasReminder = authed && reminder !== null;

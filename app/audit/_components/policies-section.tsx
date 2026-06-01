@@ -18,6 +18,7 @@
 import React, { useState } from "react";
 import type { AuditResult } from "@/src/audit/types";
 import { type Grade, tierName } from "@/src/audit/scoring";
+import { usePostHog } from "@/contexts/PostHogContext";
 
 interface Props {
   result: AuditResult;
@@ -150,6 +151,7 @@ export function PoliciesSection({ result, projected, projectedGrade }: Props) {
 }
 
 function PolicyTile({ policy, idx }: { policy: PolicyCard; idx: number }) {
+  const { capture } = usePostHog();
   const [copied, setCopied] = useState(false);
   const install = `failproof policy add ${policy.name}`;
 
@@ -158,6 +160,12 @@ function PolicyTile({ policy, idx }: { policy: PolicyCard; idx: number }) {
     try {
       await navigator.clipboard.writeText(install);
       setCopied(true);
+      capture("audit_copy_clicked", {
+        source: "policies_section",
+        item_type: "single_policy_install_command",
+        policy_name: policy.name,
+        policy_rank: idx + 1,
+      });
       setTimeout(() => setCopied(false), 1500);
     } catch { /* ignore */ }
   };

@@ -14,6 +14,7 @@
  */
 import React from "react";
 import { triggerRun } from "./rerun-button";
+import { usePostHog } from "@/contexts/PostHogContext";
 
 interface Props {
   mode: "no-cache" | "zero-sessions";
@@ -23,7 +24,12 @@ interface Props {
 }
 
 export function EmptyState({ mode, running, onStarted, onCompleted }: Props) {
+  const { capture } = usePostHog();
   const handleRun = async () => {
+    capture("audit_first_run_clicked", {
+      source: "empty_state",
+      mode,
+    });
     onStarted();
     try {
       await triggerRun({ cli: [], since: "30d" });
@@ -121,6 +127,12 @@ export function EmptyState({ mode, running, onStarted, onCompleted }: Props) {
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-primary btn-press empty-cta"
+            onClick={() => {
+              capture("audit_install_guide_clicked", {
+                source: "empty_state",
+                mode,
+              });
+            }}
           >
             [ install guide → ]
           </a>

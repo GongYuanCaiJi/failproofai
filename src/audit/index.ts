@@ -17,12 +17,6 @@ import { AUDIT_DETECTORS } from "./detectors";
 import { readCachedTranscriptResult, writeCachedTranscriptResult } from "./cache";
 import { initReplay, replayEvent, restoreReplay } from "./replay";
 import {
-  trackAuditCompleted,
-  trackAuditInstallCtaShown,
-  trackAuditPatternDetected,
-  trackAuditStarted,
-} from "./telemetry";
-import {
   AUDIT_EXAMPLE_MAX_CHARS,
   AUDIT_MAX_EXAMPLES_PER_NAME,
   type AuditCount,
@@ -275,9 +269,6 @@ export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult>
 }
 
 async function runAuditInner(opts: RunAuditOptions, startedAt: number): Promise<AuditResult> {
-  const outputMode = opts.json ? "json" : opts.noReport ? "text" : "text+markdown";
-  trackAuditStarted(opts, outputMode);
-
   const clis = (opts.clis ?? Array.from(INTEGRATION_TYPES)) as IntegrationType[];
   const sinceMs = parseSinceOpt(opts.since);
 
@@ -381,15 +372,6 @@ async function runAuditInner(opts: RunAuditOptions, startedAt: number): Promise<
     enabledBuiltinNames: [...enabledBuiltins]
       .map((n) => (n.includes("/") ? n.slice(n.indexOf("/") + 1) : n)),
   };
-
-  // Telemetry — fire-and-forget, never blocks the CLI. See src/audit/telemetry.ts
-  // for the privacy contract (slugs + counts + booleans only).
-  for (const count of results) trackAuditPatternDetected(count);
-  const unenabledBuiltinNames = results
-    .filter((r) => r.source === "builtin" && !r.enabledInConfig)
-    .map((r) => r.name);
-  trackAuditInstallCtaShown(unenabledBuiltinNames);
-  trackAuditCompleted(auditResult, outputMode);
 
   return auditResult;
 }
