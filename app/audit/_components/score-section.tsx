@@ -71,7 +71,7 @@ export function ScoreSection({ result, score, grade, archetypeKey, project }: Pr
       <div className="section-mast">
         <div className="section-label">
           <span className="glyph">━━</span> score
-          <span style={{ color: "var(--accent-green)", marginLeft: 10, letterSpacing: "0.04em", textTransform: "none", fontSize: 11 }}>· see how your agent is performing</span>
+          <span style={{ color: "var(--accent-green)", marginLeft: 10, letterSpacing: "0.04em", textTransform: "none", fontSize: 11 }}>· SEE HOW YOUR AGENT IS PERFORMING</span>
         </div>
       </div>
       <h2 className="section-h">your audit score.</h2>
