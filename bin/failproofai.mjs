@@ -103,7 +103,7 @@ if (hookIdx >= 0) {
  */
 async function runCli() {
   // --help / -h  (only when not inside a subcommand that handles its own --help)
-  const SUBCOMMANDS = ["policies", "audit", "auth"];
+  const SUBCOMMANDS = ["policies", "policy", "audit", "auth"];
   if ((args.includes("--help") || args.includes("-h")) && !SUBCOMMANDS.includes(args[0])) {
     const extraArgs = args.filter((a) => a !== "--help" && a !== "-h");
     if (extraArgs.length > 0) {
@@ -117,6 +117,9 @@ USAGE
 
 COMMANDS
   (no args)                      Launch the policy dashboard
+
+  policy add <name>              Enable a single policy (see \`policy --help\`)
+  policy remove <name>           Disable a single policy
 
   policies, p                    List all available policies and their status
   policies --install, -i         Enable policies in agent CLI settings
@@ -141,9 +144,9 @@ COMMANDS
   policies --help, -h            Show this help for the policies command
 
   auth                           Sign in / out of FailproofAI from the CLI.
-    --login                        Email + OTP flow; writes ~/.failproofai/auth.json
-    --logout                       Revoke this session and remove auth.json
-    --whoami                       Print the currently authenticated identity
+    login                          Email + OTP flow; writes ~/.failproofai/auth.json
+    logout                         Revoke this session and remove auth.json
+    whoami                         Print the currently authenticated identity
   auth --help, -h                Show this help for the auth command
 
   audit  (beta)                  Scan past agent CLI transcripts and count
@@ -483,6 +486,156 @@ EXAMPLES
     await runAuthCli(args.slice(1));
     await track("cli_auth_invoked", { args_count: args.length - 1 });
     process.exit(process.exitCode ?? 0);
+  }
+
+  // policy — single-policy shortcut over `policies --install <name>`.
+  //   failproofai policy add <name>     enable one policy (defaults: claude/user)
+  //   failproofai policy remove <name>  disable one policy
+  // Honors the same --cli / --scope / --beta flags as `policies --install`.
+  if (args[0] === "policy") {
+    lastSubcommand = "policy";
+    const subArgs = args.slice(1);
+
+    if (subArgs.length === 0 || subArgs.includes("--help") || subArgs.includes("-h")) {
+      console.log(`
+failproofai policy — manage a single FailproofAI policy
+
+USAGE
+  failproofai policy add <name>      Enable one policy
+  failproofai policy remove <name>   Disable one policy
+
+OPTIONS
+  --cli claude|codex|copilot|cursor|opencode|pi|gemini
+                                     Agent CLI(s) to apply to; space-separated or repeated.
+                                     Omit to detect installed CLIs and prompt.
+  --scope user|project|local         Config scope (default: user)
+  --beta                             Allow beta policies
+
+EXAMPLES
+  failproofai policy add block-sudo
+  failproofai policy add sanitize-api-keys --scope project
+  failproofai policy add block-force-push --cli claude codex
+  failproofai policy remove block-sudo
+`.trimStart());
+      process.exit(0);
+    }
+
+    const action = subArgs[0];
+    if (action !== "add" && action !== "remove") {
+      throw new CliError(
+        `Unknown policy subcommand: ${action}\n` +
+        `Run \`failproofai policy --help\` for usage.`,
+      );
+    }
+
+    const rest = subArgs.slice(1);
+
+    const scopeIdx = rest.indexOf("--scope");
+    const scope = scopeIdx >= 0 ? rest[scopeIdx + 1] : "user";
+    if (scopeIdx >= 0 && (!scope || scope.startsWith("-"))) {
+      throw new CliError("Missing value for --scope. Valid values: user, project, local");
+    }
+    const validScopes = action === "remove"
+      ? ["user", "project", "local", "all"]
+      : ["user", "project", "local"];
+    if (scopeIdx >= 0 && !validScopes.includes(scope)) {
+      throw new CliError(`Invalid scope: ${scope}. Valid values: ${validScopes.join(", ")}`);
+    }
+
+    // --cli accepts one or more space-separated values, optionally repeated.
+    const VALID_CLIS = new Set(["claude", "codex", "copilot", "cursor", "opencode", "pi", "gemini"]);
+    const cliFlagValues = [];
+    const cliConsumedIdxs = new Set();
+    const cliFlagIdxs = rest.map((a, i) => (a === "--cli" ? i : -1)).filter((i) => i >= 0);
+    for (const idx of cliFlagIdxs) {
+      let consumed = 0;
+      for (let j = idx + 1; j < rest.length; j++) {
+        const v = rest[j];
+        if (v.startsWith("-")) break;
+        if (!VALID_CLIS.has(v)) break;
+        cliFlagValues.push(v);
+        cliConsumedIdxs.add(j);
+        consumed++;
+      }
+      if (consumed === 0) {
+        throw new CliError("Missing value(s) for --cli. Usage: --cli claude codex copilot cursor opencode pi gemini (or any subset)");
+      }
+    }
+
+    const includeBeta = rest.includes("--beta");
+
+    // Reject unknown flags.
+    const knownFlags = new Set(["--scope", "--cli", "--beta"]);
+    const unknownFlag = rest.find((a) => a.startsWith("-") && !knownFlags.has(a));
+    if (unknownFlag) {
+      throw new CliError(`Unknown flag: ${unknownFlag}\nRun \`failproofai policy --help\` for usage.`);
+    }
+
+    // Positional policy names = anything not consumed by --scope / --cli.
+    const consumedIdxs = new Set();
+    if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
+    for (const i of cliConsumedIdxs) consumedIdxs.add(i);
+    const positional = rest.filter(
+      (a, idx) => !a.startsWith("-") && !consumedIdxs.has(idx),
+    );
+
+    if (positional.length === 0) {
+      throw new CliError(
+        `Missing policy name.\n` +
+        `Usage: failproofai policy ${action} <name>\n` +
+        `Run \`failproofai policies\` to see available names.`,
+      );
+    }
+    if (positional.length > 1) {
+      throw new CliError(
+        `\`policy ${action}\` takes exactly one policy name (got ${positional.length}).\n` +
+        `For multiple policies use \`failproofai policies --${action === "add" ? "install" : "uninstall"} ${positional.join(" ")}\`.`,
+      );
+    }
+    const policyName = positional[0];
+
+    const { resolveTargetClis } = await import("../src/hooks/install-prompt");
+    const cli = await resolveTargetClis(
+      cliFlagValues.length > 0 ? cliFlagValues : undefined,
+      action === "add" ? "install" : "uninstall",
+    );
+
+    if (action === "add") {
+      const { installHooks } = await import("../src/hooks/manager");
+      await installHooks(
+        [policyName],
+        scope,
+        undefined,
+        includeBeta,
+        undefined,
+        undefined,
+        false,
+        cli,
+      );
+      await track("cli_policy_add_success", {
+        scope,
+        cli,
+        cli_count: cli.length,
+        policy_name: policyName,
+        include_beta: includeBeta,
+      });
+    } else {
+      const { removeHooks } = await import("../src/hooks/manager");
+      await removeHooks(
+        [policyName],
+        scope,
+        undefined,
+        { betaOnly: includeBeta, removeCustomHooks: false, cli },
+      );
+      await track("cli_policy_remove_success", {
+        scope,
+        cli,
+        cli_count: cli.length,
+        policy_name: policyName,
+        beta_only: includeBeta,
+      });
+    }
+    process.exit(0);
   }
 
   // audit — scan past transcripts for "stupid behaviors" caught by builtin

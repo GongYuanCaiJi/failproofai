@@ -1,13 +1,15 @@
 /**
  * `failproofai auth` CLI surface.
  *
- *   failproofai auth --login    Email + OTP flow; writes ~/.failproofai/auth.json
- *   failproofai auth --logout   Revoke the session and wipe auth.json
- *   failproofai auth --whoami   Print the currently logged-in identity (or "not authed")
- *   failproofai auth --help     Usage
+ *   failproofai auth login     Email + OTP flow; writes ~/.failproofai/auth.json
+ *   failproofai auth logout    Wipe auth.json (best-effort server revoke)
+ *   failproofai auth whoami    Print the cached identity (or "not signed in")
+ *   failproofai auth help      Usage
  *
- * The implementation deliberately avoids new external deps — readline + stdin
- * + ANSI escapes are enough for a one-shot prompt loop.
+ * Source of truth is the local cache (~/.failproofai/auth.json). Server-side
+ * validation is intentionally avoided — once a token is on disk we trust it.
+ * That keeps `login`, `logout`, and `whoami` consistent with each other and
+ * with the dashboard, even when the api-server is unreachable.
  */
 
 import * as readline from "node:readline";
@@ -23,7 +25,6 @@ import {
   authFromTokenResponse,
   deleteAuth,
   readAuth,
-  whoAmI,
   writeAuth,
 } from "../../lib/auth/auth-store";
 import { CliError } from "../cli-error";
@@ -36,10 +37,10 @@ const HELP = `
 failproofai auth — sign in to FailproofAI from the CLI
 
 USAGE
-  failproofai auth --login       Start the email + OTP login flow
-  failproofai auth --logout      Revoke this session and remove ~/.failproofai/auth.json
-  failproofai auth --whoami      Print the currently authenticated identity
-  failproofai auth --help, -h    Show this help
+  failproofai auth login         Start the email + OTP login flow
+  failproofai auth logout        Remove ~/.failproofai/auth.json
+  failproofai auth whoami        Print the currently signed-in identity
+  failproofai auth help          Show this help (also: --help, -h)
 
 ENVIRONMENT
   FAILPROOF_API_URL              Override the api-server base URL
@@ -48,51 +49,58 @@ ENVIRONMENT
                                  (default: ~/.failproofai)
 
 EXAMPLES
-  failproofai auth --login
-  failproofai auth --whoami
-  failproofai auth --logout
+  failproofai auth login
+  failproofai auth whoami
+  failproofai auth logout
 `.trimStart();
 
+/** Deprecated `--login` / `--logout` / `--whoami` flags map back to subcommands
+ *  so shell history and older docs keep working silently. */
+const LEGACY_FLAG_TO_SUB: Record<string, "login" | "logout" | "whoami"> = {
+  "--login": "login",
+  "--logout": "logout",
+  "--whoami": "whoami",
+};
+
+const SUBCOMMANDS = new Set(["login", "logout", "whoami", "help"]);
+
 export function parseAuthArgs(args: string[]): AuthCliOptions {
-  const flags = new Set(args);
-  const isHelp = flags.has("--help") || flags.has("-h");
-  const isLogin = flags.has("--login");
-  const isLogout = flags.has("--logout");
-  const isWhoami = flags.has("--whoami");
+  if (args.includes("--help") || args.includes("-h")) return { mode: "help" };
 
-  if (isHelp) return { mode: "help" };
-
-  const known = new Set(["--login", "--logout", "--whoami", "--help", "-h"]);
-  const unknown = args.find((a) => a.startsWith("-") && !known.has(a));
-  if (unknown) {
-    throw new CliError(
-      `Unknown flag for auth: ${unknown}\nRun \`failproofai auth --help\` for usage.`,
-    );
-  }
-  const positional = args.filter((a) => !a.startsWith("-"));
-  if (positional.length > 0) {
-    throw new CliError(
-      `Unexpected argument: ${positional[0]}\nRun \`failproofai auth --help\` for usage.`,
-    );
+  const positional: string[] = [];
+  const legacy: ("login" | "logout" | "whoami")[] = [];
+  for (const a of args) {
+    if (a === "--help" || a === "-h") continue;
+    if (a in LEGACY_FLAG_TO_SUB) {
+      legacy.push(LEGACY_FLAG_TO_SUB[a]);
+      continue;
+    }
+    if (a.startsWith("-")) {
+      throw new CliError(
+        `Unknown flag for auth: ${a}\nRun \`failproofai auth help\` for usage.`,
+      );
+    }
+    positional.push(a);
   }
 
-  const count = (isLogin ? 1 : 0) + (isLogout ? 1 : 0) + (isWhoami ? 1 : 0);
-  if (count === 0) return { mode: "help" };
-  if (count > 1) {
+  const subs = [...positional, ...legacy];
+  if (subs.length === 0) return { mode: "help" };
+  if (subs.length > 1) {
     throw new CliError(
-      `Pick one of --login, --logout, --whoami.\nRun \`failproofai auth --help\` for usage.`,
+      `Pick one of login, logout, whoami.\nRun \`failproofai auth help\` for usage.`,
     );
   }
-  if (isLogin) return { mode: "login" };
-  if (isLogout) return { mode: "logout" };
-  return { mode: "whoami" };
+  const sub = subs[0];
+  if (!SUBCOMMANDS.has(sub)) {
+    throw new CliError(
+      `Unknown auth subcommand: ${sub}\nRun \`failproofai auth help\` for usage.`,
+    );
+  }
+  return { mode: sub as AuthCliOptions["mode"] };
 }
 
 function prompt(question: string, opts: { hidden?: boolean } = {}): Promise<string> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  // Input-masking only makes sense on a real terminal; on piped/redirected
-  // stdin readline buffers character-by-character through `_writeToOutput`,
-  // which combined with masking can stall the read.
   if (opts.hidden && process.stdin.isTTY) {
     const r = rl as unknown as {
       _writeToOutput: (s: string) => void;
@@ -113,11 +121,11 @@ function prompt(question: string, opts: { hidden?: boolean } = {}): Promise<stri
   });
 }
 
-const DIM = "[2m";
-const RESET = "[0m";
-const PINK = "[38;5;204m";
-const GREEN = "[38;5;120m";
-const RED = "[38;5;197m";
+const DIM = "[2m";
+const RESET = "[0m";
+const PINK = "[38;5;204m";
+const GREEN = "[38;5;120m";
+const RED = "[38;5;197m";
 
 function emailLooksValid(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -127,7 +135,7 @@ async function runLogin(): Promise<void> {
   const existing = readAuth();
   if (existing) {
     process.stdout.write(
-      `${DIM}already signed in as${RESET} ${existing.user.email} ${DIM}(use \`failproofai auth --logout\` to switch accounts)${RESET}\n`,
+      `${DIM}already signed in as${RESET} ${existing.user.email} ${DIM}(use \`failproofai auth logout\` to switch accounts)${RESET}\n`,
     );
     return;
   }
@@ -199,45 +207,27 @@ async function runLogout(): Promise<void> {
     process.stdout.write(`${DIM}not signed in. nothing to do.${RESET}\n`);
     return;
   }
-  let serverRevoked = false;
+  // Best-effort server revoke — failure does not block the local wipe.
   try {
     await logoutSession(existing.access_token, existing.refresh_token);
-    serverRevoked = true;
-  } catch (err) {
-    if (err instanceof AuthApiError && err.status === 401) {
-      // Token already invalid — that's fine, we'll still wipe locally.
-      serverRevoked = true;
-    } else if (err instanceof AuthApiError) {
-      process.stdout.write(
-        `${RED}server-side revoke failed (${err.code}): ${err.message}${RESET}\n`,
-      );
-    } else {
-      process.stdout.write(
-        `${RED}could not reach the api-server — wiping local session only.${RESET}\n`,
-      );
-    }
+  } catch {
+    // ignored — the local cache is the source of truth.
   }
   deleteAuth();
-  if (serverRevoked) {
-    process.stdout.write(`${GREEN}✓ signed out.${RESET}\n`);
-  } else {
-    process.stdout.write(
-      `${GREEN}✓ local session removed.${RESET} ${DIM}server-side revocation may not have completed.${RESET}\n`,
-    );
-  }
+  process.stdout.write(
+    `${GREEN}✓ signed out as ${existing.user.email}.${RESET}\n`,
+  );
 }
 
-async function runWhoami(): Promise<void> {
-  const result = await whoAmI();
-  if (!result) {
-    process.stdout.write(`${DIM}not signed in — run \`failproofai auth --login\` to sign in.${RESET}\n`);
+function runWhoami(): void {
+  const existing = readAuth();
+  if (!existing) {
+    process.stdout.write(`${DIM}not signed in — run \`failproofai auth login\` to sign in.${RESET}\n`);
     process.exitCode = 1;
     return;
   }
-  const { me } = result;
   process.stdout.write(
-    `${GREEN}✓${RESET} ${me.email} ${DIM}(${me.id})${RESET}\n` +
-      `${DIM}status: ${me.status} · created: ${me.created_at}${RESET}\n`,
+    `${GREEN}✓${RESET} ${existing.user.email} ${DIM}(${existing.user.id})${RESET}\n`,
   );
 }
 

@@ -94,6 +94,19 @@ export function ReturnSection({ result }: Props) {
 
   useEffect(() => {
     void refreshStatus();
+    // Re-probe whenever the tab regains focus or visibility — picks up
+    // CLI `failproofai auth login` / `logout` and api-server restarts
+    // without the user having to hit reload manually.
+    const onFocus = () => void refreshStatus();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void refreshStatus();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [refreshStatus]);
 
   const persistReminder = useCallback(async (): Promise<Reminder | null> => {
