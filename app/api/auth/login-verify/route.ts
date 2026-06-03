@@ -38,15 +38,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 400 },
     );
   }
+  await initTelemetry();
   try {
     const tokens = await verifyLoginCode(body.email, body.code);
     writeAuth(authFromTokenResponse(tokens));
-    await initTelemetry();
     trackEvent("audit_user_identity_linked", {
       source: "audit_set_reminder_auth_dialog",
       user_id: tokens.user.id,
       user_email: tokens.user.email,
       local_random_id: getInstanceId(),
+    });
+    trackEvent("audit_otp_verified", {
+      status: "success",
+      source: "dashboard",
+      user_id: tokens.user.id,
     });
     return NextResponse.json(
       {
@@ -57,12 +62,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   } catch (err) {
     if (err instanceof AuthApiError) {
+      trackEvent("audit_otp_verified", {
+        status: "failed",
+        source: "dashboard",
+        error_code: err.code,
+        http_status: err.status,
+      });
       return NextResponse.json(
         { code: err.code, message: err.message },
         { status: err.status },
       );
     }
     const message = err instanceof Error ? err.message : String(err);
+    trackEvent("audit_otp_verified", {
+      status: "failed",
+      source: "dashboard",
+      error_code: "upstream_unreachable",
+      error_message: message.slice(0, 200),
+    });
     return NextResponse.json(
       { code: "upstream_unreachable", message: `api-server unreachable: ${message}` },
       { status: 502 },

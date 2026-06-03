@@ -28,6 +28,8 @@ import {
   writeAuth,
 } from "../../lib/auth/auth-store";
 import { CliError } from "../cli-error";
+import { trackHookEvent } from "../hooks/hook-telemetry";
+import { getInstanceId } from "../../lib/telemetry-id";
 
 interface AuthCliOptions {
   mode: "login" | "logout" | "whoami" | "help";
@@ -121,11 +123,11 @@ function prompt(question: string, opts: { hidden?: boolean } = {}): Promise<stri
   });
 }
 
-const DIM = "[2m";
-const RESET = "[0m";
-const PINK = "[38;5;204m";
-const GREEN = "[38;5;120m";
-const RED = "[38;5;197m";
+const DIM = "\x1b[2m";
+const RESET = "\x1b[0m";
+const PINK = "\x1b[38;5;204m";
+const GREEN = "\x1b[38;5;120m";
+const RED = "\x1b[38;5;197m";
 
 function emailLooksValid(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -134,11 +136,20 @@ function emailLooksValid(email: string): boolean {
 async function runLogin(): Promise<void> {
   const existing = readAuth();
   if (existing) {
+    void trackHookEvent(getInstanceId(), "audit_cli_auth_login_completed", {
+      source: "cli",
+      status: "already_signed_in",
+      user_id: existing.user.id,
+    });
     process.stdout.write(
       `${DIM}already signed in as${RESET} ${existing.user.email} ${DIM}(use \`failproofai auth logout\` to switch accounts)${RESET}\n`,
     );
     return;
   }
+  void trackHookEvent(getInstanceId(), "audit_cli_auth_login_started", {
+    source: "cli",
+    api_base: getApiBase(),
+  });
 
   process.stdout.write(`${PINK}━━ failproofai auth ━━${RESET}\n`);
   process.stdout.write(`${DIM}api: ${getApiBase()}${RESET}\n\n`);
@@ -150,20 +161,39 @@ async function runLogin(): Promise<void> {
     process.stdout.write(`${RED}that doesn't look like an email — try again.${RESET}\n`);
     email = "";
   }
-  if (!email) throw new CliError("Could not read a valid email after 3 attempts.");
+  if (!email) {
+    void trackHookEvent(getInstanceId(), "audit_cli_auth_login_completed", {
+      source: "cli",
+      status: "aborted_invalid_email",
+    });
+    throw new CliError("Could not read a valid email after 3 attempts.");
+  }
 
   try {
     const r = await requestLoginCode(email);
+    void trackHookEvent(getInstanceId(), "audit_otp_requested", {
+      source: "cli",
+      status: "success",
+      expires_in: r.expires_in,
+      resend_available_in: r.resend_available_in,
+    });
     process.stdout.write(
       `\n${GREEN}code sent.${RESET} ${DIM}check ${email} — expires in ${r.expires_in}s.${RESET}\n`,
     );
   } catch (err) {
-    if (err instanceof AuthApiError && err.code === "rate_limited") {
+    const isApi = err instanceof AuthApiError;
+    void trackHookEvent(getInstanceId(), "audit_otp_requested", {
+      source: "cli",
+      status: "failed",
+      error_code: isApi ? err.code : "upstream_unreachable",
+      http_status: isApi ? err.status : null,
+    });
+    if (isApi && err.code === "rate_limited") {
       throw new CliError(
         `Rate limited — try again in ${err.retryAfterSecs ?? "a few"} seconds.`,
       );
     }
-    if (err instanceof AuthApiError) {
+    if (isApi) {
       throw new CliError(`Login request failed (${err.code}): ${err.message}`);
     }
     throw new CliError(
@@ -173,18 +203,28 @@ async function runLogin(): Promise<void> {
   }
 
   let tokenResp;
+  let verifyAttempts = 0;
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = await prompt("code:  ", { hidden: true });
     if (!code) continue;
+    verifyAttempts += 1;
     try {
       tokenResp = await verifyLoginCode(email, code);
       break;
     } catch (err) {
-      if (err instanceof AuthApiError && err.status === 401) {
+      const isApi = err instanceof AuthApiError;
+      void trackHookEvent(getInstanceId(), "audit_otp_verified", {
+        source: "cli",
+        status: "failed",
+        attempt: verifyAttempts,
+        error_code: isApi ? err.code : "upstream_unreachable",
+        http_status: isApi ? err.status : null,
+      });
+      if (isApi && err.status === 401) {
         process.stdout.write(`${RED}code rejected — try again.${RESET}\n`);
         continue;
       }
-      if (err instanceof AuthApiError) {
+      if (isApi) {
         throw new CliError(`Verify failed (${err.code}): ${err.message}`);
       }
       throw new CliError(
@@ -192,9 +232,28 @@ async function runLogin(): Promise<void> {
       );
     }
   }
-  if (!tokenResp) throw new CliError("Too many bad codes — start over.");
+  if (!tokenResp) {
+    void trackHookEvent(getInstanceId(), "audit_cli_auth_login_completed", {
+      source: "cli",
+      status: "exhausted_attempts",
+      attempts: verifyAttempts,
+    });
+    throw new CliError("Too many bad codes — start over.");
+  }
 
   writeAuth(authFromTokenResponse(tokenResp));
+  void trackHookEvent(getInstanceId(), "audit_otp_verified", {
+    source: "cli",
+    status: "success",
+    attempt: verifyAttempts,
+    user_id: tokenResp.user.id,
+  });
+  void trackHookEvent(getInstanceId(), "audit_cli_auth_login_completed", {
+    source: "cli",
+    status: "success",
+    attempts: verifyAttempts,
+    user_id: tokenResp.user.id,
+  });
   process.stdout.write(
     `\n${GREEN}✓ signed in as ${tokenResp.user.email}${RESET}\n` +
       `${DIM}session saved to ~/.failproofai/auth.json (mode 0600)${RESET}\n`,
@@ -204,16 +263,32 @@ async function runLogin(): Promise<void> {
 async function runLogout(): Promise<void> {
   const existing = readAuth();
   if (!existing) {
+    void trackHookEvent(getInstanceId(), "audit_cli_auth_logout_completed", {
+      source: "cli",
+      had_session: false,
+      upstream: "noop",
+    });
     process.stdout.write(`${DIM}not signed in. nothing to do.${RESET}\n`);
     return;
   }
   // Best-effort server revoke — failure does not block the local wipe.
+  let upstream: "revoked" | "failed" = "revoked";
   try {
     await logoutSession(existing.access_token, existing.refresh_token);
-  } catch {
-    // ignored — the local cache is the source of truth.
+  } catch (err) {
+    if (err instanceof AuthApiError && err.status === 401) {
+      // already invalid server-side
+    } else {
+      upstream = "failed";
+    }
   }
   deleteAuth();
+  void trackHookEvent(getInstanceId(), "audit_cli_auth_logout_completed", {
+    source: "cli",
+    had_session: true,
+    upstream,
+    user_id: existing.user.id,
+  });
   process.stdout.write(
     `${GREEN}✓ signed out as ${existing.user.email}.${RESET}\n`,
   );
@@ -222,10 +297,19 @@ async function runLogout(): Promise<void> {
 function runWhoami(): void {
   const existing = readAuth();
   if (!existing) {
+    void trackHookEvent(getInstanceId(), "audit_cli_auth_whoami", {
+      source: "cli",
+      authenticated: false,
+    });
     process.stdout.write(`${DIM}not signed in — run \`failproofai auth login\` to sign in.${RESET}\n`);
     process.exitCode = 1;
     return;
   }
+  void trackHookEvent(getInstanceId(), "audit_cli_auth_whoami", {
+    source: "cli",
+    authenticated: true,
+    user_id: existing.user.id,
+  });
   process.stdout.write(
     `${GREEN}✓${RESET} ${existing.user.email} ${DIM}(${existing.user.id})${RESET}\n`,
   );
