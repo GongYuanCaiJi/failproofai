@@ -327,6 +327,20 @@ input[type="date"] { color-scheme: dark; }
   text-wrap: balance;
 }
 
+.section-h-dot {
+  display: inline-block;
+  width: 0.5em; height: 0.5em;
+  border-radius: 50%;
+  background: var(--accent-green);
+  margin-left: 0.45em;
+  vertical-align: middle;
+  animation: section-h-dot-pulse 1.6s ease-in-out infinite;
+}
+@keyframes section-h-dot-pulse {
+  0%, 100% { opacity: 0.35; box-shadow: 0 0 3px var(--accent-green); }
+  50%      { opacity: 1;    box-shadow: 0 0 14px var(--accent-green); }
+}
+
 /* ───────────────────────── reusable bracket panel ───────────────────────── */
 
 .panel {

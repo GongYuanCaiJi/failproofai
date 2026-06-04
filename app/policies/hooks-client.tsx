@@ -1600,30 +1600,9 @@ export default function HooksClient({ initialTab = "activity" }: { initialTab?: 
   return (
     <main className="report">
       <section className="section" data-screen-label="policies">
-        <div className="section-mast">
-          <div className="section-label">
-            <span className="glyph">━━</span> policies{" "}
-            <span style={{ color: "var(--dim)" }}>·</span>{" "}
-            {activeTab === "activity" ? "live evaluation" : "configure"}
-          </div>
-          <div className="section-meta">
-            {activeTab === "activity" && (
-              <>
-                <span className="g">●</span> evaluating in real time
-              </>
-            )}
-            {activeTab === "policies" && policyCounts && (
-              <>
-                <span style={{ color: "var(--accent-pink)" }}>
-                  {policyCounts.enabled}
-                </span>
-                /{policyCounts.total} enabled
-              </>
-            )}
-          </div>
-        </div>
-        <h2 className="section-h">
-          {activeTab === "activity" ? "what your agents tried." : "what to stop them doing."}
+        <h2 className="section-h" style={{ textTransform: "none" }}>
+          {activeTab === "activity" ? "Policies" : "what to stop them doing."}
+          {activeTab === "activity" && <span className="section-h-dot" aria-hidden />}
         </h2>
         <p
           style={{

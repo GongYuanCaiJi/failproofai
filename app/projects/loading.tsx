@@ -4,16 +4,10 @@ export default function ProjectsLoading() {
   return (
     <main className="report">
       <section className="section" data-screen-label="projects">
-        <div className="section-mast">
-          <div className="section-label">
-            <span className="glyph">━━</span> projects{" "}
-            <span style={{ color: "var(--dim)" }}>·</span> agent SDK folders
-          </div>
-          <div className="section-meta">
-            <span style={{ color: "var(--dim)" }}>○</span> loading…
-          </div>
-        </div>
-        <h2 className="section-h">your agent footprint.</h2>
+        <h2 className="section-h" style={{ textTransform: "none" }}>
+          Projects
+          <span className="section-h-dot" aria-hidden />
+        </h2>
         <div className="panel" style={{ padding: 24 }}>
           <div className="bg-muted h-6 w-40 mb-5 animate-pulse" />
           <div className="space-y-2">

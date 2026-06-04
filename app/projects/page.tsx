@@ -26,24 +26,10 @@ export default async function ProjectsPage() {
   return (
     <main className="report">
       <section className="section" data-screen-label="projects">
-        <div className="section-mast">
-          <div className="section-label">
-            <span className="glyph">━━</span> projects{" "}
-            <span style={{ color: "var(--dim)" }}>·</span> agent SDK folders
-          </div>
-          <div className="section-meta">
-            {count > 0 ? (
-              <>
-                <span className="g">●</span> {count} folder{count === 1 ? "" : "s"} indexed
-              </>
-            ) : (
-              <>
-                <span style={{ color: "var(--dim)" }}>○</span> empty
-              </>
-            )}
-          </div>
-        </div>
-        <h2 className="section-h">your agent footprint.</h2>
+        <h2 className="section-h" style={{ textTransform: "none" }}>
+          Projects
+          <span className="section-h-dot" aria-hidden />
+        </h2>
 
         {count === 0 ? (
           <div
