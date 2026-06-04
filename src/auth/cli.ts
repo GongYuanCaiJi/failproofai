@@ -136,19 +136,34 @@ function emailLooksValid(email: string): boolean {
 async function runLogin(): Promise<void> {
   const existing = readAuth();
   if (existing) {
-    void trackHookEvent(getInstanceId(), "audit_cli_auth_login_completed", {
-      source: "cli",
-      status: "already_signed_in",
-      user_id: existing.user.id,
-    });
+    // Treat the on-disk session as valid only when its refresh window hasn't
+    // already lapsed locally. We don't hit /me here (the file header explicitly
+    // avoids server validation so login/logout/whoami stay coherent offline),
+    // but the local exp claim is enough to recognise an obviously-stale file
+    // and let the user re-authenticate instead of bouncing them out.
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const refreshUsable = existing.refresh_expires_at > nowSecs;
+    if (refreshUsable) {
+      void trackHookEvent(getInstanceId(), "audit_cli_auth_login_completed", {
+        source: "cli",
+        status: "already_signed_in",
+        user_id: existing.user.id,
+      });
+      process.stdout.write(
+        `${DIM}already signed in as${RESET} ${existing.user.email} ${DIM}(use \`failproofai auth logout\` to switch accounts)${RESET}\n`,
+      );
+      return;
+    }
     process.stdout.write(
-      `${DIM}already signed in as${RESET} ${existing.user.email} ${DIM}(use \`failproofai auth logout\` to switch accounts)${RESET}\n`,
+      `${DIM}stored session for ${existing.user.email} has expired — re-authenticating.${RESET}\n`,
     );
-    return;
+    // Overwrite cleanly so a half-broken file doesn't survive next startup.
+    deleteAuth();
   }
   void trackHookEvent(getInstanceId(), "audit_cli_auth_login_started", {
     source: "cli",
     api_base: getApiBase(),
+    replaced_stale: existing !== null,
   });
 
   process.stdout.write(`${PINK}━━ failproofai auth ━━${RESET}\n`);
@@ -247,6 +262,19 @@ async function runLogin(): Promise<void> {
     status: "success",
     attempt: verifyAttempts,
     user_id: tokenResp.user.id,
+  });
+  // Bridge the anonymous local instance ID to the server-issued user identity.
+  // PostHog can stitch together "anonymous machine X did Y" events emitted
+  // before sign-in with "user Z" events that follow, by joining on
+  // `local_random_id`. The dashboard's /api/auth/login-verify emits the same
+  // event with `source: "audit_set_reminder_auth_dialog"`; this is the CLI
+  // sibling — without it, anyone who signs in via `failproofai auth login`
+  // stays unjoined to their pre-auth events.
+  void trackHookEvent(getInstanceId(), "audit_user_identity_linked", {
+    source: "cli",
+    user_id: tokenResp.user.id,
+    user_email: tokenResp.user.email,
+    local_random_id: getInstanceId(),
   });
   void trackHookEvent(getInstanceId(), "audit_cli_auth_login_completed", {
     source: "cli",

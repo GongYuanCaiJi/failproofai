@@ -96,10 +96,36 @@ async function parseError(res: Response): Promise<AuthApiError> {
   return new AuthApiError(res.status, code, message, retryAfterSecs);
 }
 
+/** Hard cap on every auth/reminder HTTP call. Without this, a wedged DNS
+ *  resolver or a hung server keeps the CLI / dashboard route stuck forever. */
+const REQUEST_TIMEOUT_MS = 10_000;
+
+function timeoutSignal(extra?: AbortSignal): AbortSignal {
+  const t = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  if (!extra) return t;
+  // Compose so an externally-cancelled caller still aborts.
+  return (AbortSignal as unknown as { any: (s: AbortSignal[]) => AbortSignal }).any?.([t, extra]) ?? t;
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: timeoutSignal(init.signal ?? undefined) });
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new AuthApiError(
+        0,
+        "timeout",
+        `request to ${url} timed out after ${REQUEST_TIMEOUT_MS}ms`,
+      );
+    }
+    throw err;
+  }
+}
+
 async function postJson<T>(path: string, body: unknown, init?: { accessToken?: string }): Promise<T> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (init?.accessToken) headers["authorization"] = `Bearer ${init.accessToken}`;
-  const res = await fetch(`${getApiBase()}${path}`, {
+  const res = await fetchWithTimeout(`${getApiBase()}${path}`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -110,7 +136,7 @@ async function postJson<T>(path: string, body: unknown, init?: { accessToken?: s
 }
 
 async function getJson<T>(path: string, accessToken: string): Promise<T> {
-  const res = await fetch(`${getApiBase()}${path}`, {
+  const res = await fetchWithTimeout(`${getApiBase()}${path}`, {
     method: "GET",
     headers: { authorization: `Bearer ${accessToken}` },
   });
@@ -164,7 +190,7 @@ export async function scheduleReminder(
 }
 
 export async function cancelReminder(accessToken: string): Promise<void> {
-  const res = await fetch(`${getApiBase()}/v0/reminders`, {
+  const res = await fetchWithTimeout(`${getApiBase()}/v0/reminders`, {
     method: "DELETE",
     headers: { authorization: `Bearer ${accessToken}` },
   });

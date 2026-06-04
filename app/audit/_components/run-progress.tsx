@@ -6,6 +6,11 @@
  * stages on a fixed 4s interval. The user sees motion + a clear "this is
  * still working" signal.
  *
+ * Real runs take up to 30 seconds. The 4 stages would otherwise march
+ * straight to 4/4 and 100% well before the run actually resolves, so we:
+ *   - hold on the last stage in a "finishing up" label
+ *   - cap the visual bar at 90% until the parent unmounts this component
+ *
  * Visual: audit pixel-craft. A `.panel` with pink corner brackets, a
  * scanline-style spinner header, a stack of stages with green "✓" /
  * pink "▮▮" / dim "○" markers, and a marquee progress bar at the bottom
@@ -21,6 +26,9 @@ const STAGES = [
 ];
 
 const STAGE_DURATION_MS = 4000;
+/** Visual cap until the actual run resolves. The component is unmounted
+ *  by the parent on completion — there is no "hit 100%" frame from here. */
+const MAX_DISPLAY_PROGRESS = 0.9;
 
 export function RunProgress() {
   const [stage, setStage] = useState(0);
@@ -38,6 +46,9 @@ export function RunProgress() {
   }, []);
 
   const dots = ".".repeat(tick + 1);
+  const onLastStage = stage === STAGES.length - 1;
+  const barRatio = Math.min(MAX_DISPLAY_PROGRESS, ((stage + 1) / STAGES.length) * MAX_DISPLAY_PROGRESS);
+  const barPercent = Math.round(barRatio * 100);
 
   return (
     <section className="section running-section" data-screen-label="00 Running">
@@ -73,7 +84,11 @@ export function RunProgress() {
                 </span>
                 <div className="running-stage-body">
                   <div className="running-stage-label">{s.label}</div>
-                  {active && <div className="running-stage-detail">{s.detail}</div>}
+                  {active && (
+                    <div className="running-stage-detail">
+                      {onLastStage ? "finishing up…" : s.detail}
+                    </div>
+                  )}
                 </div>
                 {active && (
                   <span className="running-stage-spin" aria-hidden="true">
@@ -87,12 +102,12 @@ export function RunProgress() {
 
         <div className="running-bar-label">
           <span>progress</span>
-          <span style={{ color: "var(--dim)" }}>{stage + 1}/{STAGES.length}</span>
+          <span style={{ color: "var(--dim)" }}>{barPercent}%</span>
         </div>
         <div className="running-bar-track">
           <div
             className="running-bar-fill"
-            style={{ width: `${((stage + 1) / STAGES.length) * 100}%` }}
+            style={{ width: `${barPercent}%` }}
           />
         </div>
 

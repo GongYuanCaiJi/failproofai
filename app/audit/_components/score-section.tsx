@@ -13,6 +13,18 @@ import type { AuditResult } from "@/src/audit/types";
 import { ARCHETYPES, type ArchetypeKey } from "@/src/audit/archetypes";
 import { type Grade } from "@/src/audit/scoring";
 
+const GRADE_THRESHOLDS: { g: Grade; t: number }[] = [
+  { g: "S", t: 90 }, { g: "A", t: 80 }, { g: "B", t: 71 },
+  { g: "C", t: 55 }, { g: "D", t: 40 },
+];
+
+function pointsToNextFor(score: number): { next: Grade; delta: number } {
+  for (const { g, t } of GRADE_THRESHOLDS) {
+    if (score < t) return { next: g, delta: t - score };
+  }
+  return { next: "S", delta: 0 };
+}
+
 interface Props {
   result: AuditResult;
   score: number;
@@ -24,16 +36,10 @@ interface Props {
 
 export function ScoreSection({ result, score, grade, archetypeKey, project }: Props) {
   const archetype = ARCHETYPES[archetypeKey];
-  const pointsToNext = useMemo(() => {
-    const thresholds: { g: Grade; t: number }[] = [
-      { g: "S", t: 90 }, { g: "A", t: 80 }, { g: "B", t: 71 },
-      { g: "C", t: 55 }, { g: "D", t: 40 },
-    ];
-    for (const { g, t } of thresholds) {
-      if (score < t) return { next: g, delta: t - score };
-    }
-    return { next: "S" as Grade, delta: 0 };
-  }, [score]);
+  // Cheap scan of 5 thresholds — plain computation. React Compiler memoizes
+  // the surrounding render anyway, and `useMemo` here tripped the
+  // preserve-manual-memoization rule.
+  const pointsToNext = pointsToNextFor(score);
 
   /** Slipping-through builtin policies (the same heuristic ReturnSection uses
    *  for its [install policies] CTA). Used as the "policies missing" stat. */

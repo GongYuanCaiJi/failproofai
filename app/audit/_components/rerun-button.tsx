@@ -4,16 +4,20 @@
  * Re-run button + polling. Click:
  *   1. POSTs /api/audit/run with the current scan params
  *   2. Polls /api/audit/status every 1s
- *   3. When `running` flips false, the parent refetches the cache
+ *   3. When `running` flips false (or `triggerRun` throws), the parent
+ *      refetches the cache and the button surfaces success / failure.
  *
  * On 409 (audit already running) we just start polling without re-posting —
  * lets the user "join" an in-flight run that someone else (or a previous
  * tab) kicked off.
  *
  * Exports `triggerRun` separately so the empty-state CTA reuses the same
- * fetch logic without re-implementing.
+ * fetch logic without re-implementing. `triggerRun` throws on
+ * unrecoverable failure (POST not OK and not 409, or the poll loop times
+ * out) so callers can render a distinct "rerun failed" state instead of
+ * pretending the run completed.
  */
-import React from "react";
+import React, { useState } from "react";
 import { RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,8 +45,19 @@ function paramsToBody(p: ScanParams) {
   };
 }
 
+export class RerunError extends Error {
+  readonly kind: "post_failed" | "network" | "timeout";
+  constructor(kind: RerunError["kind"], message: string) {
+    super(message);
+    this.kind = kind;
+    this.name = "RerunError";
+  }
+}
+
 /** Fire a run and resolve once the server reports it finished. Used both by
- *  this button and by the EmptyState's "Run audit" CTA. */
+ *  this button and by the EmptyState's "Run audit" CTA. Throws `RerunError`
+ *  on POST failure, network failure, or poll-loop timeout — callers should
+ *  catch and show a distinct failure state. */
 export async function triggerRun(scanParams: ScanParams): Promise<void> {
   // Kick off the run. 409 (already running) is OK — we'll just poll.
   try {
@@ -52,15 +67,14 @@ export async function triggerRun(scanParams: ScanParams): Promise<void> {
       body: JSON.stringify(paramsToBody(scanParams)),
     });
     if (!res.ok && res.status !== 409) {
-      // Surface the error message but don't throw — the caller's finally
-      // still runs and the UI returns to its previous state.
       const text = await res.text().catch(() => "");
       console.error("audit run failed:", res.status, text);
-      return;
+      throw new RerunError("post_failed", `audit run failed (${res.status})`);
     }
   } catch (err) {
+    if (err instanceof RerunError) throw err;
     console.error("audit run request failed:", err);
-    return;
+    throw new RerunError("network", "audit run request failed");
   }
 
   // Poll status until running flips false.
@@ -76,17 +90,29 @@ export async function triggerRun(scanParams: ScanParams): Promise<void> {
       // Transient — keep polling.
     }
   }
+  throw new RerunError("timeout", "audit poll loop timed out");
 }
 
 export function RerunButton({ scanParams, running, onStarted, onCompleted }: Props) {
+  const [failed, setFailed] = useState(false);
   const handle = async () => {
+    setFailed(false);
     onStarted();
+    let threw = false;
     try {
       await triggerRun(scanParams);
+    } catch {
+      threw = true;
     } finally {
+      if (threw) {
+        setFailed(true);
+        setTimeout(() => setFailed(false), 4000);
+      }
       await onCompleted();
     }
   };
+
+  const label = running ? "scanning…" : failed ? "rerun failed — retry" : "re-run";
 
   return (
     <button
@@ -97,11 +123,13 @@ export function RerunButton({ scanParams, running, onStarted, onCompleted }: Pro
         "font-mono text-[12px] inline-flex items-center gap-1.5 h-8 px-3 border transition-colors",
         running
           ? "text-[var(--chart-2)] border-[var(--chart-2)]/40 bg-[var(--chart-2)]/[0.08] cursor-wait"
-          : "text-foreground border-foreground/30 hover:border-foreground/60 hover:bg-card bg-transparent",
+          : failed
+            ? "text-[var(--accent-pink)] border-[var(--accent-pink)]/60 hover:bg-card bg-transparent"
+            : "text-foreground border-foreground/30 hover:border-foreground/60 hover:bg-card bg-transparent",
       )}
     >
       <RotateCw className={cn("w-3 h-3", running && "animate-spin")} />
-      {running ? "scanning…" : "re-run"}
+      {label}
     </button>
   );
 }

@@ -68,10 +68,40 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
   let body: SetBody = {};
-  try {
-    body = (await req.json().catch(() => ({}))) as SetBody;
-  } catch {
-    // empty body is fine — we'll fall back to the default 7-day offset
+  // Distinguish three cases:
+  //   1. empty body          → defaults (7d from now)
+  //   2. malformed JSON      → 400 Bad Request (don't silently swap to {})
+  //   3. valid JSON, not obj → 400 Bad Request (arrays/primitives are not SetBody)
+  const raw = await req.text();
+  if (raw.trim().length > 0) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      trackEvent("audit_reminder_set", {
+        status: "validation_error",
+        source: "dashboard",
+        reason: "malformed_json",
+        user_id: who.me.id,
+      });
+      return NextResponse.json(
+        { code: "validation_error", message: "Request body is not valid JSON." },
+        { status: 400 },
+      );
+    }
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      trackEvent("audit_reminder_set", {
+        status: "validation_error",
+        source: "dashboard",
+        reason: "not_an_object",
+        user_id: who.me.id,
+      });
+      return NextResponse.json(
+        { code: "validation_error", message: "Request body must be a JSON object." },
+        { status: 400 },
+      );
+    }
+    body = parsed as SetBody;
   }
   const nowSecs = Math.floor(Date.now() / 1000);
   let nextAuditAt: number;

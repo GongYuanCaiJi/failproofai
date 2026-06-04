@@ -42,7 +42,11 @@ function buildXTemplate(score: number, archetypeName: string, grade: Grade, miss
 }
 
 function buildLinkedInTemplate(score: number, archetypeName: string, grade: Grade, missing: number): string {
-  const verdict = (grade === "S" || grade === "A")
+  // "every key policy is live" is only true when the audit returned no
+  // unenabled prescribed policies. A-grade with a non-zero `missing` count
+  // is the "almost there but still has gaps" state — softer copy.
+  const cleanRun = grade === "S" || (grade === "A" && missing === 0);
+  const verdict = cleanRun
     ? `${score}/100 — ${grade} tier. every key policy is live. the audit confirmed what good looks like.`
     : `${score}/100 — ${grade} tier. ${missing} prescribed polic${missing === 1 ? "y" : "ies"} uncovered — each one is a real attack surface.`;
   return `We ran a failproofai security audit on our AI agent stack.\n\n${verdict}\n\nArchetype: ${archetypeName.toLowerCase()}. failproofai maps your agent\'s behavior pattern, identifies the exposure, and prescribes the exact policies to close it.\n\nFree. Open-source. 30 seconds to run: ${SITE_URL}`;

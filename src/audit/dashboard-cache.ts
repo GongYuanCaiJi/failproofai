@@ -17,7 +17,17 @@ import type { AuditResult, RunAuditOptions } from "./types";
 
 const DEFAULT_MAX_AGE_MINUTES = 30;
 
+/**
+ * Bump whenever the on-disk shape of a cached entry changes in a way the
+ * reader can't tolerate (added required field, renamed key, swapped result
+ * version). Entries written with a different `schemaVersion` are rejected
+ * — better an empty state than rendering against the wrong shape.
+ */
+export const DASHBOARD_CACHE_SCHEMA_VERSION = 1;
+
 export interface DashboardCacheEntry {
+  /** Bumped whenever the cache shape changes incompatibly. */
+  schemaVersion: number;
   /** ISO timestamp the cache was written at. */
   cachedAt: string;
   /** The exact RunAuditOptions the cached result was produced with. */
@@ -45,6 +55,12 @@ export function readDashboardCache(): DashboardCacheEntry | null {
     ) {
       return null;
     }
+    // Reject anything written by an older code version with a different
+    // shape. The dashboard treats null as the "no cached result" empty
+    // state, which is the safer fallback when we can't trust the bytes.
+    if (entry.schemaVersion !== DASHBOARD_CACHE_SCHEMA_VERSION) {
+      return null;
+    }
     return entry;
   } catch {
     return null;
@@ -59,6 +75,7 @@ export function writeDashboardCache(params: RunAuditOptions, result: AuditResult
   try {
     mkdirSync(dirname(cachePath), { recursive: true });
     const entry: DashboardCacheEntry = {
+      schemaVersion: DASHBOARD_CACHE_SCHEMA_VERSION,
       cachedAt: new Date().toISOString(),
       params,
       result,

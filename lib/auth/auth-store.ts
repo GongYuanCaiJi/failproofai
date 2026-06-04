@@ -12,12 +12,14 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { randomBytes } from "node:crypto";
 
 import {
   AuthApiError,
@@ -84,16 +86,37 @@ export function readReminder(): StoredReminder | null {
   }
 }
 
-export function writeReminder(reminder: StoredReminder): void {
-  const p = getReminderFilePath();
+/** Write `contents` to `p` atomically: write to a temp sibling first, then
+ *  rename into place. Concurrent writers can race on the rename, but neither
+ *  observer sees a half-written file. mode 0600 is enforced on both the
+ *  temp and final paths. */
+function atomicWriteJson(p: string, contents: string): void {
   const dir = dirname(p);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
-  writeFileSync(p, JSON.stringify(reminder, null, 2), { mode: 0o600 });
+  const tmp = `${p}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
   try {
-    if (statSync(p).mode & 0o077) chmodSync(p, 0o600);
-  } catch {
-    // best-effort
+    writeFileSync(tmp, contents, { mode: 0o600 });
+    try {
+      if (statSync(tmp).mode & 0o077) chmodSync(tmp, 0o600);
+    } catch {
+      // best-effort
+    }
+    renameSync(tmp, p);
+    // Re-assert perms on the final path — rename preserves the temp's mode,
+    // but a pre-existing file's inode could have been observed in the gap.
+    try {
+      if (statSync(p).mode & 0o077) chmodSync(p, 0o600);
+    } catch {
+      // best-effort
+    }
+  } catch (err) {
+    try { rmSync(tmp, { force: true }); } catch { /* ignore */ }
+    throw err;
   }
+}
+
+export function writeReminder(reminder: StoredReminder): void {
+  atomicWriteJson(getReminderFilePath(), JSON.stringify(reminder, null, 2));
 }
 
 export function deleteReminder(): void {
@@ -137,19 +160,7 @@ export function readAuth(): StoredAuth | null {
 }
 
 export function writeAuth(auth: StoredAuth): void {
-  const p = getAuthFilePath();
-  const dir = dirname(p);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
-  // mode 0600 on first write; the explicit chmod ensures we reset perms if the
-  // file existed with looser perms.
-  writeFileSync(p, JSON.stringify(auth, null, 2), { mode: 0o600 });
-  // writeFileSync's mode option only applies on file creation. If the file
-  // already existed with looser perms, force them back to 0600.
-  try {
-    if (statSync(p).mode & 0o077) chmodSync(p, 0o600);
-  } catch {
-    // best-effort
-  }
+  atomicWriteJson(getAuthFilePath(), JSON.stringify(auth, null, 2));
 }
 
 export function deleteAuth(): void {

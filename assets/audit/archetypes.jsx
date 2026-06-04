@@ -244,7 +244,12 @@ const ARCHETYPE_ORDER = ["optimist", "cowboy", "explorer", "goldfish", "architec
 
 // Pixel sigil component — renders an 8x8 grid from a SIGILS entry
 function Sigil({ archetypeKey }) {
-  const grid = SIGILS[archetypeKey] || SIGILS.optimist;
+  // Normalize once so every downstream lookup (SIGILS, ARCHETYPES) hits the
+  // same safe key. Previously the SIGILS lookup had a fallback but the index
+  // line still indexed ARCHETYPES[archetypeKey] directly, which crashed on
+  // an unknown key (TypeError: Cannot read properties of undefined).
+  const safeKey = ARCHETYPES[archetypeKey] ? archetypeKey : "optimist";
+  const grid = SIGILS[safeKey] || SIGILS.optimist;
   const cells = [];
   for (let y = 0; y < 8; y++) {
     const row = grid[y] || "........";
@@ -262,7 +267,7 @@ function Sigil({ archetypeKey }) {
     <div className="sigil-wrap">
       <div className="sigil">{cells}</div>
       <div className="sigil-label">
-        <span className="ix">№{ARCHETYPES[archetypeKey].index}</span>
+        <span className="ix">№{ARCHETYPES[safeKey].index}</span>
         sigil
       </div>
     </div>

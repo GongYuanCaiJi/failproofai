@@ -51,7 +51,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let body: RunBody = {};
   try {
     const raw = await request.text();
-    if (raw) body = JSON.parse(raw) as RunBody;
+    if (raw.trim().length > 0) {
+      const parsed: unknown = JSON.parse(raw);
+      // JSON.parse("null") returns null and JSON.parse("[]") returns an
+      // array — both pass the catch but break sanitize()'s field access.
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return NextResponse.json(
+          { error: "Request body must be a JSON object" },
+          { status: 400 },
+        );
+      }
+      body = parsed as RunBody;
+    }
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
