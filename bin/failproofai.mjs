@@ -41,6 +41,11 @@ if (args[0] === "p") args[0] = "policies";
 // pulling in the hook-telemetry / telemetry-id modules on the fast --hook path.
 let _telemetry;
 let lastSubcommand = null;
+// When `policy add|remove` is mid-execution we stash the action here so the
+// top-level catch can emit `cli_policy_add_failure` / `cli_policy_remove_failure`
+// with the right event name. Mirrors the cli_install_failure / cli_uninstall_failure
+// pattern below for parity. Cleared back to null after the success track.
+let lastPolicyAction = null;
 async function track(name, props) {
   try {
     if (!_telemetry) {
@@ -581,6 +586,7 @@ EXAMPLES
       action === "add" ? "install" : "uninstall",
     );
 
+    lastPolicyAction = action;
     if (action === "add") {
       const { installHooks } = await import("../src/hooks/manager");
       await installHooks(
@@ -616,6 +622,7 @@ EXAMPLES
         beta_only: includeBeta,
       });
     }
+    lastPolicyAction = null;
     process.exit(0);
   }
 
@@ -688,6 +695,13 @@ try {
       await track("cli_install_failure", { error_type: "cli_error", exit_code: err.exitCode });
     } else if (lastSubcommand === "uninstall") {
       await track("cli_uninstall_failure", { error_type: "cli_error", exit_code: err.exitCode });
+    } else if (lastSubcommand === "policy" && lastPolicyAction) {
+      // Mid-action failure: `policy add|remove` parsed but installHooks /
+      // removeHooks threw a CliError (e.g. unknown policy name, invalid scope).
+      await track(`cli_policy_${lastPolicyAction}_failure`, {
+        error_type: "cli_error",
+        exit_code: err.exitCode,
+      });
     } else {
       await track("cli_parse_error", {
         subcommand: lastSubcommand ?? (args[0] ?? null),
@@ -703,6 +717,10 @@ try {
     await track("cli_install_failure", { error_type: err instanceof Error ? err.name : "unknown" });
   } else if (lastSubcommand === "uninstall") {
     await track("cli_uninstall_failure", { error_type: err instanceof Error ? err.name : "unknown" });
+  } else if (lastSubcommand === "policy" && lastPolicyAction) {
+    await track(`cli_policy_${lastPolicyAction}_failure`, {
+      error_type: err instanceof Error ? err.name : "unknown",
+    });
   } else {
     await track("cli_unexpected_error", {
       subcommand: lastSubcommand ?? (args[0] ?? null),
