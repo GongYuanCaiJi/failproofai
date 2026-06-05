@@ -6,12 +6,14 @@
  * `./auth-store.ts`.
  *
  * The base URL is resolved from FAILPROOF_API_URL (preferred) or the legacy
- * FAILPROOFAI_API_URL, falling back to http://localhost:8080 for local dev.
+ * FAILPROOFAI_API_URL, falling back to the hosted api-server. Local-dev
+ * contributors should set FAILPROOF_API_URL=http://localhost:8080 (or
+ * whatever port their local api-server uses) in `.env.local`.
  */
 
 import { trackEvent } from "../telemetry";
 
-export const DEFAULT_API_BASE = "http://localhost:8080";
+export const DEFAULT_API_BASE = "https://api.befailproof.ai";
 
 export function getApiBase(): string {
   const raw =

@@ -46,7 +46,7 @@ USAGE
 
 ENVIRONMENT
   FAILPROOF_API_URL              Override the api-server base URL
-                                 (default: http://localhost:8080)
+                                 (default: https://api.befailproof.ai)
   FAILPROOFAI_AUTH_DIR           Override where auth.json is stored
                                  (default: ~/.failproofai)
 
@@ -213,7 +213,7 @@ async function runLogin(): Promise<void> {
     }
     throw new CliError(
       `Could not reach the api-server at ${getApiBase()}.\n` +
-        `Set FAILPROOF_API_URL or run the api-server locally on :8080.`,
+        `Check your network, or set FAILPROOF_API_URL to point at a different host.`,
     );
   }
 

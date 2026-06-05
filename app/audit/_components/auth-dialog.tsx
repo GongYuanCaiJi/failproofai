@@ -138,7 +138,7 @@ export function AuthDialog({
           if (body.code === "rate_limited" && body.retry_after_secs !== undefined) {
             msg = `too many tries. wait ${body.retry_after_secs}s and try again.`;
           } else if (body.code === "upstream_unreachable") {
-            msg = "api-server unreachable. is it running on :8080?";
+            msg = "api-server unreachable. check your network.";
           }
           setStep({ kind: "email", error: msg });
           return;
