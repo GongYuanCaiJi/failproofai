@@ -214,6 +214,7 @@ interface MainReportProps {
 }
 
 function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize }: MainReportProps) {
+  const { capture } = usePostHog();
   const classification = useMemo(() => classifyAgent(result), [result]);
   const score = useMemo(() => deriveScore(result), [result]);
   const projected = useMemo(() => projectedScore(result, score), [result, score]);
@@ -230,6 +231,34 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
   const missing = result.results.filter(
     (r) => r.source === "builtin" && !r.enabledInConfig && r.hits > 0,
   ).length;
+
+  // Fire-once dashboard-rendered event so we can compute click-through
+  // rates against the share/download/rerun click events we already track.
+  const dashboardViewedRef = useRef(false);
+  useEffect(() => {
+    if (dashboardViewedRef.current) return;
+    dashboardViewedRef.current = true;
+    capture("audit_dashboard_viewed", {
+      score,
+      grade,
+      archetype: classification.archetype,
+      secondary: classification.secondary ?? null,
+      missing,
+      transcripts_scanned: result.transcripts.scanned,
+      results_count: result.results.length,
+      detectors_triggered: detectorsTriggered,
+    });
+  }, [
+    capture,
+    score,
+    grade,
+    classification.archetype,
+    classification.secondary,
+    missing,
+    result.transcripts.scanned,
+    result.results.length,
+    detectorsTriggered,
+  ]);
 
   /** Identity hero ref — captured to PNG by the share buttons. */
   const identityFrameRef = useRef<HTMLDivElement>(null);

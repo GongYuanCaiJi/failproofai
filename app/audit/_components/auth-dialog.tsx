@@ -13,6 +13,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { usePostHog } from "@/contexts/PostHogContext";
 
 export interface AuthedUser {
   id: string;
@@ -28,6 +29,9 @@ interface Props {
   onClose: () => void;
   /** Fired after successful verify. Caller decides what to do next. */
   onAuthed: (user: AuthedUser) => void;
+  /** Telemetry tag identifying which CTA opened the dialog. Defaults to
+   *  "unknown" so existing call sites continue to compile. */
+  source?: string;
 }
 
 type Step =
@@ -43,19 +47,43 @@ export function AuthDialog({
   reason = "verify yourself to continue.",
   onClose,
   onAuthed,
+  source = "unknown",
 }: Props): React.ReactElement | null {
+  const { capture } = usePostHog();
   const [step, setStep] = useState<Step>({ kind: "email", error: null });
   const [busy, setBusy] = useState(false);
+  const succeededRef = useRef(false);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Reset internal state every time the dialog opens.
+  // Reset internal state every time the dialog opens. Also fire the
+  // funnel-opened event so we can measure dismissal vs verification rates.
   useEffect(() => {
     if (open) {
       setStep({ kind: "email", error: null });
       setBusy(false);
+      succeededRef.current = false;
+      capture("audit_auth_dialog_opened", { source });
     }
-  }, [open]);
+  }, [capture, open, source]);
+
+  // Fire dismissed when the dialog closes WITHOUT a successful verify.
+  // We piggyback on `open` flipping false instead of intercepting every
+  // close path so resend / step transitions don't double-count.
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (open) {
+      wasOpenRef.current = true;
+      return;
+    }
+    if (wasOpenRef.current && !succeededRef.current) {
+      capture("audit_auth_dialog_dismissed", {
+        source,
+        step: step.kind,
+      });
+    }
+    wasOpenRef.current = false;
+  }, [capture, open, source, step.kind]);
 
   // Autofocus the right input as the step changes.
   useEffect(() => {
@@ -155,6 +183,8 @@ export function AuthDialog({
           );
           return;
         }
+        succeededRef.current = true;
+        capture("audit_auth_dialog_succeeded", { source });
         setStep({ kind: "done", user: body.user });
         onAuthed(body.user);
       } catch (err) {
@@ -166,7 +196,7 @@ export function AuthDialog({
         setBusy(false);
       }
     },
-    [onAuthed],
+    [capture, onAuthed, source],
   );
 
   const onEmailSubmit = useCallback(

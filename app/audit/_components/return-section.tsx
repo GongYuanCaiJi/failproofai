@@ -20,11 +20,11 @@
  * can trigger a fresh scan inline without leaving the page. The button
  * fires POST /api/audit/run (same backend the empty-state CTA uses).
  */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { AuditResult } from "@/src/audit/types";
 import { usePostHog } from "@/contexts/PostHogContext";
 import { AuthDialog, type AuthedUser } from "./auth-dialog";
-import { triggerRun } from "./rerun-button";
+import { RerunError, triggerRun } from "./rerun-button";
 
 interface Props {
   result: AuditResult;
@@ -70,6 +70,7 @@ export function ReturnSection({ result }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [reminderBusy, setReminderBusy] = useState(false);
   const [rerunBusy, setRerunBusy] = useState(false);
+  const ctaShownRef = useRef(false);
 
   // Probe /api/auth/status on mount — also returns the persisted reminder
   // when one exists and belongs to the active session.
@@ -110,6 +111,21 @@ export function ReturnSection({ result }: Props) {
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [refreshStatus]);
+
+  // Fire-once "user saw the reminder CTA" event so we can compute the
+  // funnel shown → clicked → auth → saved. We wait until the auth probe
+  // finishes — before that the buttons are disabled and the CTA isn't
+  // really "shown".
+  useEffect(() => {
+    if (ctaShownRef.current) return;
+    if (authStatus.kind === "unknown") return;
+    ctaShownRef.current = true;
+    capture("audit_reminder_cta_shown", {
+      auth_state: authStatus.kind,
+      has_existing_reminder: reminder !== null,
+      source: "return_section",
+    });
+  }, [authStatus, capture, reminder]);
 
   const persistReminder = useCallback(async (): Promise<Reminder | null> => {
     try {
@@ -156,6 +172,11 @@ export function ReturnSection({ result }: Props) {
 
   const handleSetReminder = useCallback(async () => {
     if (authStatus.kind === "unknown") return;
+    capture("audit_reminder_cta_clicked", {
+      auth_state: authStatus.kind,
+      has_existing_reminder: reminder !== null,
+      source: "return_section",
+    });
     capture("audit_set_reminder_clicked", {
       auth_state: authStatus.kind,
       has_existing_reminder: reminder !== null,
@@ -195,6 +216,14 @@ export function ReturnSection({ result }: Props) {
       // Reload the page after the run so the cached result + dashboard cache
       // get re-hydrated against the new scan. Cheaper than threading state.
       window.location.reload();
+    } catch (err) {
+      const kind = err instanceof RerunError ? err.kind : "network";
+      capture("audit_rerun_failed", {
+        kind,
+        source: "return_section",
+        since: "30d",
+        cli_filter: "all",
+      });
     } finally {
       setRerunBusy(false);
     }
@@ -317,6 +346,7 @@ export function ReturnSection({ result }: Props) {
 
       <AuthDialog
         open={dialogOpen}
+        source="return_section"
         headline="oops — you are unknown."
         reason="verify yourself to get the re-audit reminder."
         onClose={() => setDialogOpen(false)}

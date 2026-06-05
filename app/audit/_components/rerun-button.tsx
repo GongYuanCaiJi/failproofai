@@ -20,6 +20,7 @@
 import React, { useState } from "react";
 import { RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePostHog } from "@/contexts/PostHogContext";
 
 export interface ScanParams {
   /** Empty array = all CLIs. */
@@ -94,6 +95,7 @@ export async function triggerRun(scanParams: ScanParams): Promise<void> {
 }
 
 export function RerunButton({ scanParams, running, onStarted, onCompleted }: Props) {
+  const { capture } = usePostHog();
   const [failed, setFailed] = useState(false);
   const handle = async () => {
     setFailed(false);
@@ -101,8 +103,15 @@ export function RerunButton({ scanParams, running, onStarted, onCompleted }: Pro
     let threw = false;
     try {
       await triggerRun(scanParams);
-    } catch {
+    } catch (err) {
       threw = true;
+      const kind = err instanceof RerunError ? err.kind : "network";
+      capture("audit_rerun_failed", {
+        kind,
+        source: "rerun_button",
+        since: scanParams.since,
+        cli_filter: scanParams.cli.length > 0 ? scanParams.cli.join(",") : "all",
+      });
     } finally {
       if (threw) {
         setFailed(true);

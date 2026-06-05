@@ -9,6 +9,8 @@
  * FAILPROOFAI_API_URL, falling back to http://localhost:8080 for local dev.
  */
 
+import { trackEvent } from "../telemetry";
+
 export const DEFAULT_API_BASE = "http://localhost:8080";
 
 export function getApiBase(): string {
@@ -107,11 +109,30 @@ function timeoutSignal(extra?: AbortSignal): AbortSignal {
   return (AbortSignal as unknown as { any: (s: AbortSignal[]) => AbortSignal }).any?.([t, extra]) ?? t;
 }
 
+function pathFromUrl(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
+  }
+}
+
 async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
   try {
     return await fetch(url, { ...init, signal: timeoutSignal(init.signal ?? undefined) });
   } catch (err) {
-    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+    const isTimeout =
+      err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+    // Low-cardinality "api-server is down" counter. We only attach the
+    // request path (not the full URL) and a coarse kind so it stays a
+    // cheap signal in PostHog. No-ops on the CLI side when telemetry
+    // has not been initialised.
+    trackEvent("api_server_unreachable", {
+      kind: isTimeout ? "timeout" : "network",
+      path: pathFromUrl(url),
+      method: typeof init.method === "string" ? init.method : "GET",
+    });
+    if (isTimeout) {
       throw new AuthApiError(
         0,
         "timeout",
