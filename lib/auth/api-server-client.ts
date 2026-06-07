@@ -114,8 +114,19 @@ const REQUEST_TIMEOUT_MS = 10_000;
 function timeoutSignal(extra?: AbortSignal): AbortSignal {
   const t = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   if (!extra) return t;
-  // Compose so an externally-cancelled caller still aborts.
-  return (AbortSignal as unknown as { any: (s: AbortSignal[]) => AbortSignal }).any?.([t, extra]) ?? t;
+  // Compose so an externally-cancelled caller still aborts. Prefer the
+  // native `AbortSignal.any` (Node 20.3+, Bun 1.0.27+); fall back to a
+  // hand-rolled controller for older runtimes — without this fallback
+  // an `extra` signal would be silently dropped.
+  const anyFn = (AbortSignal as unknown as { any?: (s: AbortSignal[]) => AbortSignal }).any;
+  if (anyFn) return anyFn([t, extra]);
+  const composed = new AbortController();
+  const onAbort = (s: AbortSignal) => composed.abort(s.reason);
+  if (t.aborted) onAbort(t);
+  else t.addEventListener("abort", () => onAbort(t), { once: true });
+  if (extra.aborted) onAbort(extra);
+  else extra.addEventListener("abort", () => onAbort(extra), { once: true });
+  return composed.signal;
 }
 
 function pathFromUrl(url: string): string {
@@ -241,11 +252,25 @@ interface JwtClaims {
 /**
  * Decode the JWT payload without verifying the signature. Safe for client-side
  * reading (sub, email, exp). Returns null if the token is malformed.
+ *
+ * Strictly validates base64url before decoding: `Buffer.from(s, 'base64url')`
+ * silently truncates on illegal characters (`+`, `/`, whitespace, embedded
+ * NULs) rather than throwing, and the truncated bytes can happen to parse as
+ * JSON with a numeric `exp` field, producing synthetic "valid" claims from a
+ * corrupted token.
  */
+const BASE64URL_RE = /^[A-Za-z0-9_-]+={0,2}$/;
+
 export function decodeJwt(token: string): JwtClaims | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
+    // Header and payload must both be syntactically valid base64url. Empty
+    // segments are also rejected (Buffer.from("","base64url") would return
+    // an empty buffer that JSON.parse correctly throws on, but rejecting
+    // upfront is cheaper and clearer).
+    if (!BASE64URL_RE.test(parts[0])) return null;
+    if (!BASE64URL_RE.test(parts[1])) return null;
     const json = Buffer.from(parts[1], "base64url").toString("utf8");
     const parsed = JSON.parse(json) as JwtClaims;
     if (typeof parsed.exp !== "number") return null;

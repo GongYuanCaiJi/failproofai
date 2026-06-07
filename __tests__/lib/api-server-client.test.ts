@@ -226,4 +226,21 @@ describe("decodeJwt", () => {
     const stringExp = makeJwt({ sub: "u", email: "a@b.co", exp: "soon" });
     expect(decodeJwt(stringExp)).toBeNull();
   });
+
+  it("rejects payloads with illegal base64url characters instead of silently truncating", () => {
+    // `+` and `/` are valid base64 but not base64url; the legacy
+    // Buffer.from(..., 'base64url') happily truncated, which could
+    // produce synthetic claims that JSON.parse accepted.
+    const header = Buffer.from(JSON.stringify({ alg: "none" })).toString("base64url");
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    const goodPayload = Buffer.from(JSON.stringify({ sub: "u", email: "a@b.co", exp })).toString("base64url");
+    // Inject illegal chars into the payload.
+    const tampered = `${header}.${goodPayload.slice(0, 4)}+/${goodPayload.slice(4)}.sig`;
+    expect(decodeJwt(tampered)).toBeNull();
+  });
+
+  it("rejects an empty payload segment", () => {
+    const header = Buffer.from(JSON.stringify({ alg: "none" })).toString("base64url");
+    expect(decodeJwt(`${header}..sig`)).toBeNull();
+  });
 });

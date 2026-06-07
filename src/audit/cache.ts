@@ -49,7 +49,24 @@ function getCachePathFor(transcriptPath: string): string {
   return join(root, `${key}.json`);
 }
 
+/**
+ * Bump whenever the on-disk shape of a cached transcript entry changes in
+ * a way the reader can't tolerate (added required field, renamed key,
+ * swapped result version). Entries written with a different
+ * `schemaVersion` are rejected.
+ *
+ * v2: `TranscriptAuditResult` gained `cwd` and `eventsScanned` fields
+ * (surfaced up to `AuditResult.projectsScanned` / `eventsScanned`).
+ * Pre-PR cache entries lack them; on upgrade the aggregator would have
+ * silently rendered them as `cwd: undefined` (dropped from
+ * `projectsScanned`) and `eventsScanned: 0`. Rejecting v1 forces a
+ * re-scan so the new fields are populated correctly.
+ */
+export const CACHE_SCHEMA_VERSION = 2;
+
 interface CacheEntry {
+  /** Bumped whenever the on-disk shape changes incompatibly. */
+  schemaVersion: number;
   mtimeMs: number;
   sizeBytes: number;
   engineVersion: string;
@@ -67,12 +84,13 @@ export function readCachedTranscriptResult(
   if (!existsSync(cachePath)) return null;
   try {
     const raw = readFileSync(cachePath, "utf-8");
-    const entry = JSON.parse(raw) as CacheEntry;
+    const entry = JSON.parse(raw) as Partial<CacheEntry>;
+    if (entry.schemaVersion !== CACHE_SCHEMA_VERSION) return null;
     if (entry.mtimeMs !== mtimeMs) return null;
     if (entry.sizeBytes !== sizeBytes) return null;
     if (entry.engineVersion !== getEngineVersion()) return null;
     if (entry.detectorVersion !== getDetectorVersion()) return null;
-    return entry.result;
+    return entry.result ?? null;
   } catch {
     return null;
   }
@@ -89,6 +107,7 @@ export function writeCachedTranscriptResult(
   try {
     mkdirSync(join(homedir(), ".failproofai", "cache", "audit"), { recursive: true });
     const entry: CacheEntry = {
+      schemaVersion: CACHE_SCHEMA_VERSION,
       mtimeMs,
       sizeBytes,
       engineVersion: getEngineVersion(),

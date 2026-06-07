@@ -198,6 +198,35 @@ export function authFromTokenResponse(token: {
  */
 const REFRESH_LEEWAY_SECS = 60;
 
+/**
+ * In-flight refresh dedup. Without this, two concurrent callers (e.g.
+ * the dashboard's `/api/auth/status` poll and a `/api/auth/reminder`
+ * POST in flight) both observe the same expired access token, both call
+ * `refreshAccessToken(auth.refresh_token)` with the same refresh token,
+ * and the api-server treats the second call as token-replay and revokes
+ * every session for that user — a silent logout. Keying on the refresh
+ * token avoids accidentally sharing a refresh across logins/logouts in
+ * the same process.
+ */
+const inFlightRefreshes = new Map<string, Promise<StoredAuth>>();
+
+async function dedupedRefresh(auth: StoredAuth): Promise<StoredAuth> {
+  const existing = inFlightRefreshes.get(auth.refresh_token);
+  if (existing) return existing;
+  const p = (async () => {
+    const refreshed = await refreshAccessToken(auth.refresh_token);
+    const next = authFromTokenResponse(refreshed, auth.user);
+    writeAuth(next);
+    return next;
+  })();
+  inFlightRefreshes.set(auth.refresh_token, p);
+  try {
+    return await p;
+  } finally {
+    inFlightRefreshes.delete(auth.refresh_token);
+  }
+}
+
 export async function getValidAccessToken(): Promise<StoredAuth | null> {
   const auth = readAuth();
   if (!auth) return null;
@@ -205,10 +234,7 @@ export async function getValidAccessToken(): Promise<StoredAuth | null> {
   if (auth.access_expires_at - now > REFRESH_LEEWAY_SECS) return auth;
   // Either expired or close to expiring — try to refresh.
   try {
-    const refreshed = await refreshAccessToken(auth.refresh_token);
-    const next = authFromTokenResponse(refreshed, auth.user);
-    writeAuth(next);
-    return next;
+    return await dedupedRefresh(auth);
   } catch (err) {
     if (err instanceof AuthApiError && err.status === 401) {
       // Session unrecoverable — wipe.
@@ -237,9 +263,7 @@ export async function whoAmI(): Promise<{ me: MeResponse; auth: StoredAuth } | n
       const reread = readAuth();
       if (!reread) return null;
       try {
-        const refreshed = await refreshAccessToken(reread.refresh_token);
-        const next = authFromTokenResponse(refreshed, reread.user);
-        writeAuth(next);
+        const next = await dedupedRefresh(reread);
         const me = await fetchMe(next.access_token);
         return { me, auth: next };
       } catch (retryErr) {
