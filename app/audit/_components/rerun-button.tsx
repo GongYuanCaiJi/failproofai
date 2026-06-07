@@ -38,12 +38,27 @@ interface Props {
 
 const POLL_INTERVAL_MS = 1000;
 const MAX_POLL_MS = 5 * 60_000; // 5 min hard cap
+const REQUEST_TIMEOUT_MS = 15_000;
 
 function paramsToBody(p: ScanParams) {
   return {
     cli: p.cli.length > 0 ? p.cli : undefined,
     since: p.since === "all" ? undefined : p.since,
   };
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(id);
+  }
 }
 
 export class RerunError extends Error {
@@ -62,7 +77,7 @@ export class RerunError extends Error {
 export async function triggerRun(scanParams: ScanParams): Promise<void> {
   // Kick off the run. 409 (already running) is OK — we'll just poll.
   try {
-    const res = await fetch("/api/audit/run", {
+    const res = await fetchWithTimeout("/api/audit/run", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(paramsToBody(scanParams)),
@@ -75,7 +90,11 @@ export async function triggerRun(scanParams: ScanParams): Promise<void> {
   } catch (err) {
     if (err instanceof RerunError) throw err;
     console.error("audit run request failed:", err);
-    throw new RerunError("network", "audit run request failed");
+    const kind =
+      err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")
+        ? "timeout"
+        : "network";
+    throw new RerunError(kind, "audit run request failed");
   }
 
   // Poll status until running flips false.
@@ -83,12 +102,13 @@ export async function triggerRun(scanParams: ScanParams): Promise<void> {
   while (Date.now() - startedAt < MAX_POLL_MS) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     try {
-      const sres = await fetch("/api/audit/status", { cache: "no-store" });
+      const sres = await fetchWithTimeout("/api/audit/status", { cache: "no-store" });
       if (!sres.ok) continue;
       const s = await sres.json() as { running: boolean };
       if (!s.running) return;
     } catch {
-      // Transient — keep polling.
+      // Transient (including per-request timeout) — keep polling until the
+      // outer MAX_POLL_MS budget runs out.
     }
   }
   throw new RerunError("timeout", "audit poll loop timed out");

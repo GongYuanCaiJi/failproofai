@@ -148,5 +148,20 @@ describe("auth-store", () => {
       writeReminder(fakeReminder({ next_audit_at: 2 }));
       expect(readReminder()?.next_audit_at).toBe(2);
     });
+
+    it("writes mode 0600 on the reminder file", () => {
+      writeReminder(fakeReminder());
+      const mode = statSync(getReminderFilePath()).mode & 0o777;
+      // World- and group-read bits must be cleared — next-audit.json stores
+      // the user_email scoping key and gets the same hardening as auth.json.
+      expect(mode & 0o004).toBe(0);
+      expect(mode & 0o040).toBe(0);
+    });
+
+    it("atomic write leaves no .tmp siblings behind on success", () => {
+      writeReminder(fakeReminder());
+      const leftover = readdirSync(dir).filter((f) => f.includes(".tmp"));
+      expect(leftover).toEqual([]);
+    });
   });
 });

@@ -48,10 +48,17 @@ export function readDashboardCache(): DashboardCacheEntry | null {
   try {
     const raw = readFileSync(cachePath, "utf-8");
     const entry = JSON.parse(raw) as DashboardCacheEntry;
+    // `typeof null === "object"`, so explicit null checks are required for
+    // params and result — otherwise a corrupt cache like `{"params": null}`
+    // would slip through and crash downstream readers.
     if (
-      typeof entry?.cachedAt !== "string"
-      || typeof entry?.params !== "object"
-      || typeof entry?.result !== "object"
+      !entry
+      || typeof entry !== "object"
+      || typeof entry.cachedAt !== "string"
+      || !entry.params
+      || typeof entry.params !== "object"
+      || !entry.result
+      || typeof entry.result !== "object"
     ) {
       return null;
     }

@@ -273,7 +273,6 @@ async function runLogin(): Promise<void> {
   void trackHookEvent(getInstanceId(), "audit_user_identity_linked", {
     source: "cli",
     user_id: tokenResp.user.id,
-    user_email: tokenResp.user.email,
     local_random_id: getInstanceId(),
   });
   void trackHookEvent(getInstanceId(), "audit_cli_auth_login_completed", {

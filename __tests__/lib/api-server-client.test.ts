@@ -9,7 +9,10 @@ vi.mock("@/lib/telemetry", () => ({
 
 import {
   AuthApiError,
+  cancelReminder,
+  decodeJwt,
   requestLoginCode,
+  scheduleReminder,
 } from "@/lib/auth/api-server-client";
 
 describe("api-server-client fetchWithTimeout telemetry", () => {
@@ -68,5 +71,158 @@ describe("api-server-client fetchWithTimeout telemetry", () => {
     const out = await requestLoginCode("a@b.co");
     expect(out.status).toBe("code_sent");
     expect(trackEventMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("scheduleReminder", () => {
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    trackEventMock.mockClear();
+  });
+
+  it("POSTs /v0/reminders with the access token and returns the unwrapped reminder", async () => {
+    const reminder = { user_id: "u", email: "a@b.co", fire_at: 1, set_at: 0 };
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ reminder }), { status: 200 }),
+    ) as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    const out = await scheduleReminder("at-1", { in_days: 7 });
+    expect(out).toEqual(reminder);
+    const [, init] = (fetchMock as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0];
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>).authorization).toBe("Bearer at-1");
+  });
+
+  it("throws AuthApiError on non-OK responses", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ code: "rate_limited", message: "slow down" }), { status: 429 }),
+    ) as unknown as typeof fetch;
+    await expect(scheduleReminder("at-1", { in_days: 7 })).rejects.toBeInstanceOf(AuthApiError);
+  });
+});
+
+describe("cancelReminder", () => {
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    trackEventMock.mockClear();
+  });
+
+  it("DELETEs /v0/reminders with the access token and resolves on 204", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(null, { status: 204 }),
+    ) as unknown as typeof fetch;
+    globalThis.fetch = fetchMock;
+
+    await expect(cancelReminder("at-1")).resolves.toBeUndefined();
+    const [, init] = (fetchMock as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0];
+    expect(init.method).toBe("DELETE");
+  });
+
+  it("throws AuthApiError on non-OK responses", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ code: "unauthorized", message: "no" }), { status: 401 }),
+    ) as unknown as typeof fetch;
+    await expect(cancelReminder("at-1")).rejects.toBeInstanceOf(AuthApiError);
+  });
+});
+
+describe("retry-after parsing in parseError", () => {
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    trackEventMock.mockClear();
+  });
+
+  it("reads retry_after_secs from the body when present", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ code: "rate_limited", message: "slow", retry_after_secs: 42 }),
+        { status: 429, headers: { "content-type": "application/json" } },
+      ),
+    ) as unknown as typeof fetch;
+    try {
+      await requestLoginCode("a@b.co");
+      expect.unreachable();
+    } catch (err) {
+      expect(err).toBeInstanceOf(AuthApiError);
+      expect((err as AuthApiError).retryAfterSecs).toBe(42);
+    }
+  });
+
+  it("falls back to the Retry-After header (numeric seconds) when body omits it", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ code: "rate_limited", message: "slow" }),
+        { status: 429, headers: { "content-type": "application/json", "retry-after": "17" } },
+      ),
+    ) as unknown as typeof fetch;
+    try {
+      await requestLoginCode("a@b.co");
+      expect.unreachable();
+    } catch (err) {
+      expect(err).toBeInstanceOf(AuthApiError);
+      expect((err as AuthApiError).retryAfterSecs).toBe(17);
+    }
+  });
+
+  it("leaves retry_after undefined when the header is unparseable", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ code: "rate_limited", message: "slow" }),
+        { status: 429, headers: { "content-type": "application/json", "retry-after": "not-a-number" } },
+      ),
+    ) as unknown as typeof fetch;
+    try {
+      await requestLoginCode("a@b.co");
+      expect.unreachable();
+    } catch (err) {
+      expect(err).toBeInstanceOf(AuthApiError);
+      expect((err as AuthApiError).retryAfterSecs).toBeUndefined();
+    }
+  });
+});
+
+describe("decodeJwt", () => {
+  function makeJwt(payload: object): string {
+    const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+    const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+    return `${header}.${body}.sig`;
+  }
+
+  it("returns the parsed payload for a well-formed token", () => {
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    const token = makeJwt({ sub: "user-1", email: "a@b.co", exp });
+    const out = decodeJwt(token);
+    expect(out).not.toBeNull();
+    expect(out?.sub).toBe("user-1");
+    expect(out?.email).toBe("a@b.co");
+    expect(out?.exp).toBe(exp);
+  });
+
+  it("returns the parsed payload even for an expired token (validation is the caller's job)", () => {
+    const past = Math.floor(Date.now() / 1000) - 3600;
+    const token = makeJwt({ sub: "user-1", email: "a@b.co", exp: past });
+    expect(decodeJwt(token)?.exp).toBe(past);
+  });
+
+  it("returns null when the token doesn't have 3 parts", () => {
+    expect(decodeJwt("only.two")).toBeNull();
+    expect(decodeJwt("just-one")).toBeNull();
+  });
+
+  it("returns null when the payload isn't valid JSON", () => {
+    const header = Buffer.from(JSON.stringify({ alg: "none" })).toString("base64url");
+    const bogus = Buffer.from("not-json").toString("base64url");
+    expect(decodeJwt(`${header}.${bogus}.sig`)).toBeNull();
+  });
+
+  it("returns null when exp is missing or non-numeric", () => {
+    const noExp = makeJwt({ sub: "u", email: "a@b.co" });
+    expect(decodeJwt(noExp)).toBeNull();
+    const stringExp = makeJwt({ sub: "u", email: "a@b.co", exp: "soon" });
+    expect(decodeJwt(stringExp)).toBeNull();
   });
 });

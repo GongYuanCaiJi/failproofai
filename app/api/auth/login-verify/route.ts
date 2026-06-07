@@ -38,14 +38,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 400 },
     );
   }
-  await initTelemetry();
+  try {
+    await initTelemetry();
+  } catch {
+    // best-effort telemetry: never block auth
+  }
   try {
     const tokens = await verifyLoginCode(body.email, body.code);
     writeAuth(authFromTokenResponse(tokens));
     trackEvent("audit_user_identity_linked", {
       source: "audit_set_reminder_auth_dialog",
       user_id: tokens.user.id,
-      user_email: tokens.user.email,
       local_random_id: getInstanceId(),
     });
     trackEvent("audit_otp_verified", {

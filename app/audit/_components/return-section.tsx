@@ -128,27 +128,51 @@ export function ReturnSection({ result }: Props) {
   }, [authStatus, capture, reminder]);
 
   const persistReminder = useCallback(async (): Promise<Reminder | null> => {
+    // 10s ceiling so a hung route can't permanently disable the CTA.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
     try {
       setReminderBusy(true);
       const res = await fetch("/api/auth/reminder", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ in_days: DEFAULT_REMINDER_DAYS }),
+        signal: controller.signal,
       });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        // A 401 here means our local "authed" view of the world is out of
+        // date — the server-side session was revoked or expired between the
+        // status probe and this write. Flip back to anon so the user can
+        // re-authenticate instead of leaving them on a panel whose actions
+        // silently no-op.
+        if (res.status === 401) {
+          setAuthStatus({ kind: "anon" });
+          setReminder(null);
+        }
+        capture("audit_reminder_saved", {
+          status: `http_${res.status}`,
+          source: "return_section",
+        });
+        return null;
+      }
       const body = (await res.json()) as { reminder?: Reminder };
       capture("audit_reminder_saved", {
         status: body.reminder ? "success" : "empty",
         source: "return_section",
       });
       return body.reminder ?? null;
-    } catch {
+    } catch (err) {
+      const kind =
+        err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")
+          ? "timeout"
+          : "error";
       capture("audit_reminder_saved", {
-        status: "error",
+        status: kind,
         source: "return_section",
       });
       return null;
     } finally {
+      clearTimeout(timer);
       setReminderBusy(false);
     }
   }, [capture]);

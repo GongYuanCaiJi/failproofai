@@ -41,6 +41,30 @@ type Step =
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const REQUEST_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+function describeFetchError(err: unknown): string {
+  if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
+    return "request timed out. check your network and try again.";
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  return `network error: ${message}`;
+}
+
 export function AuthDialog({
   open,
   headline = "oops — you are unknown.",
@@ -121,7 +145,7 @@ export function AuthDialog({
     async (email: string): Promise<void> => {
       setBusy(true);
       try {
-        const res = await fetch("/api/auth/login-request", {
+        const res = await fetchWithTimeout("/api/auth/login-request", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ email }),
@@ -151,8 +175,7 @@ export function AuthDialog({
           resendIn: body.resend_available_in ?? 30,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        setStep({ kind: "email", error: `network error: ${message}` });
+        setStep({ kind: "email", error: describeFetchError(err) });
       } finally {
         setBusy(false);
       }
@@ -164,7 +187,7 @@ export function AuthDialog({
     async (email: string, code: string): Promise<void> => {
       setBusy(true);
       try {
-        const res = await fetch("/api/auth/login-verify", {
+        const res = await fetchWithTimeout("/api/auth/login-verify", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ email, code }),
@@ -188,9 +211,9 @@ export function AuthDialog({
         setStep({ kind: "done", user: body.user });
         onAuthed(body.user);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const msg = describeFetchError(err);
         setStep((s) =>
-          s.kind === "code" ? { ...s, error: `network error: ${message}` } : s,
+          s.kind === "code" ? { ...s, error: msg } : s,
         );
       } finally {
         setBusy(false);
