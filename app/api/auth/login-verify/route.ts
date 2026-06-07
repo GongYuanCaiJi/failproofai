@@ -38,11 +38,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 400 },
     );
   }
-  try {
-    await initTelemetry();
-  } catch {
-    // best-effort telemetry: never block auth
-  }
+  // `initTelemetry` never throws — its internal try/catch is total.
+  await initTelemetry();
   try {
     const tokens = await verifyLoginCode(body.email, body.code);
     writeAuth(authFromTokenResponse(tokens));

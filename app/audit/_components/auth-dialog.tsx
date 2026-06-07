@@ -14,6 +14,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { usePostHog } from "@/contexts/PostHogContext";
+import { fetchWithTimeout, isAbortError } from "@/lib/fetch-with-timeout";
 
 export interface AuthedUser {
   id: string;
@@ -41,24 +42,8 @@ type Step =
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const REQUEST_TIMEOUT_MS = 15_000;
-
-async function fetchWithTimeout(
-  input: RequestInfo | URL,
-  init: RequestInit = {},
-  timeoutMs = REQUEST_TIMEOUT_MS,
-): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(input, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(id);
-  }
-}
-
 function describeFetchError(err: unknown): string {
-  if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
+  if (isAbortError(err)) {
     return "request timed out. check your network and try again.";
   }
   const message = err instanceof Error ? err.message : String(err);

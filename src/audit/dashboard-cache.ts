@@ -10,9 +10,10 @@
  * (see `src/audit/cache.ts`): that one makes re-running fast; this one
  * makes navigating back to /audit instant without re-running.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync, chmodSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { homedir } from "node:os";
+import { writeJsonAtomically } from "../../lib/atomic-write";
 import type { AuditResult, RunAuditOptions } from "./types";
 
 const DEFAULT_MAX_AGE_MINUTES = 30;
@@ -80,32 +81,22 @@ export function readDashboardCache(): DashboardCacheEntry | null {
   }
 }
 
-/** Write the cache file atomically — temp-file then rename. Best-effort
- *  overall (swallows errors so a failed write never breaks the run path),
- *  but the temp-file dance protects concurrent readers (e.g. the 1s status
- *  poll firing while a fresh run writes a multi-hundred-KB AuditResult)
- *  from observing a torn JSON file. Sets mode 0600 on the temp file before
- *  rename so the cache is never world-readable during the umask window. */
+/** Write the cache file atomically via the shared `writeJsonAtomically`
+ *  helper. Best-effort overall (swallows errors so a failed write never
+ *  breaks the run path), but the temp-file dance protects concurrent
+ *  readers (e.g. the 1s status poll firing while a fresh run writes a
+ *  multi-hundred-KB AuditResult) from observing a torn JSON file. */
 export function writeDashboardCache(params: RunAuditOptions, result: AuditResult): void {
-  const cachePath = getCachePath();
-  const tmpPath = `${cachePath}.tmp`;
   try {
-    mkdirSync(dirname(cachePath), { recursive: true, mode: 0o700 });
     const entry: DashboardCacheEntry = {
       schemaVersion: DASHBOARD_CACHE_SCHEMA_VERSION,
       cachedAt: new Date().toISOString(),
       params,
       result,
     };
-    writeFileSync(tmpPath, JSON.stringify(entry, null, 2), { encoding: "utf-8", mode: 0o600 });
-    try { chmodSync(tmpPath, 0o600); } catch { /* belt-and-suspenders on POSIX */ }
-    try {
-      if ((statSync(tmpPath).mode & 0o077) !== 0) chmodSync(tmpPath, 0o600);
-    } catch { /* best-effort */ }
-    renameSync(tmpPath, cachePath);
+    writeJsonAtomically(getCachePath(), entry);
   } catch {
-    // Cache writes are best-effort. Clean up the temp file if it leaked.
-    try { unlinkSync(tmpPath); } catch { /* ignore */ }
+    // Cache writes are best-effort.
   }
 }
 

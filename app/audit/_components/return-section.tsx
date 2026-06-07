@@ -23,6 +23,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { AuditResult } from "@/src/audit/types";
 import { usePostHog } from "@/contexts/PostHogContext";
+import { isAbortError } from "@/lib/fetch-with-timeout";
 import { AuthDialog, type AuthedUser } from "./auth-dialog";
 import { RerunError, triggerRun } from "./rerun-button";
 
@@ -162,10 +163,7 @@ export function ReturnSection({ result }: Props) {
       });
       return body.reminder ?? null;
     } catch (err) {
-      const kind =
-        err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")
-          ? "timeout"
-          : "error";
+      const kind = isAbortError(err) ? "timeout" : "error";
       capture("audit_reminder_saved", {
         status: kind,
         source: "return_section",

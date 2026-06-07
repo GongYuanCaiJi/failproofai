@@ -12,6 +12,7 @@
  */
 
 import { trackEvent } from "../telemetry";
+import { isAbortError } from "../fetch-with-timeout";
 
 export const DEFAULT_API_BASE = "https://api.befailproof.ai";
 
@@ -141,8 +142,7 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
   try {
     return await fetch(url, { ...init, signal: timeoutSignal(init.signal ?? undefined) });
   } catch (err) {
-    const isTimeout =
-      err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+    const isTimeout = isAbortError(err);
     // Low-cardinality "api-server is down" counter. We only attach the
     // request path (not the full URL) and a coarse kind so it stays a
     // cheap signal in PostHog. No-ops on the CLI side when telemetry

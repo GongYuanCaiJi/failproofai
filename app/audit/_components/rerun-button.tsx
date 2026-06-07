@@ -1,26 +1,22 @@
 "use client";
 
 /**
- * Re-run button + polling. Click:
- *   1. POSTs /api/audit/run with the current scan params
- *   2. Polls /api/audit/status every 1s
- *   3. When `running` flips false (or `triggerRun` throws), the parent
- *      refetches the cache and the button surfaces success / failure.
+ * `triggerRun` — POST /api/audit/run, then poll /api/audit/status until the
+ * server reports the run finished. Used by:
+ *  - the audit empty-state CTA (`empty-state.tsx`),
+ *  - the return-section's `[ re-audit now ]` button (`return-section.tsx`).
  *
- * On 409 (audit already running) we just start polling without re-posting —
- * lets the user "join" an in-flight run that someone else (or a previous
- * tab) kicked off.
+ * The original `<RerunButton>` React component lived here too, but no
+ * caller ever rendered it (the rerun UI is integrated into the two
+ * sections above). Dropped in this refactor to remove dead code and the
+ * stale `lucide-react`/`usePostHog`/`cn` imports it dragged in.
  *
- * Exports `triggerRun` separately so the empty-state CTA reuses the same
- * fetch logic without re-implementing. `triggerRun` throws on
- * unrecoverable failure (POST not OK and not 409, or the poll loop times
- * out) so callers can render a distinct "rerun failed" state instead of
- * pretending the run completed.
+ * `triggerRun` throws `RerunError` on POST failure / network failure /
+ * poll-loop timeout — callers should catch and render a distinct
+ * "rerun failed" state. The `kind` discriminates timeout vs other
+ * network failures so the UI can show different copy.
  */
-import React, { useState } from "react";
-import { RotateCw } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { usePostHog } from "@/contexts/PostHogContext";
+import { fetchWithTimeout, isAbortError } from "@/lib/fetch-with-timeout";
 
 export interface ScanParams {
   /** Empty array = all CLIs. */
@@ -29,36 +25,14 @@ export interface ScanParams {
   since: string;
 }
 
-interface Props {
-  scanParams: ScanParams;
-  running: boolean;
-  onStarted: () => void;
-  onCompleted: () => Promise<void> | void;
-}
-
 const POLL_INTERVAL_MS = 1000;
 const MAX_POLL_MS = 5 * 60_000; // 5 min hard cap
-const REQUEST_TIMEOUT_MS = 15_000;
 
 function paramsToBody(p: ScanParams) {
   return {
     cli: p.cli.length > 0 ? p.cli : undefined,
     since: p.since === "all" ? undefined : p.since,
   };
-}
-
-async function fetchWithTimeout(
-  input: RequestInfo | URL,
-  init: RequestInit = {},
-  timeoutMs = REQUEST_TIMEOUT_MS,
-): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(input, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(id);
-  }
 }
 
 export class RerunError extends Error {
@@ -70,10 +44,6 @@ export class RerunError extends Error {
   }
 }
 
-/** Fire a run and resolve once the server reports it finished. Used both by
- *  this button and by the EmptyState's "Run audit" CTA. Throws `RerunError`
- *  on POST failure, network failure, or poll-loop timeout — callers should
- *  catch and show a distinct failure state. */
 export async function triggerRun(scanParams: ScanParams): Promise<void> {
   // Kick off the run. 409 (already running) is OK — we'll just poll.
   try {
@@ -90,11 +60,7 @@ export async function triggerRun(scanParams: ScanParams): Promise<void> {
   } catch (err) {
     if (err instanceof RerunError) throw err;
     console.error("audit run request failed:", err);
-    const kind =
-      err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")
-        ? "timeout"
-        : "network";
-    throw new RerunError(kind, "audit run request failed");
+    throw new RerunError(isAbortError(err) ? "timeout" : "network", "audit run request failed");
   }
 
   // Poll status until running flips false.
@@ -112,53 +78,4 @@ export async function triggerRun(scanParams: ScanParams): Promise<void> {
     }
   }
   throw new RerunError("timeout", "audit poll loop timed out");
-}
-
-export function RerunButton({ scanParams, running, onStarted, onCompleted }: Props) {
-  const { capture } = usePostHog();
-  const [failed, setFailed] = useState(false);
-  const handle = async () => {
-    setFailed(false);
-    onStarted();
-    let threw = false;
-    try {
-      await triggerRun(scanParams);
-    } catch (err) {
-      threw = true;
-      const kind = err instanceof RerunError ? err.kind : "network";
-      capture("audit_rerun_failed", {
-        kind,
-        source: "rerun_button",
-        since: scanParams.since,
-        cli_filter: scanParams.cli.length > 0 ? scanParams.cli.join(",") : "all",
-      });
-    } finally {
-      if (threw) {
-        setFailed(true);
-        setTimeout(() => setFailed(false), 4000);
-      }
-      await onCompleted();
-    }
-  };
-
-  const label = running ? "scanning…" : failed ? "rerun failed — retry" : "re-run";
-
-  return (
-    <button
-      type="button"
-      disabled={running}
-      onClick={handle}
-      className={cn(
-        "font-mono text-[12px] inline-flex items-center gap-1.5 h-8 px-3 border transition-colors",
-        running
-          ? "text-[var(--chart-2)] border-[var(--chart-2)]/40 bg-[var(--chart-2)]/[0.08] cursor-wait"
-          : failed
-            ? "text-[var(--accent-pink)] border-[var(--accent-pink)]/60 hover:bg-card bg-transparent"
-            : "text-foreground border-foreground/30 hover:border-foreground/60 hover:bg-card bg-transparent",
-      )}
-    >
-      <RotateCw className={cn("w-3 h-3", running && "animate-spin")} />
-      {label}
-    </button>
-  );
 }
