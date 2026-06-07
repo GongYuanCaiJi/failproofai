@@ -308,13 +308,19 @@ async function runAuditInner(opts: RunAuditOptions, startedAt: number): Promise<
       return fresh;
     } catch {
       errors++;
+      // Match the empty/full result shape — `cwd` is unknowable here (we
+      // never got to scan the events that carry it), but `eventsScanned: 0`
+      // is right and keeps the aggregator's `t.eventsScanned ?? 0` shape
+      // explicit. cwd defaults to "" so `if (t.cwd)` skips it cleanly.
       return {
         transcriptPath: meta.transcriptPath,
         cli: meta.cli,
         projectName: meta.projectName,
+        cwd: "",
         sessionId: meta.sessionId,
         mtimeMs: meta.mtimeMs,
         sizeBytes: meta.sizeBytes,
+        eventsScanned: 0,
         hitsByName: {},
         examplesByName: {},
         rangeByName: {},

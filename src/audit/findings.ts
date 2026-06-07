@@ -290,7 +290,7 @@ function buildCard(r: AuditCount, idx: number, enabledSet: Set<string>): Finding
     fix: {
       slug: fixSlug,
       desc: fixDesc,
-      install: `failproof policy add ${fixSlug}`,
+      install: `failproofai policy add ${fixSlug}`,
       alsoCoveredBy,
     },
     alreadyEnabled,

@@ -223,7 +223,10 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
   const strengths = useMemo(() => deriveStrengths(result), [result]);
   const findings = useMemo(() => deriveFindings(result), [result]);
   const project = useMemo(() => inferProjectName(result, projectFromUrl), [result, projectFromUrl]);
-  const window = inferWindow(params);
+  // Renamed from `window` to avoid shadowing the browser global — any
+  // future `window.*` reference added inside MainReport would silently
+  // bind to a string and crash at runtime.
+  const scopeWindow = inferWindow(params);
 
   const detectorsTriggered = result.results.filter((r) => r.hits > 0).length;
 
@@ -274,7 +277,7 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
             secondaryKey={classification.secondary}
             toolCalls={result.eventsScanned ?? 0}
             sessions={result.transcripts.scanned}
-            window={window}
+            window={scopeWindow}
             seed={project}
             score={score}
             grade={grade}

@@ -4,17 +4,19 @@ description: "Sign in to FailproofAI from the CLI to enable reminders and person
 ---
 
 ```bash
-failproofai auth --login    # email + one-time code
-failproofai auth --logout   # revoke this session
-failproofai auth --whoami   # print the signed-in identity
+failproofai auth login    # email + one-time code
+failproofai auth logout   # revoke this session
+failproofai auth whoami   # print the signed-in identity
 ```
 
-Authentication is opt-in. Policies, the dashboard, the audit command, and every other local feature work exactly the same whether you're signed in or not. The login surface exists so that features that **need** a stable identity (re-audit reminders today, more in the future) have somewhere to anchor.
+The legacy `--login` / `--logout` / `--whoami` flag form is still accepted as an alias for back-compat.
+
+Authentication is opt-in. Policies, the dashboard, the `/audit` page, and every other local feature work exactly the same whether you're signed in or not. The login surface exists so that features that **need** a stable identity (re-audit reminders today, more in the future) have somewhere to anchor.
 
 ## Sign-in flow
 
 ```bash
-failproofai auth --login
+failproofai auth login
 ```
 
 Prompts for your email, sends a 6-digit one-time code to that address, prompts for the code, and on success writes `~/.failproofai/auth.json` (mode `0600`). The same session is then visible to the in-app dashboard — clicking `[ set a reminder ]` on `/audit` will see you as signed in.
@@ -24,7 +26,7 @@ The dashboard exposes the same flow as a modal dialog on `/audit` for users who 
 ## Sign-out
 
 ```bash
-failproofai auth --logout
+failproofai auth logout
 ```
 
 Revokes the current session on the server and deletes `~/.failproofai/auth.json`. If the api-server is unreachable, the local file is removed regardless — local intent to log out always wins.
@@ -32,7 +34,7 @@ Revokes the current session on the server and deletes `~/.failproofai/auth.json`
 ## Identity check
 
 ```bash
-failproofai auth --whoami
+failproofai auth whoami
 ```
 
 Prints `<email> (<user uuid>)` and exits 0 when a valid session exists, or `not signed in` and exits 1 otherwise. Silently refreshes the access token in the background if it's within a minute of expiring.
@@ -82,4 +84,4 @@ See [Environment variables](/cli/environment-variables) for the full list.
 
 **"Rate limited"** — too many login attempts in a 15-minute window for that email (5/email) or IP (20/IP), or a 30-second resend cooldown after the previous request for the same email. The error message includes the retry-after window in seconds.
 
-**Code rejected** — the OTP was wrong, expired, or the row hit its 5-wrong-guess lockout. Run `failproofai auth --login` again to request a fresh code.
+**Code rejected** — the OTP was wrong, expired, or the row hit its 5-wrong-guess lockout. Run `failproofai auth login` again to request a fresh code.

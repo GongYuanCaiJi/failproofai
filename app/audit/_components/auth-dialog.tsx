@@ -142,7 +142,18 @@ export function AuthDialog({
   }, [resendActive]);
 
   const requestCode = useCallback(
-    async (email: string): Promise<void> => {
+    async (email: string, opts: { isResend?: boolean } = {}): Promise<void> => {
+      const { isResend = false } = opts;
+      // Show resend errors inline on the OTP step — the previously sent
+      // code is still usable. Only the first-send error path bounces back
+      // to the email step.
+      const setError = (msg: string) => {
+        if (isResend) {
+          setStep((s) => (s.kind === "code" ? { ...s, error: msg } : s));
+        } else {
+          setStep({ kind: "email", error: msg });
+        }
+      };
       setBusy(true);
       try {
         const res = await fetchWithTimeout("/api/auth/login-request", {
@@ -164,7 +175,7 @@ export function AuthDialog({
           } else if (body.code === "upstream_unreachable") {
             msg = "api-server unreachable. check your network.";
           }
-          setStep({ kind: "email", error: msg });
+          setError(msg);
           return;
         }
         setStep({
@@ -175,7 +186,7 @@ export function AuthDialog({
           resendIn: body.resend_available_in ?? 30,
         });
       } catch (err) {
-        setStep({ kind: "email", error: describeFetchError(err) });
+        setError(describeFetchError(err));
       } finally {
         setBusy(false);
       }
@@ -256,7 +267,7 @@ export function AuthDialog({
 
   const onResend = useCallback(async () => {
     if (step.kind !== "code" || step.resendIn > 0 || busy) return;
-    await requestCode(step.email);
+    await requestCode(step.email, { isResend: true });
   }, [step, busy, requestCode]);
 
   if (!open) return null;

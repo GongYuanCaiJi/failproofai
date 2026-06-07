@@ -97,6 +97,13 @@ async function parseError(res: Response): Promise<AuthApiError> {
       if (Number.isFinite(n)) retryAfterSecs = n;
     }
   }
+  // Clamp to a sane range: a misbehaving (or hostile) api-server could
+  // return `-3600` or `1e20` and our UI would render "wait 1e20s" or
+  // backoff loops would fire immediately on negatives. 24h is the longest
+  // wait the dashboard/CLI is willing to surface as a literal duration.
+  if (retryAfterSecs !== undefined) {
+    retryAfterSecs = Math.max(0, Math.min(86400, retryAfterSecs));
+  }
   return new AuthApiError(res.status, code, message, retryAfterSecs);
 }
 

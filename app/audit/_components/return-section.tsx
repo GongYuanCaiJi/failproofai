@@ -201,11 +201,6 @@ export function ReturnSection({ result }: Props) {
       has_existing_reminder: reminder !== null,
       source: "return_section",
     });
-    capture("audit_set_reminder_clicked", {
-      auth_state: authStatus.kind,
-      has_existing_reminder: reminder !== null,
-      source: "return_section",
-    });
     if (authStatus.kind === "authed") {
       const next = await persistReminder();
       if (next) setReminder(next);

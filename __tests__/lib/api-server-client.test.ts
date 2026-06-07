@@ -119,6 +119,7 @@ describe("cancelReminder", () => {
     await expect(cancelReminder("at-1")).resolves.toBeUndefined();
     const [, init] = (fetchMock as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0];
     expect(init.method).toBe("DELETE");
+    expect((init.headers as Record<string, string>).authorization).toBe("Bearer at-1");
   });
 
   it("throws AuthApiError on non-OK responses", async () => {

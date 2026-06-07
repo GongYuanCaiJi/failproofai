@@ -104,6 +104,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     body = parsed as SetBody;
   }
   const nowSecs = Math.floor(Date.now() / 1000);
+  const maxAt = nowSecs + MAX_OFFSET_DAYS * 86400;
   let nextAuditAt: number;
   if (typeof body.at === "number" && Number.isFinite(body.at)) {
     nextAuditAt = Math.floor(body.at);
@@ -123,6 +124,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
     return NextResponse.json(
       { code: "validation_error", message: "Reminder must be in the future." },
+      { status: 400 },
+    );
+  }
+  // Upper-bound guard: catches the common foot-gun where a caller passes
+  // `Date.now()` (ms) instead of unix-seconds — would otherwise persist a
+  // year-55000 reminder, render "in 19000000 days", and send nonsense
+  // fire_at to the upstream scheduler.
+  if (nextAuditAt > maxAt) {
+    trackEvent("audit_reminder_set", {
+      status: "validation_error",
+      source: "dashboard",
+      reason: "too_far_in_future",
+      user_id: who.me.id,
+    });
+    return NextResponse.json(
+      {
+        code: "validation_error",
+        message: `Reminder must be within ${MAX_OFFSET_DAYS} days. Did you pass milliseconds instead of seconds?`,
+      },
       { status: 400 },
     );
   }

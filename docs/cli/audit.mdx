@@ -4,37 +4,35 @@ description: "Count how often the agent did wasteful or risky things across past
 ---
 
 <Note>
-  **Beta feature.** `failproofai audit` is shipping as beta while we collect early
-  feedback. CLI flags, output format, and the audit-only detector catalog may
-  change before the next stable cut. Going live shortly — please open an issue
-  if anything looks off.
+  **Beta feature.** The audit ships as beta while we collect early feedback.
+  The detector catalog and report format may change before the next stable
+  cut. Please open an issue if anything looks off.
 </Note>
 
+The audit is now exposed as the **/audit dashboard page**, not a CLI subcommand. Open it from the dashboard navbar (between Policies and Projects), or visit `http://localhost:8020/audit` directly when running `failproofai` locally.
+
 ```bash
-failproofai audit [options]
+failproofai          # open the dashboard, then click "Audit"
 ```
 
-Scans past agent CLI transcripts on this machine (Claude Code, Codex, Copilot, Cursor, OpenCode, Pi, Gemini) and reports how often the agent did things failproofai is built to stop — env-var checks, force pushes, redundant `cd <cwd>` prefixes, sleep-polling loops, re-reading files just edited, and more.
+The dashboard scans past agent CLI transcripts on this machine (Claude Code, Codex, Copilot, Cursor, OpenCode, Pi, Gemini) and reports how often the agent did things failproofai is built to stop — env-var checks, force pushes, redundant `cd <cwd>` prefixes, sleep-polling loops, re-reading files just edited, and more.
 
 For each transcript, every tool-use event is replayed through the 39 builtin policies **and** through 8 audit-only detectors that catch patterns not yet covered by runtime policies. Counts are aggregated per policy / detector across all sessions.
 
-## Options
+## What you get
 
-| Flag | Description |
-|------|-------------|
-| `--project <path>` | Restrict to sessions whose `cwd` matches this path. Repeatable. |
-| `--since 7d\|30d\|2026-04-01` | Only sessions whose transcript mtime is within the window. |
-| `--policy <name>` | Restrict to one policy or detector name. Repeatable. |
-| `--limit N` | Top-N rows in the table (default 20). |
-| `--show-examples` | Include one example command per row in the table. |
-| `--report <path>` | Markdown report path (default `./failproofai-audit.md`). |
-| `--no-report` | Skip writing the markdown report. |
-| `--json` | Print JSON to stdout instead of the table. Implies `--no-report` unless `--report` is also passed. |
-| `--no-cache` | Bypass the per-transcript result cache at `~/.failproofai/cache/audit/`. |
+The `/audit` page composes six sections:
+
+1. **Identity** — your agent classified into one of 8 archetypes (`optimist`, `cowboy`, `explorer`, `goldfish`, `paranoid architect`, `precision builder`, `hammer`, `ghost`) based on the weighted signal across every audited transcript.
+2. **Strengths** — real numbers derived from the scan (clean-call %, "0 credential leaks", etc.) gated on the relevant sanitize policies actually firing.
+3. **Score** — 0-100 with S/A/B/C/D/F bands and a projected uplift if every recommended policy were enabled.
+4. **Findings** — per-policy cards with what happened, cost, captured evidence, and the exact `failproofai policy add <slug>` to enable the live-time builtin that would have caught it.
+5. **Prescribed policies** — aggregated install list with a one-shot `failproofai policies --install` command.
+6. **Re-audit reminder** — "come back better." Set a 7-day email reminder via the api-server (requires sign-in; see [`failproofai auth`](/cli/auth)).
 
 ## Audit-only detectors
 
-These detect "stupid behavior" patterns not (yet) enforced in real time. They run only during `audit` and never block a live tool call.
+These detect "stupid behavior" patterns not (yet) enforced in real time. They run only during the audit and never block a live tool call.
 
 | Detector | What it counts |
 |---|---|
@@ -47,56 +45,13 @@ These detect "stupid behavior" patterns not (yet) enforced in real time. They ru
 | `git-commit-no-verify` | `git commit … --no-verify` / `-n`, skipping hooks. |
 | `reread-after-edit` | `Read` of a file that was just `Edit`/`Write` in the same session. |
 
-## Output
+## Caches
 
-Default output is an ANSI table to stdout plus a sectioned markdown report at `./failproofai-audit.md`. Both group hits by category (Sanitize / Wasteful / Risky / …) with hit counts, project counts, and up to three example commands per row.
-
-`--json` emits machine-readable output:
-
-```json
-{
-  "version": 1,
-  "scannedAt": "2026-05-21T...",
-  "scope": { "cli": [...], "projects": "all", "since": null },
-  "transcripts": { "scanned": 4187, "skipped": 0, "errors": 0, "durationMs": 12345 },
-  "results": [
-    {
-      "name": "failproofai/protect-env-vars",
-      "source": "builtin",
-      "category": "Environment",
-      "hits": 428,
-      "projects": 142,
-      "firstSeen": "...",
-      "lastSeen": "...",
-      "examples": [{ "sessionId": "...", "cwd": "...", "timestamp": "...", "example": "env" }]
-    }
-  ],
-  "totals": { "hits": 1398, "projectsWithHits": 392 }
-}
-```
-
-## Examples
-
-```bash
-# Scan everything across every CLI on this machine
-failproofai audit
-
-# Last 30 days
-failproofai audit --since 30d
-
-# Show examples for the top hits
-failproofai audit --show-examples --limit 10
-
-# Drill into one policy
-failproofai audit --policy protect-env-vars --policy block-force-push
-
-# Machine-readable output
-failproofai audit --json > audit.json
-```
+- **Per-transcript cache** at `~/.failproofai/cache/audit/<sha1>.json` keyed by `(mtime, size, engineVersion, detectorVersion)`. Invalidates automatically when policy or detector code changes.
+- **Whole-result cache** at `~/.failproofai/audit-dashboard.json` (mode 0600). Lets the dashboard render instantly on navigation without re-running. Click `[ re-audit now ]` from the dashboard to refresh.
 
 ## Notes
 
-- **Cache.** Per-transcript results are cached at `~/.failproofai/cache/audit/<sha1>.json` keyed by `(mtime, size, engineVersion, detectorVersion)`. The cache invalidates automatically when policy or detector code changes.
 - **No mutation.** The audit replays in read-only mode. `warn-repeated-tool-calls` is skipped because its per-session sidecar would otherwise be modified.
 - **Workflow policies skipped.** `require-*-before-stop` policies fire only on `Stop` events and `execSync` against the live git state — they have no meaningful "what would have happened in 2025" interpretation, so they don't appear in audit counts.
 - **Custom policies skipped.** User-supplied custom hooks are not replayed (they may have changed since the original session).

@@ -69,13 +69,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         http_status: err.status,
         retry_after_secs: err.retryAfterSecs ?? null,
       });
+      // AuthApiError uses `status: 0` for client-side timeouts; NextResponse
+      // (the Response constructor) rejects any status < 200 with a
+      // RangeError. Surface the timeout as 504 so the browser sees a real
+      // status code, not a 500 stack trace.
+      const httpStatus = err.status >= 200 && err.status < 600 ? err.status : 504;
       return NextResponse.json(
         {
           code: err.code,
           message: err.message,
           ...(err.retryAfterSecs !== undefined ? { retry_after_secs: err.retryAfterSecs } : {}),
         },
-        { status: err.status },
+        { status: httpStatus },
       );
     }
     const message = err instanceof Error ? err.message : String(err);

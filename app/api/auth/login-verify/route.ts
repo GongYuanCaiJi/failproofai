@@ -71,9 +71,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         error_code: err.code,
         http_status: err.status,
       });
+      // AuthApiError uses `status: 0` for client-side timeouts; map those to
+      // 504 so NextResponse.json doesn't reject with a RangeError.
+      const httpStatus = err.status >= 200 && err.status < 600 ? err.status : 504;
       return NextResponse.json(
         { code: err.code, message: err.message },
-        { status: err.status },
+        { status: httpStatus },
       );
     }
     const message = err instanceof Error ? err.message : String(err);

@@ -242,8 +242,14 @@ export async function whoAmI(): Promise<{ me: MeResponse; auth: StoredAuth } | n
         writeAuth(next);
         const me = await fetchMe(next.access_token);
         return { me, auth: next };
-      } catch {
-        deleteAuth();
+      } catch (retryErr) {
+        // Symmetry with `getValidAccessToken`: wipe the session only on an
+        // unambiguous 401. A transient timeout/5xx during the retry-fetchMe
+        // must NOT throw away the freshly-written valid tokens, otherwise a
+        // brief api-server hiccup silently logs the user out.
+        if (retryErr instanceof AuthApiError && retryErr.status === 401) {
+          deleteAuth();
+        }
         return null;
       }
     }

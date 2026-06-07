@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   title: "Failproof AI - Hooks & Project Monitor",
   description: "Open-source hooks, policies, and project visualization for Claude Code & Agents SDK",
   icons: {
-    icon: "/icon.png",
+    icon: "/icon.svg",
   },
 };
 
