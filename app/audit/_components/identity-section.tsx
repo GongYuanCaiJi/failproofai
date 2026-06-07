@@ -17,7 +17,7 @@
  * Exposes a `frameRef` forwarded onto the `.archetype-frame` element so
  * the ShowOff "make poster" action can capture it via html2canvas.
  */
-import React, { forwardRef, useState } from "react";
+import React, { forwardRef, useMemo, useState } from "react";
 import { ARCHETYPES, pickArchetypeVariant, type ArchetypeKey } from "@/src/audit/archetypes";
 import { type Grade } from "@/src/audit/scoring";
 import { usePostHog } from "@/contexts/PostHogContext";
@@ -70,7 +70,13 @@ export const IdentitySection = forwardRef<HTMLDivElement, Props>(function Identi
   { archetypeKey, secondaryKey, toolCalls, sessions, window, seed, score, grade, missing }: Props,
   frameRef,
 ) {
-  const archetype = pickArchetypeVariant(archetypeKey, seed);
+  // `pickArchetypeVariant` re-hashes the seed string via djb2 + 4 mix
+  // passes per axis. Deterministic over (archetypeKey, seed) so memoize
+  // — the share buttons toggle `downloadState` which rerenders us 4×.
+  const archetype = useMemo(
+    () => pickArchetypeVariant(archetypeKey, seed),
+    [archetypeKey, seed],
+  );
   const secondary = secondaryKey !== archetypeKey ? ARCHETYPES[secondaryKey] : null;
   const { capture } = usePostHog();
   const [downloadState, setDownloadState] = useState<"idle" | "busy" | "done" | "error">("idle");

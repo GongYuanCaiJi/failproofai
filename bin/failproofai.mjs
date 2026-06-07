@@ -607,19 +607,25 @@ EXAMPLES
         include_beta: includeBeta,
       });
     } else {
+      // `policy remove <name>` always removes the named policy regardless
+      // of whether it's beta or not — passing `betaOnly: includeBeta`
+      // here was a mislabel that only affected the telemetry field, not
+      // the actual remove. Drop the `--beta` semantic for remove and
+      // emit beta_only: false unconditionally so dashboards don't see
+      // ghost "beta removal" events.
       const { removeHooks } = await import("../src/hooks/manager");
       await removeHooks(
         [policyName],
         scope,
         undefined,
-        { betaOnly: includeBeta, removeCustomHooks: false, cli },
+        { betaOnly: false, removeCustomHooks: false, cli },
       );
       await track("cli_policy_remove_success", {
         scope,
         cli,
         cli_count: cli.length,
         policy_name: policyName,
-        beta_only: includeBeta,
+        beta_only: false,
       });
     }
     lastPolicyAction = null;

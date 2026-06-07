@@ -72,10 +72,15 @@ export function ReturnSection({ result }: Props) {
   const [reminderBusy, setReminderBusy] = useState(false);
   const [rerunBusy, setRerunBusy] = useState(false);
   const ctaShownRef = useRef(false);
+  /** Throttle gate for focus/visibility-triggered refreshStatus calls —
+   *  rapid alt-tabbing would otherwise hit /api/auth/status (two disk
+   *  reads each) once per event. */
+  const lastRefreshAtRef = useRef(0);
 
   // Probe /api/auth/status on mount — also returns the persisted reminder
   // when one exists and belongs to the active session.
   const refreshStatus = useCallback(async () => {
+    lastRefreshAtRef.current = Date.now();
     try {
       const res = await fetch("/api/auth/status", { cache: "no-store" });
       const body = (await res.json()) as {
@@ -100,10 +105,17 @@ export function ReturnSection({ result }: Props) {
     void refreshStatus();
     // Re-probe whenever the tab regains focus or visibility — picks up
     // CLI `failproofai auth login` / `logout` and api-server restarts
-    // without the user having to hit reload manually.
-    const onFocus = () => void refreshStatus();
+    // without the user having to hit reload manually. Throttled to 5s so
+    // rapid alt-tabbing (a focus + a visibility event for one switch)
+    // doesn't double-fire.
+    const REFRESH_MIN_INTERVAL_MS = 5_000;
+    const maybeRefresh = () => {
+      if (Date.now() - lastRefreshAtRef.current < REFRESH_MIN_INTERVAL_MS) return;
+      void refreshStatus();
+    };
+    const onFocus = () => maybeRefresh();
     const onVisibility = () => {
-      if (document.visibilityState === "visible") void refreshStatus();
+      if (document.visibilityState === "visible") maybeRefresh();
     };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
@@ -279,7 +291,10 @@ export function ReturnSection({ result }: Props) {
         {/* Once authed, the section stays in the consolidated status panel —
             with the reminder line if one is set, or a "no reminder yet" line
             + inline [ set a reminder ] button otherwise. The anonymous CTA
-            layout only shows for genuinely-unauthed sessions. */}
+            layout only shows for genuinely-unauthed sessions. The action
+            buttons ([ set a reminder ] / [ re-audit now ] / [ install
+            policies ]) are identical in both branches — extracted into
+            <ReturnActions> below to keep them in sync. */}
         {authed ? (
           <div className="return-status">
             {hasReminder && reminder ? (
@@ -308,56 +323,31 @@ export function ReturnSection({ result }: Props) {
                 signed in as <span className="rs-email">{authedEmail}</span>
               </span>
             </div>
-            <div className="return-actions" style={{ marginTop: 18 }}>
-              {!hasReminder && (
-                <button
-                  type="button"
-                  className="share-btn"
-                  onClick={handleSetReminder}
-                  disabled={reminderBusy}
-                >
-                  {reminderBusy ? "[ saving… ]" : "[ set a reminder ]"}
-                </button>
-              )}
-              <button
-                type="button"
-                className="share-btn alt"
-                onClick={handleRerun}
-                disabled={rerunBusy}
-              >
-                {rerunBusy ? "[ scanning… ]" : "[ re-audit now ]"}
-              </button>
-              {hasUnenabled && (
-                <button type="button" className="share-btn alt" onClick={handleInstall}>
-                  {copied ? "[ ✓ copied — paste in your shell ]" : "[ install policies ]"}
-                </button>
-              )}
-            </div>
+            <ReturnActions
+              style={{ marginTop: 18 }}
+              showSetReminder={!hasReminder}
+              setReminderDisabled={reminderBusy}
+              reminderBusy={reminderBusy}
+              rerunBusy={rerunBusy}
+              hasUnenabled={hasUnenabled}
+              copied={copied}
+              onSetReminder={handleSetReminder}
+              onRerun={handleRerun}
+              onInstall={handleInstall}
+            />
           </div>
         ) : (
-          <div className="return-actions">
-            <button
-              type="button"
-              className="share-btn"
-              onClick={handleSetReminder}
-              disabled={authStatus.kind === "unknown" || reminderBusy}
-            >
-              {reminderBusy ? "[ saving… ]" : "[ set a reminder ]"}
-            </button>
-            <button
-              type="button"
-              className="share-btn alt"
-              onClick={handleRerun}
-              disabled={rerunBusy}
-            >
-              {rerunBusy ? "[ scanning… ]" : "[ re-audit now ]"}
-            </button>
-            {hasUnenabled && (
-              <button type="button" className="share-btn alt" onClick={handleInstall}>
-                {copied ? "[ ✓ copied — paste in your shell ]" : "[ install policies ]"}
-              </button>
-            )}
-          </div>
+          <ReturnActions
+            showSetReminder
+            setReminderDisabled={authStatus.kind === "unknown" || reminderBusy}
+            reminderBusy={reminderBusy}
+            rerunBusy={rerunBusy}
+            hasUnenabled={hasUnenabled}
+            copied={copied}
+            onSetReminder={handleSetReminder}
+            onRerun={handleRerun}
+            onInstall={handleInstall}
+          />
         )}
       </div>
 
@@ -373,5 +363,66 @@ export function ReturnSection({ result }: Props) {
         }}
       />
     </section>
+  );
+}
+
+interface ReturnActionsProps {
+  /** Whether to render the `[ set a reminder ]` button. False when the
+   *  user already has a reminder set (the authed-with-reminder case
+   *  shows the panel meta instead). */
+  showSetReminder: boolean;
+  setReminderDisabled: boolean;
+  reminderBusy: boolean;
+  rerunBusy: boolean;
+  hasUnenabled: boolean;
+  copied: boolean;
+  onSetReminder: () => void;
+  onRerun: () => void;
+  onInstall: () => void;
+  style?: React.CSSProperties;
+}
+
+/** Action button strip shared by the authed and anon branches. Extracted
+ *  to keep the three buttons in sync — the prior inline copies had
+ *  already drifted on margin-top styling. */
+function ReturnActions(props: ReturnActionsProps): React.ReactElement {
+  const {
+    showSetReminder,
+    setReminderDisabled,
+    reminderBusy,
+    rerunBusy,
+    hasUnenabled,
+    copied,
+    onSetReminder,
+    onRerun,
+    onInstall,
+    style,
+  } = props;
+  return (
+    <div className="return-actions" style={style}>
+      {showSetReminder && (
+        <button
+          type="button"
+          className="share-btn"
+          onClick={onSetReminder}
+          disabled={setReminderDisabled}
+        >
+          {reminderBusy ? "[ saving… ]" : "[ set a reminder ]"}
+        </button>
+      )}
+      <button
+        type="button"
+        className="share-btn alt"
+        onClick={onRerun}
+        disabled={rerunBusy}
+      >
+        {rerunBusy ? "[ scanning… ]" : "[ re-audit now ]"}
+      </button>
+      {hasUnenabled && (
+        <button type="button" className="share-btn alt" onClick={onInstall}>
+          {copied ? "[ ✓ copied — paste in your shell ]" : "[ install policies ]"}
+        </button>
+      )}
+    </div>
   );
 }

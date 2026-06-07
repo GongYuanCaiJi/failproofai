@@ -15,7 +15,7 @@
  * Same policy can collect hits from multiple sources; we sum them and
  * render one card per policy.
  */
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { AuditResult } from "@/src/audit/types";
 import { type Grade, tierName } from "@/src/audit/scoring";
 import { usePostHog } from "@/contexts/PostHogContext";
@@ -111,7 +111,9 @@ function buildPolicyCards(result: AuditResult): PolicyCard[] {
 }
 
 export function PoliciesSection({ result, projected, projectedGrade }: Props) {
-  const policies = buildPolicyCards(result);
+  // Builds a Map+Set aggregation + sort over result.results — non-trivial.
+  // Memoize so unrelated parent re-renders don't recompute every frame.
+  const policies = useMemo(() => buildPolicyCards(result), [result]);
 
   if (policies.length === 0) return null;
 

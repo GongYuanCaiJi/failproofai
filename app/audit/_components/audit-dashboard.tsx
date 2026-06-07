@@ -123,7 +123,9 @@ export function AuditDashboard({ initial, projectFromUrl, totalCatalogSize }: Pr
 
   useEffect(() => {
     if (running || cache.status !== "cached" || transcriptsScanned === 0) return;
-    const onScroll = () => {
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
       if (scrollTrackedRef.current) return;
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
       if (maxScroll <= 0) return;
@@ -135,9 +137,18 @@ export function AuditDashboard({ initial, projectFromUrl, totalCatalogSize }: Pr
         transcripts_scanned: transcriptsScanned,
       });
     };
-    onScroll();
+    // Coalesce scroll events to one rAF — reading scrollHeight forces a
+    // layout reflow, which we don't want firing 60+ times per second.
+    const onScroll = () => {
+      if (raf !== 0) return;
+      raf = requestAnimationFrame(measure);
+    };
+    measure();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf !== 0) cancelAnimationFrame(raf);
+    };
   }, [cache.status, capture, resultsCount, running, transcriptsScanned]);
 
   /* ---- empty / first-run ----------------------------------------- */
@@ -228,12 +239,18 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
   // bind to a string and crash at runtime.
   const scopeWindow = inferWindow(params);
 
-  const detectorsTriggered = result.results.filter((r) => r.hits > 0).length;
-
-  /** Slipping builtin policies — passed to IdentitySection share buttons. */
-  const missing = result.results.filter(
-    (r) => r.source === "builtin" && !r.enabledInConfig && r.hits > 0,
-  ).length;
+  // One pass over result.results derives both counts; score-section and
+  // return-section also need `missing` but they take it from us via props
+  // / `result` shape, so deduplicate the scan here.
+  const { detectorsTriggered, missing } = useMemo(() => {
+    let detectorsTriggered = 0;
+    let missing = 0;
+    for (const r of result.results) {
+      if (r.hits > 0) detectorsTriggered++;
+      if (r.source === "builtin" && !r.enabledInConfig && r.hits > 0) missing++;
+    }
+    return { detectorsTriggered, missing };
+  }, [result]);
 
   // Fire-once dashboard-rendered event so we can compute click-through
   // rates against the share/download/rerun click events we already track.
