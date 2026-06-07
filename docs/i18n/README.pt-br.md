@@ -6,10 +6,11 @@
 
 <div align="center">
 
-<img src="https://d2wq11aau0arks.cloudfront.net/failproof/logo-wordmark.png" alt="failproof ai" width="220" />
+<img src="https://d2wq11aau0arks.cloudfront.net/failproof/fa_updated_full.svg" alt="failproof ai" width="220" />
 
 [![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![CI](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/failproofai/failproofai/actions)
+[![Supply Chain](https://img.shields.io/badge/supply%20chain-secure-brightgreen?style=flat-square)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
 [![Slack](https://img.shields.io/badge/Slack-join%20us-4A154B?style=flat-square&logo=slack)](https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ)
 [![Docs](https://img.shields.io/badge/docs-befailproof.ai-002CA7?style=flat-square)](https://docs.befailproof.ai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](./LICENSE)
@@ -18,7 +19,7 @@
 
 **Resolução de falhas em tempo de execução para agentes de código.**
 Integra-se ao Claude Code e ao Codex. Detecta loops, ações perigosas e vazamentos de segredos
-antes que se tornem incidentes. Latência zero. Executa localmente.
+antes que se tornem incidentes. Zero latência. Executa localmente.
 
 </div>
 
@@ -79,7 +80,7 @@ antes que se tornem incidentes. Latência zero. Executa localmente.
   </a>
 </p>
 
-> Instale hooks para um ou qualquer combinação: `failproofai policies --install --cli opencode pi gemini` (ou `--cli claude codex copilot cursor opencode pi gemini`). Omita `--cli` para detectar automaticamente os CLIs instalados e receber uma solicitação interativa.
+> Instale hooks para um ou qualquer combinação: `failproofai policies --install --cli opencode pi gemini` (ou `--cli claude codex copilot cursor opencode pi gemini`). Omita `--cli` para detectar automaticamente os CLIs instalados e exibir um prompt.
 
 ---
 
@@ -91,7 +92,7 @@ failproofai policies --install   # ou simplesmente execute `failproofai` e aceit
 failproofai
 ```
 
-30 políticas integradas são ativadas imediatamente. Dashboard disponível em `localhost:8020`. Desative o prompt de primeira execução com `FAILPROOFAI_NO_FIRST_RUN=1`.
+30 políticas integradas são ativadas imediatamente. Dashboard em `localhost:8020`. Desative o prompt de primeira execução com `FAILPROOFAI_NO_FIRST_RUN=1`.
 
 ---
 
@@ -111,7 +112,7 @@ failproofai
 
 ## Suas próprias políticas
 
-Adicione um arquivo em `.failproofai/policies/` — ele é carregado automaticamente, sem necessidade de flags.
+Coloque um arquivo em `.failproofai/policies/` — ele é carregado automaticamente, sem flags necessárias.
 Faça o commit e toda a equipe receberá na próxima atualização.
 
 ```js
@@ -143,8 +144,8 @@ Três decisões disponíveis para cada política:
 ## Visibilidade da sessão
 
 Cada chamada de ferramenta feita pelo seu agente é registrada localmente. O dashboard mostra o que foi executado,
-o que foi bloqueado e o que a política informou ao agente — para que você não fique no escuro
-quando algo der errado. → [Guia do dashboard](https://docs.befailproof.ai/dashboard)
+o que foi bloqueado e o que a política disse ao agente — para que você não fique no escuro
+quando algo der errado. → [Guia do Dashboard](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -163,13 +164,13 @@ quando algo der errado. → [Guia do dashboard](https://docs.befailproof.ai/dash
 
 ## Licença
 
-MIT com [Commons Clause](https://commonsclause.com/) — gratuito para uso interno e pessoal; a revenda comercial do failproofai em si requer um acordo separado. Consulte [LICENSE](./LICENSE) para o texto completo.
+MIT com [Commons Clause](https://commonsclause.com/) — gratuito para uso interno e pessoal; a revenda comercial do próprio failproofai requer um acordo separado. Veja [LICENSE](./LICENSE) para o texto completo.
 
 ---
 
 ## Contribuindo
 
-Consulte [CONTRIBUTING.md](./CONTRIBUTING.md). Novas políticas, casos extremos e traduções são bem-vindos.
+Veja [CONTRIBUTING.md](./CONTRIBUTING.md). Novas políticas, casos extremos e traduções são sempre bem-vindos.
 
 ---
 

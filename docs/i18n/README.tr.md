@@ -6,10 +6,11 @@
 
 <div align="center">
 
-<img src="https://d2wq11aau0arks.cloudfront.net/failproof/logo-wordmark.png" alt="failproof ai" width="220" />
+<img src="https://d2wq11aau0arks.cloudfront.net/failproof/fa_updated_full.svg" alt="failproof ai" width="220" />
 
 [![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![CI](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/failproofai/failproofai/actions)
+[![Supply Chain](https://img.shields.io/badge/supply%20chain-secure-brightgreen?style=flat-square)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
 [![Slack](https://img.shields.io/badge/Slack-join%20us-4A154B?style=flat-square&logo=slack)](https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ)
 [![Docs](https://img.shields.io/badge/docs-befailproof.ai-002CA7?style=flat-square)](https://docs.befailproof.ai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](./LICENSE)
@@ -17,8 +18,8 @@
 **Çeviriler:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
 **Kodlama ajanları için çalışma zamanı hata çözümü.**
-Claude Code ve Codex içine entegre edilir. Döngüleri, tehlikeli işlemleri ve sır sızıntılarını
-incident olmadan önce yakalar. Sıfır gecikme. Yerel çalışır.
+Claude Code ve Codex'e entegre olur. Döngüleri, tehlikeli işlemleri ve gizli sızıntıları 
+olay haline gelmeden önce yakalar. Sıfır gecikme. Yerel olarak çalışır.
 
 </div>
 
@@ -79,7 +80,7 @@ incident olmadan önce yakalar. Sıfır gecikme. Yerel çalışır.
   </a>
 </p>
 
-> Hook'ları bir veya birkaç kombinasyon için kurun: `failproofai policies --install --cli opencode pi gemini` (veya `--cli claude codex copilot cursor opencode pi gemini`). Kurulan CLI'ları otomatik olarak algılamak ve sorunca `--cli` parametresini atlayın.
+> Hook'ları bir veya herhangi bir kombinasyon için yükleyin: `failproofai policies --install --cli opencode pi gemini` (veya `--cli claude codex copilot cursor opencode pi gemini`). CLI'ları otomatik olarak algılamak ve istemek için `--cli` öğesini atlayın.
 
 ---
 
@@ -91,17 +92,17 @@ failproofai policies --install   # veya sadece `failproofai` çalıştırın ve 
 failproofai
 ```
 
-30 yerleşik politika hemen etkinleştirilir. Pano `localhost:8020` adresindedir. İlk çalıştırma istemini `FAILPROOFAI_NO_FIRST_RUN=1` ile devre dışı bırakın.
+30 yerleşik politika hemen etkinleşir. Pano `localhost:8020` adresinde. İlk çalıştırma istemini `FAILPROOFAI_NO_FIRST_RUN=1` ile devre dışı bırakın.
 
 ---
 
-## Neleri durdurur
+## Neyi durdurur
 
 | Politika | Neyi engeller |
 |---|---|
-| `block-push-master` | `main` / `master` dalına doğrudan gönderimler |
+| `block-push-master` | `main` / `master` öğesine doğrudan itme |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | `main` / `master` üzerinde commit'ler, merge'ler, rebase'ler |
+| `block-work-on-main` | `main` / `master` üzerinde commit, merge, rebase işlemleri |
 | `block-rm-rf` | Özyinelemeli dosya silme |
 | `sanitize-api-keys` | API anahtarlarının ajan bağlamına sızması |
 
@@ -111,8 +112,8 @@ failproofai
 
 ## Kendi politikalarınız
 
-`.failproofai/policies/` klasörüne bir dosya bırakın — otomatik olarak yüklenir, bayrak gerekmez.
-Commit edin ve tüm takım bunu sonraki çekme sırasında alır.
+`.failproofai/policies/` klasörüne bir dosya bırakın — hiç bayrak gerekmeden otomatik olarak yüklenir.
+Commit edin ve tüm takım bir sonraki pull'da onu alır.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -128,23 +129,23 @@ customPolicies.add({
 });
 ```
 
-Her politika için üç karar vardır:
+Her politika için kullanılabilir üç karar:
 
 | Karar | Etki |
 |---|---|
 | `allow()` | İşleme izin ver |
-| `deny(message)` | Engelle — ileti ajana geri gider |
-| `instruct(message)` | Geçir, ancak ajana sonraki istem içine bağlam ekle |
+| `deny(message)` | Engelle — ileti ajana geri gönderilir |
+| `instruct(message)` | İzin ver, ancak ajanın sonraki istemine bağlam ekle |
 
-→ [Özel politikalar rehberi](https://docs.befailproof.ai/custom-policies)
+→ [Özel politikalar kılavuzu](https://docs.befailproof.ai/custom-policies)
 
 ---
 
 ## Oturum görünürlüğü
 
-Ajanınızın yaptığı her araç çağrısı yerel olarak kaydedilir. Pano ne çalıştırıldığını,
-ne engellendğini ve politikanın ajana ne söylediğini gösterir — böylece bir şey yanlış gittiğinde
-tahmin etmezsiniz. → [Pano rehberi](https://docs.befailproof.ai/dashboard)
+Ajanınızın yaptığı her araç çağrısı yerel olarak günlüğe kaydedilir. Pano, neyin çalıştırıldığını,
+neyin engellendiğini ve politikanın ajana ne söylediğini gösterir — böylece bir şey yanlış gittiğinde
+tahmin etmeniz gerekmez. → [Pano kılavuzu](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -153,25 +154,25 @@ tahmin etmezsiniz. → [Pano rehberi](https://docs.befailproof.ai/dashboard)
 | | |
 |---|---|
 | [Başlangıç](https://docs.befailproof.ai/getting-started) | Kurulum ve ilk adımlar |
-| [Yerleşik Politikalar](https://docs.befailproof.ai/built-in-policies) | Parametrelerle 30 politika |
+| [Yerleşik Politikalar](https://docs.befailproof.ai/built-in-policies) | Tüm 30 politika ve parametreleri |
 | [Özel Politikalar](https://docs.befailproof.ai/custom-policies) | Kendi politikalarınızı yazın |
 | [Yapılandırma](https://docs.befailproof.ai/configuration) | Yapılandırma kapsamları ve birleştirme kuralları |
-| [Pano](https://docs.befailproof.ai/dashboard) | Oturum monitörü ve politika aktivitesi |
+| [Pano](https://docs.befailproof.ai/dashboard) | Oturum monitörü ve politika etkinliği |
 | [Mimari](https://docs.befailproof.ai/architecture) | Hook sistemi nasıl çalışır |
 
 ---
 
 ## Lisans
 
-MIT ile [Commons Clause](https://commonsclause.com/) — iç ve kişisel kullanım için ücretsiz; failproofai'nin kendisinin ticari yeniden satışı ayrı bir anlaşma gerektirir. Tam metin için [LICENSE](./LICENSE) bölümüne bakın.
+MIT ve [Commons Clause](https://commonsclause.com/) — iç ve kişisel kullanım için ücretsiz; failproofai'nin ticari yeniden satışı ayrı bir anlaşma gerektirir. Tam metin için [LICENSE](./LICENSE) bölümüne bakın.
 
 ---
 
 ## Katkıda bulunma
 
-[CONTRIBUTING.md](./CONTRIBUTING.md) bölümüne bakın. Yeni politikalar, uç durumlar ve çeviriler hoş geldiniz.
+[CONTRIBUTING.md](./CONTRIBUTING.md) bölümüne bakın. Yeni politikalar, kenar durumlar ve çeviriler hoş karşılanır.
 
 ---
 
-[Nivedit Jain](https://github.com/NiveditJain) ve [Nikita Agarwal](https://github.com/nk-ag) tarafından yapıldı.
+[Nivedit Jain](https://github.com/NiveditJain) ve [Nikita Agarwal](https://github.com/nk-ag) tarafından yapılmıştır.
 [befailproof.ai](https://befailproof.ai)

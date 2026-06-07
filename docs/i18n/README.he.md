@@ -8,29 +8,30 @@
 
 <div align="center">
 
-<img src="https://d2wq11aau0arks.cloudfront.net/failproof/logo-wordmark.png" alt="failproof ai" width="220" />
+<img src="https://d2wq11aau0arks.cloudfront.net/failproof/fa_updated_full.svg" alt="failproof ai" width="220" />
 
 [![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![CI](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/failproofai/failproofai/actions)
+[![Supply Chain](https://img.shields.io/badge/supply%20chain-secure-brightgreen?style=flat-square)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
 [![Slack](https://img.shields.io/badge/Slack-join%20us-4A154B?style=flat-square&logo=slack)](https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ)
 [![Docs](https://img.shields.io/badge/docs-befailproof.ai-002CA7?style=flat-square)](https://docs.befailproof.ai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](./LICENSE)
 
 **תרגומים:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**פתרון כישלונות בזמן ריצה לסוכנים קוד.**
-משתלבת עם Claude Code ו-Codex. תופסת לולאות, פעולות מסוכנות וזליגות סודות
-לפני שהן הופכות לתקריות. אפס עיכוב. פועלת מקומית.
+**פתרון כשלים בזמן ריצה לסוכני קידוד.**
+משתלבות ב-Claude Code וב-Codex. תופסות לולאות, פעולות מסוכנות, והדלפות סודות
+לפני שהם הופכים לתקריות. בלאט אפס. פועל באופן מקומי.
 
 </div>
 
 <p align="center">
-  <img src="readme-arch-hq.gif" alt="Failproof AI בפעולה" width="800" />
+  <img src="readme-arch-hq.gif" alt="Failproof AI בעבודה" width="800" />
 </p>
 
 ---
 
-## ממשקי CLI נתמכים
+## CLI של סוכנים נתמכים
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -81,7 +82,7 @@
   </a>
 </p>
 
-> התקן כללים לאחד או לשילוב כלשהו: `failproofai policies --install --cli opencode pi gemini` (או `--cli claude codex copilot cursor opencode pi gemini`). השמט את `--cli` לגילוי אוטומטי של CLIs מותקנים ודרישה.
+> התקן hooks לאחד או לכל צירוף: `failproofai policies --install --cli opencode pi gemini` (או `--cli claude codex copilot cursor opencode pi gemini`). השמט `--cli` לגילוי אוטומטי של CLI מותקנות ודרישה.
 
 ---
 
@@ -89,32 +90,32 @@
 
 ```sh
 npm install -g failproofai
-failproofai policies --install   # או פשוט הרץ `failproofai` וקבל את הנושא בהרצה ראשונה
+failproofai policies --install   # או רק הרץ `failproofai` והסכם להנחיית ההרצה הראשונה
 failproofai
 ```
 
-30 כללים מובנים מופעלים מיד. לוח הבקרה ב-`localhost:8020`. השבת את הנושא בהרצה ראשונה עם `FAILPROOFAI_NO_FIRST_RUN=1`.
+30 מדיניות מובנות מופעלות מיד. לוח בקרה ב-`localhost:8020`. השבת את הנחיית ההרצה הראשונה עם `FAILPROOFAI_NO_FIRST_RUN=1`.
 
 ---
 
-## מה זה מעצור
+## מה זה עוצר
 
-| כלל | מה זה חוסם |
+| מדיניות | מה היא חוסמת |
 |---|---|
-| `block-push-master` | דחיפות ישירות ל-`main` / `master` |
+| `block-push-master` | דחיפה ישירה ל-`main` / `master` |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | קומיטים, מיזוגים, רישונים על `main` / `master` |
+| `block-work-on-main` | Commits, merges, rebases על `main` / `master` |
 | `block-rm-rf` | מחיקת קבצים רקורסיבית |
-| `sanitize-api-keys` | מפתחות API שניזלים להקשר הסוכן |
+| `sanitize-api-keys` | מפתחות API שדולפים להקשר של סוכן |
 
-→ [כל 30 הכללים המובנים](https://docs.befailproof.ai/built-in-policies)
+→ [כל 30 המדיניות המובנות](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
-## הכללים שלך
+## המדיניויות שלך שלך
 
-שחרר קובץ לתוך `.failproofai/policies/` — הוא נטען באופן אוטומטי, ללא דגלים דרושים.
-קומיט אותו והכל בקבוצה מקבל אותו בקלט הבא.
+הנח קובץ ל-`.failproofai/policies/` — הוא טוען באופן אוטומטי, ללא דגלים נדרשים.
+Commit זה וכל הצוות משיג את זה בפול הבא.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -130,23 +131,23 @@ customPolicies.add({
 });
 ```
 
-שלוש החלטות זמינות לכל כלל:
+שלוש החלטות זמינות לכל מדיניות:
 
 | החלטה | השפעה |
 |---|---|
 | `allow()` | אפשר את הפעולה |
-| `deny(message)` | חסום אותה — ההודעה חוזרת לסוכן |
-| `instruct(message)` | תן לה לעבור דרך, אבל הוסף הקשר להנחיה הבאה של הסוכן |
+| `deny(message)` | חסום את זה — ההודעה חוזרת לסוכן |
+| `instruct(message)` | תן לזה לעבור, אבל הוסף הקשר להנחיה הבאה של הסוכן |
 
-→ [מדריך כללים מותאמים אישית](https://docs.befailproof.ai/custom-policies)
+→ [מדריך מדיניויות מותאם אישית](https://docs.befailproof.ai/custom-policies)
 
 ---
 
-## ראות בהפעלה
+## ראות הטלות
 
-כל קריאת כלי שהסוכן שלך מבצע מתועדת מקומית. לוח הבקרה מציג מה רץ,
-מה נחסם, ומה הכלל אמר לסוכן — כך שאתה לא מנחשת
-כשמשהו הולך להשתבש. → [מדריך לוח הבקרה](https://docs.befailproof.ai/dashboard)
+כל קריאה כלי שהסוכן שלך עושה מוקלטת באופן מקומי. לוח הבקרה מציג מה רץ,
+מה נחסם, ומה המדיניות אמרה לסוכן — כך שאתה לא מנחש
+כשמשהו הולך לא בסדר. → [מדריך לוח בקרה](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -154,24 +155,24 @@ customPolicies.add({
 
 | | |
 |---|---|
-| [התחלה](https://docs.befailproof.ai/getting-started) | התקנה והצעדים הראשונים |
-| [כללים מובנים](https://docs.befailproof.ai/built-in-policies) | כל 30 הכללים עם פרמטרים |
-| [כללים מותאמים אישית](https://docs.befailproof.ai/custom-policies) | כתוב שלך |
+| [התחלה מהירה](https://docs.befailproof.ai/getting-started) | התקנה וצעדים ראשונים |
+| [מדיניויות מובנות](https://docs.befailproof.ai/built-in-policies) | כל 30 המדיניויות עם פרמטרים |
+| [מדיניויות מותאמות אישית](https://docs.befailproof.ai/custom-policies) | כתוב שלך |
 | [תצורה](https://docs.befailproof.ai/configuration) | טווחי תצורה וכללי מיזוג |
-| [לוח בקרה](https://docs.befailproof.ai/dashboard) | מסקר הפעלה ופעילות כללים |
-| [ארכיטקטורה](https://docs.befailproof.ai/architecture) | כיצד מערכת ההוק עובדת |
+| [לוח בקרה](https://docs.befailproof.ai/dashboard) | צג הטלות ופעילות מדיניויות |
+| [אדריכלות](https://docs.befailproof.ai/architecture) | איך מערכת ה-hook פועלת |
 
 ---
 
 ## רישיון
 
-MIT עם [Commons Clause](https://commonsclause.com/) — חינם לשימוש פנימי ואישי; מכירת מחדש מסחרית של failproofai עצמו דורשת הסכם נפרד. ראה [LICENSE](./LICENSE) לקבלת הטקסט המלא.
+MIT עם [Commons Clause](https://commonsclause.com/) — חינם לשימוש פנימי ואישי; מכירה מחדש מסחרית של failproofai עצמו דורשת הסכם נפרד. ראה [LICENSE](./LICENSE) לטקסט המלא.
 
 ---
 
 ## תרומה
 
-ראה [CONTRIBUTING.md](./CONTRIBUTING.md). כללים חדשים, מקרי קצה, ותרגומים כולם מובילים.
+ראה [CONTRIBUTING.md](./CONTRIBUTING.md). מדיניויות חדשות, מקרי קצה, ותרגומים כולם מוזמנים.
 
 ---
 

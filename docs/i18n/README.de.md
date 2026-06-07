@@ -6,18 +6,19 @@
 
 <div align="center">
 
-<img src="https://d2wq11aau0arks.cloudfront.net/failproof/logo-wordmark.png" alt="failproof ai" width="220" />
+<img src="https://d2wq11aau0arks.cloudfront.net/failproof/fa_updated_full.svg" alt="failproof ai" width="220" />
 
 [![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![CI](https://img.shields.io/github/actions/workflow/status/failproofai/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/failproofai/failproofai/actions)
+[![Supply Chain](https://img.shields.io/badge/supply%20chain-secure-brightgreen?style=flat-square)](https://github.com/failproofai/failproofai/actions/workflows/osv-scanner.yml)
 [![Slack](https://img.shields.io/badge/Slack-join%20us-4A154B?style=flat-square&logo=slack)](https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ)
 [![Docs](https://img.shields.io/badge/docs-befailproof.ai-002CA7?style=flat-square)](https://docs.befailproof.ai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](./LICENSE)
 
 **Übersetzungen:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**Laufzeitfehler-Behebung für Coding-Agenten.**
-Klinkt sich in Claude Code und Codex ein. Erkennt Endlosschleifen, gefährliche Aktionen und Secret-Leaks,
+**Laufzeit-Fehlerbehebung für Coding-Agenten.**
+Greift in Claude Code und Codex ein. Erkennt Schleifen, gefährliche Aktionen und Secret-Leaks,
 bevor sie zu Vorfällen werden. Null Latenz. Läuft lokal.
 
 </div>
@@ -79,7 +80,7 @@ bevor sie zu Vorfällen werden. Null Latenz. Läuft lokal.
   </a>
 </p>
 
-> Hooks für eine oder eine beliebige Kombination installieren: `failproofai policies --install --cli opencode pi gemini` (oder `--cli claude codex copilot cursor opencode pi gemini`). `--cli` weglassen, um installierte CLIs automatisch zu erkennen und eine Auswahl anzuzeigen.
+> Hooks für eine oder mehrere Kombinationen installieren: `failproofai policies --install --cli opencode pi gemini` (oder `--cli claude codex copilot cursor opencode pi gemini`). `--cli` weglassen, um installierte CLIs automatisch zu erkennen und eine Auswahl zu erhalten.
 
 ---
 
@@ -87,23 +88,23 @@ bevor sie zu Vorfällen werden. Null Latenz. Läuft lokal.
 
 ```sh
 npm install -g failproofai
-failproofai policies --install   # oder einfach `failproofai` ausführen und die Erststart-Eingabeaufforderung bestätigen
+failproofai policies --install   # oder einfach `failproofai` ausführen und den Erststart-Dialog bestätigen
 failproofai
 ```
 
-30 integrierte Richtlinien werden sofort aktiviert. Dashboard unter `localhost:8020`. Die Erststart-Eingabeaufforderung lässt sich mit `FAILPROOFAI_NO_FIRST_RUN=1` deaktivieren.
+30 integrierte Richtlinien werden sofort aktiviert. Dashboard unter `localhost:8020`. Den Erststart-Dialog mit `FAILPROOFAI_NO_FIRST_RUN=1` deaktivieren.
 
 ---
 
 ## Was blockiert wird
 
-| Richtlinie | Was sie sperrt |
+| Richtlinie | Was sie verhindert |
 |---|---|
 | `block-push-master` | Direkte Pushes auf `main` / `master` |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | Commits, Merges und Rebases auf `main` / `master` |
 | `block-rm-rf` | Rekursives Löschen von Dateien |
-| `sanitize-api-keys` | API-Schlüssel, die in den Agenten-Kontext gelangen |
+| `sanitize-api-keys` | API-Keys, die in den Agenten-Kontext gelangen |
 
 → [Alle 30 integrierten Richtlinien](https://docs.befailproof.ai/built-in-policies)
 
@@ -112,7 +113,7 @@ failproofai
 ## Eigene Richtlinien
 
 Eine Datei in `.failproofai/policies/` ablegen — sie wird automatisch geladen, ohne zusätzliche Flags.
-In die Versionsverwaltung einchecken, und das gesamte Team erhält sie beim nächsten Pull.
+Ins Repository einchecken und das gesamte Team erhält sie beim nächsten Pull.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -128,7 +129,7 @@ customPolicies.add({
 });
 ```
 
-Drei Entscheidungen stehen jeder Richtlinie zur Verfügung:
+Jede Richtlinie hat drei mögliche Entscheidungen:
 
 | Entscheidung | Wirkung |
 |---|---|
@@ -143,8 +144,8 @@ Drei Entscheidungen stehen jeder Richtlinie zur Verfügung:
 ## Sitzungstransparenz
 
 Jeder Tool-Aufruf des Agenten wird lokal protokolliert. Das Dashboard zeigt, was ausgeführt wurde,
-was blockiert wurde und was die Richtlinie dem Agenten mitgeteilt hat — damit kein Rätseln
-entsteht, wenn etwas schiefläuft. → [Dashboard-Leitfaden](https://docs.befailproof.ai/dashboard)
+was blockiert wurde und was die Richtlinie dem Agenten mitgeteilt hat — damit man nicht im Dunkeln tappt,
+wenn etwas schiefläuft. → [Dashboard-Leitfaden](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -163,13 +164,13 @@ entsteht, wenn etwas schiefläuft. → [Dashboard-Leitfaden](https://docs.befail
 
 ## Lizenz
 
-MIT mit [Commons Clause](https://commonsclause.com/) — kostenlos für den internen und persönlichen Einsatz; der kommerzielle Weiterverkauf von failproofai selbst erfordert eine gesonderte Vereinbarung. Den vollständigen Text finden Sie in der [LICENSE](./LICENSE)-Datei.
+MIT mit [Commons Clause](https://commonsclause.com/) — kostenlos für den internen und persönlichen Gebrauch; der kommerzielle Weiterverkauf von failproofai selbst erfordert eine gesonderte Vereinbarung. Den vollständigen Text findet man in [LICENSE](./LICENSE).
 
 ---
 
 ## Mitwirken
 
-Siehe [CONTRIBUTING.md](./CONTRIBUTING.md). Neue Richtlinien, Randfälle und Übersetzungen sind herzlich willkommen.
+Siehe [CONTRIBUTING.md](./CONTRIBUTING.md). Neue Richtlinien, Grenzfälle und Übersetzungen sind herzlich willkommen.
 
 ---
 
