@@ -2,42 +2,45 @@
    Bitcount Prop Single — title / wordmark treatment
    Source: befailproof.ai (recovered from web platform PR #374)
 
-   Fine-tuned instance: wght 417, ELSH 55  (slnt left at default 0)
-   The ELSH "Element Shape" axis is kept variable so it can be tuned.
+   Fine-tuned instance: wght 417, ELSH 55 (slnt default 0). ELSH is
+   Bitcount's "Element Shape" axis: 55 = rounded squares; the font's
+   default 0 = round dots.
 
-   LOADING THE FONT — pick ONE:
-   (A) Next.js   -> use fonts.ts.example (next/font/google). It sets
-                   --font-bitcount for you. DELETE the @font-face below.
-   (B) Self-host -> drop the variable woff2 next to this file and keep
-                   the @font-face below (most reliable; ELSH stays variable).
-   (C) Google CDN-> replace @font-face with:
-       @import url('https://fonts.googleapis.com/css2?family=Bitcount+Prop+Single:ELSH,wght@0..100,100..900&display=swap');
-       NOTE: this URL is verified working (ELSH 0..100, wght 100..900). Adjust ranges if you need others.
+   THIS FOLDER SHIPS A SELF-HOSTED STATIC INSTANCE
+   (bitcount-prop-single.woff2 — wght 417 + ELSH 55 baked in). That is the
+   reliable path: it renders the rounded-square shape on every device,
+   phones included, with no dependency on variable-axis support.
+
+   Why not the Google Fonts CDN? Google serves a STATIC default-instance
+   file to many mobile user-agents, so `font-variation-settings: "ELSH" 55`
+   silently no-ops there and you get the default round dots. Self-hosting
+   (or next/font, which also self-hosts) avoids that. See fonts.ts.example.
    ===================================================================== */
 
-/* (B) Self-host — comment out if using (A) next/font or (C) the CDN @import. */
+/* Self-hosted static instance — rounded squares baked in (no runtime axis needed). */
 @font-face {
   font-family: "Bitcount Prop Single";
   src: url("./bitcount-prop-single.woff2") format("woff2");
-  font-weight: 100 900;      /* variable weight range */
+  font-weight: 400;          /* instanced at wght 417 */
   font-display: swap;
 }
 
 :root {
-  /* next/font sets --font-bitcount; for (B)/(C) we pin the family name. */
   --font-bitcount: "Bitcount Prop Single";
   --font-display: var(--font-bitcount), "VT323", ui-monospace, monospace;
 
-  /* --- fine-tuned knobs from befailproof.ai --- */
+  /* fine-tuned knobs from befailproof.ai. Shape/weight are baked into the
+     bundled woff2; these three control layout. */
   --title-scale: 0.9;        /* title size multiplier    */
   --title-squish: 0.9;       /* horizontal scaleX squish */
   --title-tracking: 0.08em;  /* letter-spacing           */
 }
 
-/* Reusable title treatment — apply to any heading / wordmark. */
 .bitcount-title {
   font-family: var(--font-display);
-  font-variation-settings: "wght" 417, "ELSH" 55;  /* slnt stays at default 0 */
+  /* No-op on the bundled static font (shape is baked in); applies the same
+     instance if you swap in the VARIABLE font instead, e.g. via next/font. */
+  font-variation-settings: "wght" 417, "ELSH" 55;
   letter-spacing: var(--title-tracking);
   text-transform: lowercase;
   transform: scaleX(var(--title-squish));

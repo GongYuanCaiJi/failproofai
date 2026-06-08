@@ -5,15 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Bitcount Prop Single — template preview</title>
 
-  <!-- Real font bytes (validated): variable Bitcount Prop Single incl. the ELSH axis.
-       The self-host @font-face in bitcount.css 404s here (no local woff2) — harmless,
-       this CDN copy satisfies the "Bitcount Prop Single" family used by .bitcount-title. -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Bitcount+Prop+Single:ELSH,wght@0..100,100..900&display=swap" />
-
-  <!-- THE ARTIFACT under test -->
+  <!-- Font = the self-hosted static instance bundled in bitcount.css
+       (bitcount-prop-single.woff2, wght 417 + ELSH 55 baked in). No CDN, so it
+       renders the rounded-square shape on every device, phones included. -->
   <link rel="stylesheet" href="bitcount.css" />
 
   <style>

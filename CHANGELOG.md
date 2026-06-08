@@ -8,6 +8,7 @@
 ### Docs
 - Update the README logo (EN + 14 translated READMEs) from `logo-wordmark.png` to the new `fa_updated_full.svg` wordmark served on befailproof.ai (#387).
 - Add a Bitcount Prop Single font template under `templates/bitcount-font/` (next/font loader, framework-agnostic CSS with tunable knobs, and a `preview.html` demo page) capturing the befailproof.ai title treatment for reuse (#390).
+- Bundle a self-hosted static instance of Bitcount Prop Single (`bitcount-prop-single.woff2`, wght 417 + ELSH 55 baked in) in the font template and switch `bitcount.css` + `preview.html` to load it directly. Fixes the dots-on-phones rendering caused by Google Fonts' CDN serving a static default-instance to mobile user-agents, where `font-variation-settings: "ELSH" 55` silently no-ops (#390).
 
 ## 0.0.11-beta.2 — 2026-05-21
 
