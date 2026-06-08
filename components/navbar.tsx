@@ -21,6 +21,34 @@ const NAV_LINKS = [
   { href: "/projects", label: "projects" },
 ];
 
+const REMOTE_LOGO_URL =
+  "https://exospherehost.slack.com/archives/C0B6RL08SLF/p1780910285021619?thread_ts=1780910239.057609&cid=C0B6RL08SLF";
+const LOCAL_LOGO_URL = "/logo.svg";
+
+/** Resolves the brand logo: first tries the remote URL, falls back to the
+ *  bundled asset (served from /public, mirrored at assets/logos/company/logo.svg)
+ *  if the fetch fails for any reason. */
+const useBrandLogo = (): string => {
+  const [src, setSrc] = React.useState<string>(LOCAL_LOGO_URL);
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(REMOTE_LOGO_URL, { method: "GET", mode: "cors" });
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        if (cancelled) URL.revokeObjectURL(url);
+        else setSrc(url);
+      } catch {
+        if (!cancelled) setSrc(LOCAL_LOGO_URL);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  return src;
+};
+
 export const Navbar: React.FC<{
   disabledPages?: string[];
   /** Total slipping-through actions from the latest cached audit. When > 0
@@ -30,6 +58,7 @@ export const Navbar: React.FC<{
 }> = ({ disabledPages = [], auditSlippingCount }) => {
   const pathname = usePathname();
   const { capture } = usePostHog();
+  const logoSrc = useBrandLogo();
 
   const sectionLabel = (() => {
     if (pathname.startsWith("/policies")) return "policies";
@@ -49,8 +78,7 @@ export const Navbar: React.FC<{
         style={{ flex: "none" }}
         aria-label="failproof ai · GitHub"
       >
-        <img src="/icon.svg" alt="" aria-hidden="true" style={{ height: 22, width: 22, display: "block", flexShrink: 0 }} />
-        <img src="/logo.svg" alt="failproof_ai" style={{ height: 18, display: "block", flexShrink: 0 }} />
+        <img src={logoSrc} alt="failproof_ai" style={{ height: 18, display: "block", flexShrink: 0 }} />
       </a>
 
       {/* Nav links — swapped to sit right after the brand */}

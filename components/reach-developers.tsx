@@ -19,7 +19,7 @@ const options = [
   {
     label: "Documentation",
     icon: BookOpen,
-    href: "https://befailproof.ai",
+    href: "https://docs.befailproof.ai/",
     color: "#60a5fa",
     bg: "rgba(96,165,250,0.08)",
   },
