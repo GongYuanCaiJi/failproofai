@@ -18,9 +18,8 @@
 @import "tailwindcss";
 
 @font-face {
-  font-family: 'Architype Stedelijk';
-  src: url('/audit/fonts/architype-stedelijk.woff2') format('woff2'),
-       url('/audit/fonts/architype-stedelijk.ttf') format('truetype');
+  font-family: 'Bitcount Prop Single';
+  src: url('/audit/fonts/bitcount-prop-single.woff2') format('woff2');
   font-display: swap;
   font-weight: 400;
   font-style: normal;
@@ -50,7 +49,7 @@
   --amber-bg: rgba(232, 196, 106, 0.10);
 
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-display: "Architype Stedelijk", "VT323", "JetBrains Mono", monospace;
+  --font-display: "Bitcount Prop Single", "VT323", "JetBrains Mono", monospace;
 
   /* ── shadcn-compatible aliases (used by Tailwind utilities + the
      hooks-client component tree). All point at the audit palette so

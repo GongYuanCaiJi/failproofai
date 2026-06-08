@@ -1491,6 +1491,15 @@
   letter-spacing: 0.15em; text-transform: uppercase;
   color: var(--dim);
 }
+/* Fixed variant — used on the empty/loading states where the page is
+   short and a normal in-flow footer ends up floating mid-viewport. Pins
+   it to the bottom of the viewport so it doesn't scroll with the page. */
+.report-footer--fixed {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  padding: 16px 32px;
+  z-index: 10;
+}
 .report-footer .brand-mark {
   color: var(--accent-pink); font-family: var(--font-mono);
   font-size: 14px; letter-spacing: -2px; font-weight: 700;

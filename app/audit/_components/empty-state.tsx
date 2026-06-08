@@ -8,7 +8,7 @@
  *     user hasn't installed hooks for any CLI yet.
  *
  * Both modes use the shared `.panel` chrome with pink corner brackets, a
- * green section eyebrow, an Architype Stedelijk display headline, and a
+ * green section eyebrow, a Bitcount Prop Single display headline, and a
  * sharp `.btn-press` action button. Sized so it occupies the same vertical
  * space as the loaded dashboard does on its hero — no more cramped popover.
  */

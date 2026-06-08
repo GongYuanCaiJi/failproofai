@@ -1,7 +1,7 @@
 /** Top navigation bar — wordmark, primary nav, refresh + reach-developers controls.
  *
  * Restyled to the audit / brutalist-pixel-craft system: the wordmark uses the
- * same pixel pink mark + Architype Stedelijk lowercase name as the audit
+ * same pixel pink mark + Bitcount Prop Single lowercase name as the audit
  * report, and each nav link is a `.tab` with a sharp pink underline on the
  * active route. No lucide icons in the bar itself — the chrome stays text-
  * forward to match the rest of the design system.
