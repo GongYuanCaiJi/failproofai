@@ -9,6 +9,7 @@ are exposed as knobs in `bitcount.css`.
 
 ## Files
 - `bitcount.css` — the reusable `.bitcount-title` class + tunable `:root` knobs, plus a self-host `@font-face`. Framework-agnostic.
+- `bitcount-prop-single.woff2` — self-hosted static instance with `wght 417` + `ELSH 55` baked in (no runtime variable-axis dependency, renders correctly on every device including phones).
 - `fonts.ts.example` — Next.js `next/font/google` loader (rename to `fonts.ts`). Matches how befailproof.ai loads it.
 
 ## Use it
@@ -19,8 +20,10 @@ are exposed as knobs in `bitcount.css`.
 3. Add `class="bitcount-title"` to headings / wordmarks.
 
 ### Anywhere else
-1. Self-host (most reliable): download the Bitcount Prop Single **variable** woff2 and drop it next to `bitcount.css` as `bitcount-prop-single.woff2`. Or use the Google Fonts CDN `@import` — see the comment in the CSS, and verify the `ELSH` range.
-2. Import `bitcount.css`, add `class="bitcount-title"`.
+1. Copy `bitcount.css` + the bundled `bitcount-prop-single.woff2` into your project (keep them in the same folder so the relative `url(...)` in `@font-face` resolves).
+2. Import `bitcount.css`, add `class="bitcount-title"` to your headings / wordmarks.
+
+> **Why a bundled static woff2?** Google Fonts' CDN serves a static default-instance of Bitcount Prop Single to many mobile user-agents, so `font-variation-settings: "ELSH" 55` silently no-ops on phones and the title renders as round dots instead of rounded squares. Self-hosting an already-instanced woff2 avoids that.
 
 ## Tuning knobs (`:root` in `bitcount.css`)
 | Variable | Default | Effect |
