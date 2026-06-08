@@ -349,7 +349,7 @@ function ShellEmpty({ running, mode = "no-cache", onStarted, onCompleted }: Shel
             />
           )}
         </div>
-        <ReportFooter cachedAt={null} />
+        <ReportFooter cachedAt={null} fixed />
       </div>
     </div>
   );

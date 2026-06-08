@@ -42,7 +42,7 @@ export function ShowOffCTA({ archetypeKey, identityFrameRef }: Props) {
      *  unreliably. CSS lives in audit-styles.css under `.capturing`. */
     node.classList.add("capturing");
     try {
-      // Wait for the display font (Architype Stedelijk) to load — otherwise
+      // Wait for the display font (Bitcount Prop Single) to load — otherwise
       // html2canvas captures a fallback that has different metrics and the
       // archetype name overlaps the tagline / sigil column.
       if (typeof document !== "undefined" && document.fonts?.ready) {

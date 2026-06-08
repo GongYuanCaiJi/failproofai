@@ -28,7 +28,7 @@ export default async function ProjectsPage() {
       <section className="section" data-screen-label="projects">
         <h2 className="section-h" style={{ textTransform: "none" }}>
           Projects
-          <span className="section-h-dot" aria-hidden />
+          {/* <span className="section-h-dot" aria-hidden /> */}
         </h2>
 
         {count === 0 ? (
