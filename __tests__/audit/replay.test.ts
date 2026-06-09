@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach } from "vitest";
-import { resetReplay, replayEvent } from "../../src/audit/replay";
+import { resetReplay, replayEvent, initReplay, restoreReplay } from "../../src/audit/replay";
+import {
+  clearPolicies,
+  getAllPolicies,
+  registerPolicy,
+} from "../../src/hooks/policy-registry";
+import { allow } from "../../src/hooks/policy-helpers";
 import type { NormalizedToolEvent } from "../../src/audit/types";
 
 function bash(command: string): NormalizedToolEvent {
@@ -48,5 +54,50 @@ describe("replay engine", () => {
     event.toolResultText = `Authorization: Bearer ${fakeJwt}`;
     const hits = await replayEvent(event);
     expect(hits.some((h) => h.eventType === "PostToolUse")).toBe(true);
+  });
+});
+
+describe("replay registry snapshot/restore", () => {
+  beforeEach(() => {
+    resetReplay();
+    clearPolicies();
+  });
+
+  it("restoreReplay puts back the pre-init registry", () => {
+    registerPolicy(
+      "test/custom-marker",
+      "test policy",
+      async () => allow(),
+      { events: ["PreToolUse"] },
+    );
+    const before = getAllPolicies().map((p) => p.name).sort();
+    expect(before).toContain("test/custom-marker");
+
+    initReplay();
+    const duringInit = getAllPolicies().map((p) => p.name);
+    expect(duringInit).not.toContain("test/custom-marker");
+    expect(duringInit.length).toBeGreaterThan(10); // builtins are loaded
+
+    restoreReplay();
+    const after = getAllPolicies().map((p) => p.name).sort();
+    expect(after).toEqual(before);
+  });
+
+  it("restoreReplay is idempotent when called twice", () => {
+    registerPolicy(
+      "test/another-marker",
+      "test policy",
+      async () => allow(),
+      { events: ["PreToolUse"] },
+    );
+    initReplay();
+    restoreReplay();
+    restoreReplay(); // second call should be a no-op
+    expect(getAllPolicies().map((p) => p.name)).toContain("test/another-marker");
+  });
+
+  it("restoreReplay before initReplay is a no-op", () => {
+    expect(() => restoreReplay()).not.toThrow();
+    expect(getAllPolicies()).toEqual([]);
   });
 });

@@ -43,6 +43,8 @@
                   "cli/remove-policies",
                   "cli/list-policies",
                   "cli/hook",
+                  "cli/auth",
+                  "cli/audit",
                   "cli/version",
                   "cli/environment-variables"
                 ]

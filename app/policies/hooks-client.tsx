@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, useTransition
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
-  ArrowLeft,
   ShieldCheck,
   ShieldX,
   ShieldAlert,
@@ -286,22 +285,41 @@ function DecisionPills({
 // -- Stats Bar --
 
 function StatsBar({ stats }: { stats: HookActivityPayload["stats"] }) {
-  const denyRate = stats.totalEvents > 0 ? ((stats.denyCount / stats.totalEvents) * 100).toFixed(0) : "0";
+  const denyRatePct = stats.totalEvents > 0 ? (stats.denyCount / stats.totalEvents) * 100 : 0;
+  const denyRateLabel = denyRatePct.toFixed(denyRatePct >= 10 ? 0 : 1);
+  // amber once >2%, pink once >5% \u2014 keeps the bar honest at a glance
+  const denyTone =
+    stats.denyCount === 0 ? "" : denyRatePct >= 5 ? " is-deny" : denyRatePct >= 2 ? " is-warn" : "";
 
   return (
-    <div className="flex items-center gap-6 text-[0.7rem] text-muted-foreground">
-      <div>
-        <span className="text-foreground font-mono font-semibold">{stats.totalEvents}</span> total events
+    <div className="stat-bar" role="group" aria-label="Activity stats">
+      <div className="stat-cell">
+        <span className="eyebrow">total events</span>
+        <span className="value">{stats.totalEvents.toLocaleString()}</span>
+        <span className="meta">across all installed agents</span>
       </div>
-      <div>
-        <span className={`font-mono font-semibold ${stats.denyCount > 0 ? "text-red-400" : "text-foreground"}`}>
-          {denyRate}%
-        </span>{" "}
-        deny rate
+      <div className="stat-cell">
+        <span className="eyebrow">deny rate</span>
+        <span className={`value${denyTone}`}>{denyRateLabel}%</span>
+        <span className="meta">{stats.denyCount.toLocaleString()} of {stats.totalEvents.toLocaleString()} denied</span>
       </div>
-      <div className="hidden sm:block">
-        top policy:{" "}
-        <span className="font-mono text-foreground">{stats.topPolicy ?? "\u2014"}</span>
+      <div className="stat-cell">
+        <span className="eyebrow">top policy</span>
+        <span
+          className="value"
+          style={{
+            fontSize: 16,
+            fontWeight: 500,
+            color: stats.topPolicy ? "var(--accent-pink)" : "var(--dim)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={stats.topPolicy ?? undefined}
+        >
+          {stats.topPolicy ?? "\u2014"}
+        </span>
+        <span className="meta">most-evaluated policy in scope</span>
       </div>
     </div>
   );
@@ -316,9 +334,13 @@ function DetailPanel({
 }) {
   return (
     <tr>
-      <td colSpan={10} className="px-0 py-0">
-        <div className="px-6 py-3 bg-muted/20 border-t border-border/30 space-y-2 text-xs animate-expand">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-1.5">
+      <td colSpan={11} className="px-0 py-0">
+        <div className="activity-detail animate-expand text-xs">
+          <span className="activity-detail-eyebrow">
+            <span aria-hidden="true">\u25be</span>
+            event detail
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-2">
             <div>
               <span className="text-muted-foreground">Session ID: </span>
               <span className="font-mono text-foreground">
@@ -342,13 +364,13 @@ function DetailPanel({
             </div>
           </div>
           {item.policyNames && item.policyNames.length > 1 && (
-            <div>
+            <div style={{ marginTop: 8 }}>
               <span className="text-muted-foreground">Policies: </span>
               <span className="font-mono text-foreground">{item.policyNames.join(", ")}</span>
             </div>
           )}
           {item.reason && (
-            <div>
+            <div style={{ marginTop: 8 }}>
               <span className="text-muted-foreground">Full reason: </span>
               <span className="text-foreground">{item.reason}</span>
             </div>
@@ -498,61 +520,88 @@ function ActivityTab({
   return (
     <>
       {data?.stats && data.stats.totalEvents > 0 && (
-        <div className="mb-4">
+        <div style={{ marginBottom: 18 }}>
           <StatsBar stats={data.stats} />
         </div>
       )}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
-        {/* Filter bar */}
-        <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/20">
-          <DecisionPills value={filterDecision} onChange={setFilterDecision} />
-          <select
-            value={filterEventType}
-            onChange={(e) => setFilterEventType(e.target.value)}
-            className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
-          >
-            <option value="">All Events</option>
-            <option value="PreToolUse">PreToolUse</option>
-            <option value="PostToolUse">PostToolUse</option>
-            <option value="SessionStart">SessionStart</option>
-            <option value="SessionEnd">SessionEnd</option>
-            <option value="UserPromptSubmit">UserPromptSubmit</option>
-            <option value="PermissionRequest">PermissionRequest</option>
-          </select>
-          <select
-            value={filterCli}
-            onChange={(e) => {
-              const v = e.target.value;
-              setFilterCli(v === "" || isKnownCli(v) ? v : "");
-            }}
-            className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
-            aria-label="Filter by CLI"
-          >
-            <option value="">All CLIs</option>
-            {KNOWN_CLI_IDS.map((id) => (
-              <option key={id} value={id}>
-                {getCliLabel(id)}
-              </option>
-            ))}
-          </select>
-          <div className="relative">
+      <div>
+        {/* Filter console — elastic row that fills the container at every width */}
+        <div className="filter-bar">
+          <div className="filter-group">
+            <span className="filter-label">decision</span>
+            <DecisionPills value={filterDecision} onChange={setFilterDecision} />
+          </div>
+          <div className="filter-group">
+            <span className="filter-label">event</span>
+            <select
+              value={filterEventType}
+              onChange={(e) => setFilterEventType(e.target.value)}
+              className="filter-input"
+            >
+              <option value="">all events</option>
+              <option value="PreToolUse">PreToolUse</option>
+              <option value="PostToolUse">PostToolUse</option>
+              <option value="SessionStart">SessionStart</option>
+              <option value="SessionEnd">SessionEnd</option>
+              <option value="UserPromptSubmit">UserPromptSubmit</option>
+              <option value="PermissionRequest">PermissionRequest</option>
+            </select>
+          </div>
+          <div className="filter-group">
+            <span className="filter-label">cli</span>
+            <select
+              value={filterCli}
+              onChange={(e) => {
+                const v = e.target.value;
+                setFilterCli(v === "" || isKnownCli(v) ? v : "");
+              }}
+              className="filter-input"
+              aria-label="Filter by CLI"
+            >
+              <option value="">all clis</option>
+              {KNOWN_CLI_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {getCliLabel(id)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="filter-group filter-group--grow">
+            <span className="filter-label">policy</span>
             <input
               type="text"
               value={filterPolicy}
               onChange={(e) => setFilterPolicy(e.target.value)}
-              placeholder="Filter by policy\u2026"
-              className="h-7 rounded-md border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground w-44 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
+              placeholder="filter by policy\u2026"
+              className="filter-input"
             />
           </div>
-          <div className="relative">
+          <div className="filter-group filter-group--grow">
+            <span className="filter-label">session</span>
             <input
               type="text"
               value={filterSessionId}
               onChange={(e) => setFilterSessionId(e.target.value)}
-              placeholder="Filter by session…"
-              className="h-7 rounded-md border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground w-44 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
+              placeholder="filter by session…"
+              className="filter-input"
             />
           </div>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="filter-clear"
+              onClick={() => {
+                setFilterDecision("");
+                setFilterEventType("");
+                setFilterCli("");
+                setFilterPolicy("");
+                setFilterSessionId("");
+              }}
+              aria-label="Clear all filters"
+            >
+              [ clear ]
+            </button>
+          )}
         </div>
 
         {items.length === 0 ? (
@@ -581,21 +630,34 @@ function ActivityTab({
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-left text-muted-foreground border-b border-border bg-muted/30">
-                  <th className="px-4 py-2.5 font-medium w-6" />
-                  <th className="px-3 py-2.5 font-medium">Decision</th>
-                  <th className="px-3 py-2.5 font-medium">Event</th>
-                  <th className="px-3 py-2.5 font-medium">CLI</th>
-                  <th className="px-3 py-2.5 font-medium">Tool</th>
-                  <th className="px-3 py-2.5 font-medium">Policy</th>
-                  <th className="px-3 py-2.5 font-medium">Reason</th>
-                  <th className="px-3 py-2.5 font-medium">Duration</th>
-                  <th className="px-3 py-2.5 font-medium">Session</th>
-                  <th className="px-3 py-2.5 font-medium">Mode</th>
-                  <th className="px-3 py-2.5 font-medium text-right">Time</th>
+          <div className="overflow-x-auto activity-table-wrap">
+            <table className="w-full text-xs activity-table" style={{ tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: 32 }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "18%" }} />
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "7%" }} />
+              </colgroup>
+              <thead className="activity-thead">
+                <tr>
+                  <th className="px-4 py-3" />
+                  <th className="px-3 py-3 activity-th">Decision</th>
+                  <th className="px-3 py-3 activity-th">Event</th>
+                  <th className="px-3 py-3 activity-th">CLI</th>
+                  <th className="px-3 py-3 activity-th">Tool</th>
+                  <th className="px-3 py-3 activity-th">Policy</th>
+                  <th className="px-3 py-3 activity-th">Reason</th>
+                  <th className="px-3 py-3 activity-th">Duration</th>
+                  <th className="px-3 py-3 activity-th">Session</th>
+                  <th className="px-3 py-3 activity-th">Mode</th>
+                  <th className="px-3 py-3 activity-th text-right">Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
@@ -647,7 +709,7 @@ function ActivityTab({
                           )}
                         </td>
                         <td
-                          className="px-3 py-2 text-muted-foreground truncate max-w-[240px]"
+                          className="px-3 py-2 text-muted-foreground truncate"
                           title={item.reason ?? ""}
                         >
                           {item.reason ?? "\u2014"}
@@ -1546,18 +1608,15 @@ function TabBar({
     { id: "policies", label: "Configure" },
   ];
   return (
-    <div className="inline-flex items-center rounded-md border border-border bg-muted/30 p-0.5 mb-5">
+    <div className="tabs" style={{ padding: 0, marginBottom: 24 }}>
       {tabs.map((tab) => (
         <button
           key={tab.id}
+          type="button"
           onClick={() => onChange(tab.id)}
-          className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
-            activeTab === tab.id
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
+          className={`tab${activeTab === tab.id ? " is-active" : ""}`}
         >
-          {tab.label}
+          {tab.label.toLowerCase()}
         </button>
       ))}
     </div>
@@ -1602,60 +1661,95 @@ export default function HooksClient({ initialTab = "activity" }: { initialTab?: 
   };
 
   return (
-    <div className="min-h-screen bg-background px-4 py-6 sm:px-6 lg:px-10">
-      {/* Header */}
-      <div className="mb-6">
-        <Link
-          href="/projects"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back
-        </Link>
-        <div className="flex items-center gap-3 mt-3">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Policies
-          </h1>
-          {activeTab === "activity" && (
-            <span className="relative flex h-2.5 w-2.5 mt-0.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-            </span>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground mt-1">
-          {activeTab === "activity" ? (
-            <>
-              {evaluationsHeading}
+    <main className="report">
+      <section className="section" data-screen-label="policies">
+        <h2 className="section-h" style={{ textTransform: "none" }}>
+          {activeTab === "activity" ? "Policies" : "what to stop them doing."}
+          {activeTab === "activity" && <span className="section-h-dot" aria-hidden />}
+        </h2>
+        {activeTab === "activity" ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 32,
+              flexWrap: "wrap",
+              margin: "0 0 24px",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 14,
+                color: "var(--ink-2)",
+                lineHeight: 1.7,
+                flex: "1 1 480px",
+                minWidth: 0,
+              }}
+            >
+              {evaluationsHeading.toLowerCase()}
               {policyCounts && (
-                <span className="text-muted-foreground/60">
+                <span style={{ color: "var(--dim)" }}>
                   {" · "}enabled policies{" "}
-                  <span className="font-mono text-foreground/70">{policyCounts.enabled}/{policyCounts.total}</span>
+                  <span style={{ color: "var(--ink)", fontVariantNumeric: "tabular-nums" }}>
+                    {policyCounts.enabled}/{policyCounts.total}
+                  </span>
                 </span>
               )}
-              <span className="block text-xs text-muted-foreground/50 mt-0.5">
-                To configure policies,{" "}
-                <button
-                  className="underline underline-offset-2 hover:text-foreground transition-colors"
-                  onClick={() => handleTabChange("policies")}
-                >
-                  go here
-                </button>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-end",
+                gap: 6,
+                flex: "0 0 auto",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color: "var(--dim)",
+                }}
+              >
+                want to change which policies fire?
               </span>
-            </>
-          ) : (
-            "Configure Policies"
-          )}
-        </p>
-      </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => handleTabChange("policies")}
+              >
+                [ configure policies → ]
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 14,
+              color: "var(--ink-2)",
+              lineHeight: 1.7,
+              maxWidth: 720,
+              margin: "0 0 24px",
+            }}
+          >
+            switch policies on or off across your installed agent CLIs.
+          </p>
+        )}
 
-      <TabBar activeTab={activeTab} onChange={handleTabChange} />
+        <TabBar activeTab={activeTab} onChange={handleTabChange} />
 
-      {activeTab === "activity" ? (
-        <ActivityTab hooksInstalled={hooksInstalled} onSwitchTab={handleTabChange} />
-      ) : (
-        <PoliciesTab onHooksInstallChange={setHooksInstalled} />
-      )}
-    </div>
+        {activeTab === "activity" ? (
+          <ActivityTab hooksInstalled={hooksInstalled} onSwitchTab={handleTabChange} />
+        ) : (
+          <PoliciesTab onHooksInstallChange={setHooksInstalled} />
+        )}
+      </section>
+    </main>
   );
 }

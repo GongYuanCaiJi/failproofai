@@ -81,13 +81,18 @@ export function isTelemetryEnabled(): boolean {
 
 /**
  * Lazily import posthog-node and create a client.
- * No-op when telemetry is disabled.
+ *
+ * No-op when telemetry is disabled. **Never throws** — callers (the
+ * Next.js API routes and the CLI subcommands) can `await initTelemetry()`
+ * unguarded and a posthog init failure can't 500 a valid auth response.
+ * The outer try/catch is the single source of truth; do NOT add a
+ * per-call wrapper at the call sites.
  */
 export async function initTelemetry(): Promise<void> {
-  if (!isTelemetryEnabled()) return;
-  if (globalThis.__FAILPROOFAI_POSTHOG__) return;
-
   try {
+    if (!isTelemetryEnabled()) return;
+    if (globalThis.__FAILPROOFAI_POSTHOG__) return;
+
     const mod: { PostHog: new (key: string, opts: PostHogOptions) => PostHogClient } =
       await import("posthog-node");
     const apiKey = process.env.FAILPROOFAI_POSTHOG_KEY ?? DEFAULT_API_KEY;
@@ -110,7 +115,7 @@ export async function initTelemetry(): Promise<void> {
     process.on("SIGINT", onExit);
   } catch (err) {
     // Always log init failures — silent swallowing makes standalone debugging impossible
-    console.warn("[failproofai:telemetry] PostHog init failed:", err instanceof Error ? err.message : err);
+    console.warn("[failproofai:telemetry] init failed:", err instanceof Error ? err.message : err);
   }
 }
 

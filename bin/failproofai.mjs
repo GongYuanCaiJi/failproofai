@@ -41,6 +41,11 @@ if (args[0] === "p") args[0] = "policies";
 // pulling in the hook-telemetry / telemetry-id modules on the fast --hook path.
 let _telemetry;
 let lastSubcommand = null;
+// When `policy add|remove` is mid-execution we stash the action here so the
+// top-level catch can emit `cli_policy_add_failure` / `cli_policy_remove_failure`
+// with the right event name. Mirrors the cli_install_failure / cli_uninstall_failure
+// pattern below for parity. Cleared back to null after the success track.
+let lastPolicyAction = null;
 async function track(name, props) {
   try {
     if (!_telemetry) {
@@ -103,7 +108,7 @@ if (hookIdx >= 0) {
  */
 async function runCli() {
   // --help / -h  (only when not inside a subcommand that handles its own --help)
-  const SUBCOMMANDS = ["policies", "audit"];
+  const SUBCOMMANDS = ["policies", "policy", "auth"];
   if ((args.includes("--help") || args.includes("-h")) && !SUBCOMMANDS.includes(args[0])) {
     const extraArgs = args.filter((a) => a !== "--help" && a !== "-h");
     if (extraArgs.length > 0) {
@@ -117,6 +122,9 @@ USAGE
 
 COMMANDS
   (no args)                      Launch the policy dashboard
+
+  policy add <name>              Enable a single policy (see \`policy --help\`)
+  policy remove <name>           Disable a single policy
 
   policies, p                    List all available policies and their status
   policies --install, -i         Enable policies in agent CLI settings
@@ -140,24 +148,11 @@ COMMANDS
 
   policies --help, -h            Show this help for the policies command
 
-  audit  (beta)                  Scan past agent CLI transcripts and count
-                                   "stupid behaviors" (env-var checks, force
-                                   pushes, redundant cd <cwd>, sleep loops,
-                                   etc.) per policy / audit detector.
-                                   Going live shortly — flags + output may
-                                   still change between beta releases.
-    --cli claude|codex|copilot|cursor|opencode|pi|gemini
-                                   Restrict to one or more CLIs (default: all).
-    --project <path>               Restrict to one cwd (repeatable).
-    --since 7d|2026-04-01          Only sessions whose mtime is within window.
-    --policy <name>                Restrict to one policy/detector (repeatable).
-    --limit N                      Top-N rows in the table (default 20).
-    --show-examples                Include one example per row.
-    --report <path>                Markdown report path (default ./failproofai-audit.md).
-    --no-report                    Skip writing the markdown file.
-    --json                         Print JSON to stdout instead of the table.
-    --no-cache                     Bypass the per-transcript cache.
-  audit --help, -h               Show this help for the audit command
+  auth                           Sign in / out of FailproofAI from the CLI.
+    login                          Email + OTP flow; writes ~/.failproofai/auth.json
+    logout                         Revoke this session and remove auth.json
+    whoami                         Print the currently authenticated identity
+  auth --help, -h                Show this help for the auth command
 
   --version, -v                  Print version and exit
   --help, -h                     Show this help message
@@ -470,155 +465,170 @@ EXAMPLES
     process.exit(0);
   }
 
-  // audit — scan past transcripts for "stupid behaviors" caught by builtin
-  // policies + a set of audit-only detectors.
-  if (args[0] === "audit") {
+  // auth — email-OTP login flow against the FailproofAI api-server.
+  if (args[0] === "auth") {
+    lastSubcommand = "auth";
+    const { runAuthCli } = await import("../src/auth/cli");
+    await runAuthCli(args.slice(1));
+    await track("cli_auth_invoked", { args_count: args.length - 1 });
+    process.exit(process.exitCode ?? 0);
+  }
+
+  // policy — single-policy shortcut over `policies --install <name>`.
+  //   failproofai policy add <name>     enable one policy (defaults: claude/user)
+  //   failproofai policy remove <name>  disable one policy
+  // Honors the same --cli / --scope / --beta flags as `policies --install`.
+  if (args[0] === "policy") {
+    lastSubcommand = "policy";
     const subArgs = args.slice(1);
 
-    if (subArgs.includes("--help") || subArgs.includes("-h")) {
+    if (subArgs.length === 0 || subArgs.includes("--help") || subArgs.includes("-h")) {
       console.log(`
-failproofai audit (beta) — scan past agent transcripts for stupid behaviors
-
-  NOTE: This command is in beta. Flags, output format, and the audit-only
-  detector catalog may change before the next stable cut. Going live shortly.
+failproofai policy — manage a single FailproofAI policy
 
 USAGE
-  failproofai audit [options]
+  failproofai policy add <name>      Enable one policy
+  failproofai policy remove <name>   Disable one policy
 
 OPTIONS
   --cli claude|codex|copilot|cursor|opencode|pi|gemini
-                                 Restrict to one or more CLIs (space-separated or repeated).
-                                 Default: scan all 7.
-  --project <path>               Restrict to sessions whose cwd matches this path. Repeatable.
-  --since 7d|30d|2026-04-01      Only sessions whose mtime is within window.
-  --policy <name>                Restrict to one policy/detector name. Repeatable.
-  --limit N                      Top-N rows in the table (default 20).
-  --show-examples                Include one example command per row in the table.
-  --report <path>                Markdown report path (default: ./failproofai-audit.md).
-  --no-report                    Skip writing the markdown report.
-  --json                         Print JSON to stdout instead of the table.
-  --no-cache                     Bypass the per-transcript result cache.
-  --help, -h                     Show this help
+                                     Agent CLI(s) to apply to; space-separated or repeated.
+                                     Omit to detect installed CLIs and prompt.
+  --scope user|project|local         Config scope (default: user)
+  --beta                             Allow beta policies
 
 EXAMPLES
-  failproofai audit
-  failproofai audit --cli claude --since 30d
-  failproofai audit --policy protect-env-vars --policy block-force-push
-  failproofai audit --json > audit.json
-  failproofai audit --project /home/me/myrepo --show-examples
+  failproofai policy add block-sudo
+  failproofai policy add sanitize-api-keys --scope project
+  failproofai policy add block-force-push --cli claude codex
+  failproofai policy remove block-sudo
 `.trimStart());
       process.exit(0);
     }
 
-    const VALID_CLIS = new Set(["claude", "codex", "copilot", "cursor", "opencode", "pi", "gemini"]);
-    /** Consume one or more values for a flag like `--cli a b c`, stopping at
-     *  the next flag or an unknown token (when an allow-set is supplied).
-     *  Throws when the flag appears with zero following values — a bare
-     *  `--cli` would otherwise silently widen the scope to all CLIs. */
-    function collectMulti(flag, allowSet) {
-      const out = [];
-      const consumed = new Set();
-      for (let i = 0; i < subArgs.length; i++) {
-        if (subArgs[i] !== flag) continue;
-        let seenForThisFlag = 0;
-        for (let j = i + 1; j < subArgs.length; j++) {
-          const v = subArgs[j];
-          if (v.startsWith("-")) break;
-          if (allowSet && !allowSet.has(v)) break;
-          out.push(v);
-          consumed.add(j);
-          seenForThisFlag++;
-        }
-        consumed.add(i);
-        if (seenForThisFlag === 0) {
-          throw new CliError(`Missing value(s) for ${flag}`);
-        }
-      }
-      return { values: out, consumed };
-    }
-    /** Take the single value following a one-shot flag like `--since 7d`. */
-    function takeOne(flag) {
-      const i = subArgs.indexOf(flag);
-      if (i < 0) return { value: undefined, consumed: new Set() };
-      const v = subArgs[i + 1];
-      if (v === undefined || v.startsWith("-")) {
-        throw new CliError(`Missing value for ${flag}`);
-      }
-      return { value: v, consumed: new Set([i, i + 1]) };
-    }
-
-    const allConsumed = new Set();
-    const cliRes = collectMulti("--cli", VALID_CLIS);
-    cliRes.consumed.forEach((i) => allConsumed.add(i));
-    const projectRes = collectMulti("--project", null);
-    projectRes.consumed.forEach((i) => allConsumed.add(i));
-    const policyRes = collectMulti("--policy", null);
-    policyRes.consumed.forEach((i) => allConsumed.add(i));
-    const sinceRes = takeOne("--since");
-    sinceRes.consumed.forEach((i) => allConsumed.add(i));
-    const limitRes = takeOne("--limit");
-    limitRes.consumed.forEach((i) => allConsumed.add(i));
-    const reportRes = takeOne("--report");
-    reportRes.consumed.forEach((i) => allConsumed.add(i));
-
-    const showExamples = subArgs.includes("--show-examples");
-    if (showExamples) allConsumed.add(subArgs.indexOf("--show-examples"));
-    const noReport = subArgs.includes("--no-report");
-    if (noReport) allConsumed.add(subArgs.indexOf("--no-report"));
-    const jsonOut = subArgs.includes("--json");
-    if (jsonOut) allConsumed.add(subArgs.indexOf("--json"));
-    const noCache = subArgs.includes("--no-cache");
-    if (noCache) allConsumed.add(subArgs.indexOf("--no-cache"));
-
-    // Reject unknown flags / positional args.
-    for (let i = 0; i < subArgs.length; i++) {
-      if (allConsumed.has(i)) continue;
-      const arg = subArgs[i];
+    const action = subArgs[0];
+    if (action !== "add" && action !== "remove") {
       throw new CliError(
-        `Unexpected argument: ${arg}\nRun \`failproofai audit --help\` for usage.`,
+        `Unknown policy subcommand: ${action}\n` +
+        `Run \`failproofai policy --help\` for usage.`,
       );
     }
 
-    let parsedLimit;
-    if (limitRes.value !== undefined) {
-      parsedLimit = parseInt(limitRes.value, 10);
-      if (!Number.isInteger(parsedLimit) || parsedLimit <= 0) {
-        throw new CliError(`Invalid value for --limit: "${limitRes.value}". Use a positive integer.`);
+    const rest = subArgs.slice(1);
+
+    const scopeIdx = rest.indexOf("--scope");
+    const scope = scopeIdx >= 0 ? rest[scopeIdx + 1] : "user";
+    if (scopeIdx >= 0 && (!scope || scope.startsWith("-"))) {
+      throw new CliError("Missing value for --scope. Valid values: user, project, local");
+    }
+    const validScopes = action === "remove"
+      ? ["user", "project", "local", "all"]
+      : ["user", "project", "local"];
+    if (scopeIdx >= 0 && !validScopes.includes(scope)) {
+      throw new CliError(`Invalid scope: ${scope}. Valid values: ${validScopes.join(", ")}`);
+    }
+
+    // --cli accepts one or more space-separated values, optionally repeated.
+    const VALID_CLIS = new Set(["claude", "codex", "copilot", "cursor", "opencode", "pi", "gemini"]);
+    const cliFlagValues = [];
+    const cliConsumedIdxs = new Set();
+    const cliFlagIdxs = rest.map((a, i) => (a === "--cli" ? i : -1)).filter((i) => i >= 0);
+    for (const idx of cliFlagIdxs) {
+      let consumed = 0;
+      for (let j = idx + 1; j < rest.length; j++) {
+        const v = rest[j];
+        if (v.startsWith("-")) break;
+        if (!VALID_CLIS.has(v)) break;
+        cliFlagValues.push(v);
+        cliConsumedIdxs.add(j);
+        consumed++;
+      }
+      if (consumed === 0) {
+        throw new CliError("Missing value(s) for --cli. Usage: --cli claude codex copilot cursor opencode pi gemini (or any subset)");
       }
     }
-    const opts = {
-      clis: cliRes.values.length > 0 ? cliRes.values : undefined,
-      projects: projectRes.values.length > 0 ? projectRes.values : undefined,
-      policies: policyRes.values.length > 0 ? policyRes.values : undefined,
-      since: sinceRes.value,
-      limit: parsedLimit,
-      showExamples,
-      reportPath: reportRes.value ?? "./failproofai-audit.md",
-      noReport: noReport || jsonOut, // --json implies --no-report unless explicit --report
-      json: jsonOut,
-      noCache,
-    };
-    // Re-enable report when --report was passed alongside --json.
-    if (jsonOut && reportRes.value) opts.noReport = false;
 
-    const { runAudit } = await import("../src/audit");
-    const { formatText, formatJson, formatMarkdown } = await import("../src/audit/report");
-    const result = await runAudit(opts);
+    const includeBeta = rest.includes("--beta");
 
-    if (jsonOut) {
-      process.stdout.write(formatJson(result) + "\n");
+    // Reject unknown flags.
+    const knownFlags = new Set(["--scope", "--cli", "--beta"]);
+    const unknownFlag = rest.find((a) => a.startsWith("-") && !knownFlags.has(a));
+    if (unknownFlag) {
+      throw new CliError(`Unknown flag: ${unknownFlag}\nRun \`failproofai policy --help\` for usage.`);
+    }
+
+    // Positional policy names = anything not consumed by --scope / --cli.
+    const consumedIdxs = new Set();
+    if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
+    for (const i of cliConsumedIdxs) consumedIdxs.add(i);
+    const positional = rest.filter(
+      (a, idx) => !a.startsWith("-") && !consumedIdxs.has(idx),
+    );
+
+    if (positional.length === 0) {
+      throw new CliError(
+        `Missing policy name.\n` +
+        `Usage: failproofai policy ${action} <name>\n` +
+        `Run \`failproofai policies\` to see available names.`,
+      );
+    }
+    if (positional.length > 1) {
+      throw new CliError(
+        `\`policy ${action}\` takes exactly one policy name (got ${positional.length}).\n` +
+        `For multiple policies use \`failproofai policies --${action === "add" ? "install" : "uninstall"} ${positional.join(" ")}\`.`,
+      );
+    }
+    const policyName = positional[0];
+
+    const { resolveTargetClis } = await import("../src/hooks/install-prompt");
+    const cli = await resolveTargetClis(
+      cliFlagValues.length > 0 ? cliFlagValues : undefined,
+      action === "add" ? "install" : "uninstall",
+    );
+
+    lastPolicyAction = action;
+    if (action === "add") {
+      const { installHooks } = await import("../src/hooks/manager");
+      await installHooks(
+        [policyName],
+        scope,
+        undefined,
+        includeBeta,
+        undefined,
+        undefined,
+        false,
+        cli,
+      );
+      await track("cli_policy_add_success", {
+        scope,
+        cli,
+        cli_count: cli.length,
+        policy_name: policyName,
+        include_beta: includeBeta,
+      });
     } else {
-      process.stdout.write(formatText(result, opts));
+      // `policy remove <name>` always removes the named policy regardless
+      // of whether it's beta or not — passing `betaOnly: includeBeta`
+      // here was a mislabel that only affected the telemetry field, not
+      // the actual remove. Drop the `--beta` semantic for remove and
+      // emit beta_only: false unconditionally so dashboards don't see
+      // ghost "beta removal" events.
+      const { removeHooks } = await import("../src/hooks/manager");
+      await removeHooks(
+        [policyName],
+        scope,
+        undefined,
+        { betaOnly: false, removeCustomHooks: false, cli },
+      );
+      await track("cli_policy_remove_success", {
+        scope,
+        cli,
+        cli_count: cli.length,
+        policy_name: policyName,
+        beta_only: false,
+      });
     }
-
-    if (!opts.noReport) {
-      const { writeFileSync } = await import("node:fs");
-      const { resolve } = await import("node:path");
-      const reportPath = resolve(opts.reportPath);
-      writeFileSync(reportPath, formatMarkdown(result), "utf-8");
-      if (!jsonOut) process.stdout.write(`\nReport written: ${reportPath}\n`);
-    }
-
+    lastPolicyAction = null;
     process.exit(0);
   }
 
@@ -640,7 +650,7 @@ EXAMPLES
       return dp[m][n];
     }
 
-    const primary = ["--version", "--help", "--hook", "policies", "audit"];
+    const primary = ["--version", "--help", "--hook", "policies", "policy", "auth"];
     const closest = primary.reduce((best, flag) => {
       const dist = levenshtein(unknownFlag, flag);
       return dist < best.dist ? { flag, dist } : best;
@@ -691,6 +701,13 @@ try {
       await track("cli_install_failure", { error_type: "cli_error", exit_code: err.exitCode });
     } else if (lastSubcommand === "uninstall") {
       await track("cli_uninstall_failure", { error_type: "cli_error", exit_code: err.exitCode });
+    } else if (lastSubcommand === "policy" && lastPolicyAction) {
+      // Mid-action failure: `policy add|remove` parsed but installHooks /
+      // removeHooks threw a CliError (e.g. unknown policy name, invalid scope).
+      await track(`cli_policy_${lastPolicyAction}_failure`, {
+        error_type: "cli_error",
+        exit_code: err.exitCode,
+      });
     } else {
       await track("cli_parse_error", {
         subcommand: lastSubcommand ?? (args[0] ?? null),
@@ -706,6 +723,10 @@ try {
     await track("cli_install_failure", { error_type: err instanceof Error ? err.name : "unknown" });
   } else if (lastSubcommand === "uninstall") {
     await track("cli_uninstall_failure", { error_type: err instanceof Error ? err.name : "unknown" });
+  } else if (lastSubcommand === "policy" && lastPolicyAction) {
+    await track(`cli_policy_${lastPolicyAction}_failure`, {
+      error_type: err instanceof Error ? err.name : "unknown",
+    });
   } else {
     await track("cli_unexpected_error", {
       subcommand: lastSubcommand ?? (args[0] ?? null),

@@ -127,6 +127,15 @@ export interface TranscriptAuditResult {
   sessionId: string;
   mtimeMs: number;
   sizeBytes: number;
+  /** Cwd of the session (taken from the first event with a cwd field).
+   *  Empty string when no events carried cwd. Surfaced up to `AuditResult.
+   *  projectsScanned` so the dashboard's project filter can show every
+   *  scanned project, not just those with examples. */
+  cwd?: string;
+  /** Total normalized tool-use events scanned in this transcript. Surfaced
+   *  via `AuditResult.eventsScanned` so the report can show "X tool calls"
+   *  across the whole audit. */
+  eventsScanned?: number;
   /** Per-policy/detector hit count for this one transcript. */
   hitsByName: Record<string, number>;
   /** Up to 3 example commands per policy/detector (later coalesced upstream). */
@@ -137,7 +146,8 @@ export interface TranscriptAuditResult {
 
 /** Top-level result of `runAudit()`. */
 export interface AuditResult {
-  /** Schema version of this JSON shape. Increment on incompatible changes. */
+  /** Schema version of this JSON shape. Increment on incompatible changes.
+   *  v2: added `projectsScanned`. */
   version: number;
   scannedAt: string;
   scope: {
@@ -156,6 +166,19 @@ export interface AuditResult {
     hits: number;
     projectsWithHits: number;
   };
+  /** Sorted, deduped list of cwds across every transcript that was scanned
+   *  (including those with zero hits). Drives the dashboard's project filter.
+   *  Transcripts without a usable cwd are excluded. */
+  projectsScanned: string[];
+  /** Total normalized tool-use events the audit walked across every
+   *  scanned transcript. The audit dashboard surfaces this as the
+   *  "X tool calls" headline counter. */
+  eventsScanned: number;
+  /** Short names (without `failproofai/` namespace) of every builtin
+   *  policy that was enabled in the user's merged config at scan time.
+   *  Lets the dashboard answer "is this policy already on?" for
+   *  detector-mapped policies that may not have hit during this audit. */
+  enabledBuiltinNames: string[];
 }
 
 /** CLI-supplied options for `runAudit()`. Set by `bin/failproofai.mjs`. */

@@ -14,14 +14,9 @@ import { normalizePolicyName } from "../hooks/policy-registry";
 import { INTEGRATION_TYPES, type IntegrationType } from "../hooks/types";
 import { ADAPTERS } from "./cli-adapters";
 import { AUDIT_DETECTORS } from "./detectors";
+import { severityForBuiltin } from "./features";
 import { readCachedTranscriptResult, writeCachedTranscriptResult } from "./cache";
-import { initReplay, replayEvent } from "./replay";
-import {
-  trackAuditCompleted,
-  trackAuditInstallCtaShown,
-  trackAuditPatternDetected,
-  trackAuditStarted,
-} from "./telemetry";
+import { initReplay, replayEvent, restoreReplay } from "./replay";
 import {
   AUDIT_EXAMPLE_MAX_CHARS,
   AUDIT_MAX_EXAMPLES_PER_NAME,
@@ -100,6 +95,8 @@ async function scanOneTranscript(meta: TranscriptMetadata): Promise<TranscriptAu
     sessionId: meta.sessionId,
     mtimeMs: meta.mtimeMs,
     sizeBytes: meta.sizeBytes,
+    cwd: "",
+    eventsScanned: 0,
     hitsByName: {},
     examplesByName: {},
     rangeByName: {},
@@ -111,6 +108,10 @@ async function scanOneTranscript(meta: TranscriptMetadata): Promise<TranscriptAu
   if (events.length === 0) return empty;
 
   const result = empty;
+  result.eventsScanned = events.length;
+  // Capture the session's cwd from the first event that carried one — every
+  // event in a single transcript shares the same cwd by construction.
+  result.cwd = events[0].cwd || "";
   const sessionState: DetectorSessionState = {};
 
   for (const event of events) {
@@ -238,7 +239,10 @@ function aggregateResults(
       name,
       source,
       category: detector?.category ?? builtin?.category ?? "Custom",
-      severity: isDetector ? (detector?.severity ?? "info") : "deny",
+      // Builtins carry no static severity field — derive it from the policy
+      // name prefix (sanitize-/warn-/block-/…) so the score's gentle/medium
+      // buckets actually populate instead of everything collapsing to "deny".
+      severity: isDetector ? (detector?.severity ?? "info") : severityForBuiltin(name),
       hits: bucket.hits,
       projects: bucket.projects.size,
       firstSeen: bucket.first,
@@ -258,10 +262,17 @@ function aggregateResults(
 export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult> {
   const startedAt = Date.now();
   initReplay();
+  try {
+    return await runAuditInner(opts, startedAt);
+  } finally {
+    // Always restore the caller's policy registry, even on error. Without
+    // this, embedding runAudit() in a long-running process (e.g. the Next.js
+    // dashboard) would clobber any pre-existing policy registrations.
+    restoreReplay();
+  }
+}
 
-  const outputMode = opts.json ? "json" : opts.noReport ? "text" : "text+markdown";
-  trackAuditStarted(opts, outputMode);
-
+async function runAuditInner(opts: RunAuditOptions, startedAt: number): Promise<AuditResult> {
   const clis = (opts.clis ?? Array.from(INTEGRATION_TYPES)) as IntegrationType[];
   const sinceMs = parseSinceOpt(opts.since);
 
@@ -301,13 +312,19 @@ export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult>
       return fresh;
     } catch {
       errors++;
+      // Match the empty/full result shape — `cwd` is unknowable here (we
+      // never got to scan the events that carry it), but `eventsScanned: 0`
+      // is right and keeps the aggregator's `t.eventsScanned ?? 0` shape
+      // explicit. cwd defaults to "" so `if (t.cwd)` skips it cleanly.
       return {
         transcriptPath: meta.transcriptPath,
         cli: meta.cli,
         projectName: meta.projectName,
+        cwd: "",
         sessionId: meta.sessionId,
         mtimeMs: meta.mtimeMs,
         sizeBytes: meta.sizeBytes,
+        eventsScanned: 0,
         hitsByName: {},
         examplesByName: {},
         rangeByName: {},
@@ -331,12 +348,16 @@ export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult>
 
   const totalsHits = results.reduce((sum, r) => sum + r.hits, 0);
   const projectsWithHits = new Set<string>();
+  const projectsScannedSet = new Set<string>();
+  let eventsScanned = 0;
   for (const t of perTranscript) {
     if (Object.keys(t.hitsByName).length > 0) projectsWithHits.add(t.projectName);
+    if (t.cwd) projectsScannedSet.add(t.cwd);
+    eventsScanned += t.eventsScanned ?? 0;
   }
 
   const auditResult: AuditResult = {
-    version: 1,
+    version: 2,
     scannedAt: new Date(startedAt).toISOString(),
     scope: {
       cli: clis,
@@ -354,16 +375,13 @@ export async function runAudit(opts: RunAuditOptions = {}): Promise<AuditResult>
       hits: totalsHits,
       projectsWithHits: projectsWithHits.size,
     },
+    projectsScanned: [...projectsScannedSet].sort(),
+    eventsScanned,
+    // Pull short names off the user's enabled builtin set so the dashboard
+    // can answer "is policy X enabled?" without iterating result rows.
+    enabledBuiltinNames: [...enabledBuiltins]
+      .map((n) => (n.includes("/") ? n.slice(n.indexOf("/") + 1) : n)),
   };
-
-  // Telemetry — fire-and-forget, never blocks the CLI. See src/audit/telemetry.ts
-  // for the privacy contract (slugs + counts + booleans only).
-  for (const count of results) trackAuditPatternDetected(count);
-  const unenabledBuiltinNames = results
-    .filter((r) => r.source === "builtin" && !r.enabledInConfig)
-    .map((r) => r.name);
-  trackAuditInstallCtaShown(unenabledBuiltinNames);
-  trackAuditCompleted(auditResult, outputMode);
 
   return auditResult;
 }

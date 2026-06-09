@@ -105,3 +105,23 @@ export function clearPolicies(): void {
   g[REGISTRY_KEY] = [];
   setIndexCache(null);
 }
+
+/**
+ * Snapshot the current registry. Returns a shallow copy so callers can hold
+ * a stable reference while the registry is mutated by other code paths
+ * (notably the audit replay engine, which clears the registry to load only
+ * builtins).
+ */
+export function getAllPolicies(): RegisteredPolicy[] {
+  return [...getRegistry()];
+}
+
+/**
+ * Replace the registry wholesale. Pair with `getAllPolicies()` to take a
+ * snapshot before destructive operations and restore it afterwards.
+ */
+export function setAllPolicies(policies: RegisteredPolicy[]): void {
+  const g = globalThis as GlobalWithRegistry;
+  g[REGISTRY_KEY] = [...policies];
+  setIndexCache(null);
+}
