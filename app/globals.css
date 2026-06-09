@@ -408,6 +408,167 @@ input[type="date"] { color-scheme: dark; }
   50%      { opacity: 1;    box-shadow: 0 0 14px var(--accent-green); }
 }
 
+/* ───────────────────────── activity table styles ─────────────────────────
+   /policies activity tab. Lives next to the new .stat-bar + .filter-bar so
+   the table feels like the third panel of the same instrument family.    */
+
+.activity-table-wrap {
+  border: 1px solid var(--line-2);
+  border-top: 0;
+  background: var(--bg-2);
+}
+.activity-table { width: 100%; }
+.activity-thead { background: var(--bg-3); }
+.activity-thead tr { border-bottom: 1px solid var(--line-2); }
+.activity-th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--accent-green);
+  text-align: left;
+}
+.activity-th.text-right { text-align: right; }
+
+/* zebra rhythm — adds ambient banding without breaking the dark feel.
+   Hover overrides the stripe so rows feel responsive. */
+.activity-table tbody tr.activity-row-stripe { background: rgba(255, 255, 255, 0.012); }
+
+/* expanded-row treatment */
+.activity-detail {
+  border-left: 3px solid var(--accent-pink);
+  background: var(--bg);
+  padding: 16px 22px 18px;
+}
+.activity-detail-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-pink);
+  margin-bottom: 10px;
+  display: inline-flex; align-items: baseline; gap: 6px;
+}
+
+/* ───────────────────────── instrument strip (.stat-bar) ─────────────────────
+   3-cell brutalist stats row used by /policies activity. Spans the full
+   container so the top of the view feels composed at every width.
+   Each cell carries a small green eyebrow caption above a big mono numeral.
+   On narrow viewports the grid collapses to a single column.            */
+
+.stat-bar {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--line-2);
+  background: var(--bg-2);
+}
+.stat-bar::before,
+.stat-bar::after { content: ""; position: absolute; width: 10px; height: 10px; }
+.stat-bar::before {
+  top: -1px; left: -1px;
+  border-top: 1px solid var(--accent-pink);
+  border-left: 1px solid var(--accent-pink);
+}
+.stat-bar::after {
+  bottom: -1px; right: -1px;
+  border-bottom: 1px solid var(--accent-pink);
+  border-right: 1px solid var(--accent-pink);
+}
+.stat-cell {
+  padding: 18px 24px;
+  border-right: 1px dashed var(--line);
+  display: flex; flex-direction: column; gap: 6px;
+  min-width: 0;
+}
+.stat-cell:last-child { border-right: none; }
+.stat-cell .eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-green);
+}
+.stat-cell .eyebrow .glyph { color: var(--accent-pink); letter-spacing: -2px; margin-right: 6px; }
+.stat-cell .value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.stat-cell .value.is-deny { color: var(--accent-pink); }
+.stat-cell .value.is-warn { color: var(--amber); }
+.stat-cell .meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dim);
+  letter-spacing: 0.05em;
+  /* let .meta values that contain a slash (e.g. policy paths) ellipsis */
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+@media (max-width: 800px) {
+  .stat-bar { grid-template-columns: 1fr; }
+  .stat-cell { border-right: none; border-bottom: 1px dashed var(--line); }
+  .stat-cell:last-child { border-bottom: none; }
+}
+
+/* ───────────────────────── filter console (.filter-bar) ──────────────────
+   Elastic row of `.filter-group`s. Each group stacks a small green eyebrow
+   label above its control. `.filter-group--grow` absorbs leftover space so
+   the text inputs naturally fill the remaining horizontal room.          */
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  padding: 14px 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-top: 0;
+}
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.filter-group--grow { flex: 1 1 220px; }
+.filter-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-green);
+}
+.filter-input {
+  height: 30px;
+  width: 100%;
+  padding: 0 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  outline: none;
+  transition: border-color 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.filter-input::placeholder { color: var(--dim); }
+.filter-input:focus { border-color: var(--accent-pink); }
+.filter-clear {
+  align-self: flex-end;
+  /* sits at the same baseline as the inputs; matches .btn but smaller */
+  padding: 6px 10px;
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--accent-pink);
+  background: transparent;
+  border: 1px dashed var(--accent-pink-soft);
+}
+.filter-clear:hover { background: var(--accent-pink-bg); border-color: var(--accent-pink); }
+
 /* ───────────────────────── reusable bracket panel ───────────────────────── */
 
 .panel {
