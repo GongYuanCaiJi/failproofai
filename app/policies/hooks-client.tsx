@@ -294,17 +294,17 @@ function StatsBar({ stats }: { stats: HookActivityPayload["stats"] }) {
   return (
     <div className="stat-bar" role="group" aria-label="Activity stats">
       <div className="stat-cell">
-        <span className="eyebrow"><span className="glyph">\u2501\u2501</span>total events</span>
+        <span className="eyebrow">total events</span>
         <span className="value">{stats.totalEvents.toLocaleString()}</span>
         <span className="meta">across all installed agents</span>
       </div>
       <div className="stat-cell">
-        <span className="eyebrow"><span className="glyph">\u2501\u2501</span>deny rate</span>
+        <span className="eyebrow">deny rate</span>
         <span className={`value${denyTone}`}>{denyRateLabel}%</span>
         <span className="meta">{stats.denyCount.toLocaleString()} of {stats.totalEvents.toLocaleString()} denied</span>
       </div>
       <div className="stat-cell">
-        <span className="eyebrow"><span className="glyph">\u2501\u2501</span>top policy</span>
+        <span className="eyebrow">top policy</span>
         <span
           className="value"
           style={{
