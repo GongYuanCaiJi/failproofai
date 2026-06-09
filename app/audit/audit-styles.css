@@ -448,32 +448,139 @@
   padding-top: 22px;
 }
 
-/* sigil — 8x8 pixel grid */
+/* ───────────────────────── sigil — brutalist instrument plate ─────────────
+   The audit hero's central image. Was a bare 16px-cell pixel grid that
+   felt visually underweight next to the 124px Bitcount archetype name
+   and underdesigned compared to the dashed-frame panels everywhere else.
+
+   Treatment: an "instrument card" — register crosshairs at corners, header
+   strip with index + 8×8 coordinate, the grid on a dashed inner frame
+   with 20px cells, footer strip with the archetype slug, and a stacked
+   pink + black hard-offset shadow for depth.
+
+   The `data-bare` variant (used by the ShowOff CTA via `hideLabel`)
+   skips the plate and renders a bare grid so the showoff card can scale
+   the sigil down independently and the html2canvas poster export doesn't
+   need to capture the new plate chrome.                                   */
+
 .sigil-wrap {
-  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  display: flex; flex-direction: column; align-items: center;
   justify-self: center;
 }
-.sigil {
-  display: grid;
-  grid-template-columns: repeat(8, 16px);
-  grid-template-rows: repeat(8, 16px);
-  gap: 2px;
-  padding: 16px;
-  background: var(--bg);
+
+.sigil-plate {
+  position: relative;
+  padding: 18px 22px;
+  background:
+    /* faint pink+green gridlines — same recipe as `.archetype-frame` so the
+       sigil reads as a smaller specimen of the same instrument family */
+    repeating-linear-gradient(0deg, rgba(228,88,125,0.04) 0 1px, transparent 1px 12px),
+    repeating-linear-gradient(90deg, rgba(102,209,181,0.04) 0 1px, transparent 1px 12px),
+    var(--bg);
   border: 1px solid var(--line-2);
-  box-shadow: 6px 6px 0 0 var(--accent-pink-shadow);
+  /* stacked hard-offsets: pink at the front, black behind for depth */
+  box-shadow:
+    8px 8px 0 0 var(--accent-pink-shadow),
+    16px 16px 0 0 rgba(0, 0, 0, 0.55);
 }
-.sigil .px { background: transparent; }
-.sigil .px.on { background: var(--ink); }
-.sigil .px.p { background: var(--accent-pink); }
-.sigil .px.g { background: var(--accent-green); }
-.sigil .px.d { background: var(--dim); }
-.sigil-label {
+
+/* register crosshair marks at the four corners — CSS-only "+" rendered
+   from two 1px bars so they stay pixel-crisp at any zoom */
+.sigil-mark {
+  position: absolute;
+  width: 10px; height: 10px;
+  color: var(--accent-pink);
+  opacity: 0.75;
+  pointer-events: none;
+}
+.sigil-mark::before,
+.sigil-mark::after {
+  content: "";
+  position: absolute;
+  background: currentColor;
+}
+.sigil-mark::before { top: 50%; left: 0; right: 0; height: 1px; }
+.sigil-mark::after  { left: 50%; top: 0; bottom: 0; width: 1px; }
+.sigil-mark.tl { top: 6px;    left: 6px;  }
+.sigil-mark.tr { top: 6px;    right: 6px; }
+.sigil-mark.bl { bottom: 6px; left: 6px;  }
+.sigil-mark.br { bottom: 6px; right: 6px; }
+
+/* the header (top) and footer (bottom) strips of the plate */
+.sigil-strip {
+  display: flex; justify-content: space-between; align-items: baseline;
   font-family: var(--font-mono); font-size: 10px;
   letter-spacing: 0.22em; text-transform: uppercase;
   color: var(--dim);
 }
-.sigil-label .ix { color: var(--accent-pink); margin-right: 6px; }
+.sigil-strip--top {
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  border-bottom: 1px dashed var(--line);
+}
+.sigil-strip--bot {
+  padding-top: 10px;
+  margin-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+.sigil-ix       { color: var(--accent-pink); }
+.sigil-coord    { color: var(--dim); }
+.sigil-strip-key { color: var(--dim); }
+.sigil-strip-val { color: var(--accent-green); }
+
+/* the actual 8×8 grid — bumped from 16px → 20px cells so the sigil
+   carries enough visual weight to sit next to the archetype name */
+.sigil {
+  display: grid;
+  grid-template-columns: repeat(8, 20px);
+  grid-template-rows: repeat(8, 20px);
+  gap: 2px;
+  padding: 12px;
+  background: var(--bg-2);
+  border: 1px dashed var(--line);
+  margin: 0 auto;
+}
+/* When the sigil is rendered bare (ShowOff path), restore the original
+   single-shadow look so the showoff card stays compositionally what it
+   was before the plate landed. */
+.sigil-wrap[data-bare="true"] .sigil {
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  box-shadow: 6px 6px 0 0 var(--accent-pink-shadow);
+}
+
+.sigil .px {
+  background: transparent;
+  /* diagonal fade-in: cells light up along an (x+y) wave starting from
+     the top-left when the hero first paints. Total animation ≈ 600ms. */
+  opacity: 0;
+  animation: sigil-cell-in 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: calc((var(--cx, 0) + var(--cy, 0)) * 22ms);
+}
+.sigil .px.on { background: var(--ink); }
+.sigil .px.p  {
+  background: var(--accent-pink);
+  /* subtle inner glow on accent cells so they pop without breaking pixel-craft */
+  box-shadow: 0 0 4px rgba(228, 88, 125, 0.45);
+}
+.sigil .px.g  {
+  background: var(--accent-green);
+  box-shadow: 0 0 4px rgba(102, 209, 181, 0.35);
+}
+.sigil .px.d  { background: var(--dim); }
+
+@keyframes sigil-cell-in {
+  from { opacity: 0; transform: scale(0.4); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sigil .px {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
 
 /* ───────────── poster capture mode (applied during html2canvas) ─────────────
    The live layout uses clamp()/vw font sizes, soft grid columns, and a
@@ -535,8 +642,17 @@
   justify-self: center;
   padding-top: 0;
 }
-.archetype-frame.capturing .sigil {
-  box-shadow: 6px 6px 0 0 var(--accent-pink-shadow);
+/* html2canvas renders stacked box-shadows unreliably and won't run our
+   sigil-cell-in animation. Collapse to a single hard offset on the plate
+   and force every cell to its final state for the capture. */
+.archetype-frame.capturing .sigil-plate {
+  box-shadow: 8px 8px 0 0 var(--accent-pink-shadow);
+}
+.archetype-frame.capturing .sigil { box-shadow: none; }
+.archetype-frame.capturing .sigil .px {
+  animation: none;
+  opacity: 1;
+  transform: none;
 }
 
 /* identity share buttons (inside .archetype-frame, hidden during capture) */
@@ -1092,9 +1208,12 @@
   margin: -40px -28px;
   /* shrink the embedded sigil without rebuilding it */
 }
-.showoff-glyph .sigil {
+.showoff-glyph .sigil-wrap[data-bare="true"] .sigil {
   box-shadow: 4px 4px 0 0 var(--accent-pink-shadow);
 }
+/* legacy: pre-plate sigil rendered a .sigil-label sibling. The new plate
+   renders strip rows inside the plate instead, but keep this null-rule so
+   any cached HTML between deploys doesn't surface a stray label. */
 .showoff-glyph .sigil-label { display: none; }
 .showoff-copy {
   display: flex;
