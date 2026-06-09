@@ -655,53 +655,134 @@
   transform: none;
 }
 
-/* identity share buttons (inside .archetype-frame, hidden during capture) */
-.identity-share-btns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 18px;
-  padding-top: 16px;
+/* ──────────────── identity share buttons (chunky CTAs) ────────────────
+   Three branded buttons that sit below the archetype card. Each leads
+   with a platform mark tile (𝕏 / in / ↓), then a small "share on" / "save"
+   eyebrow above the platform label, then a trailing arrow. The buttons
+   read as armed at rest via a 2px pink right-edge stroke; on hover the
+   stroke fills the full border and a hard-offset pink shadow appears.
+   On press they translate (2px, 2px) and the shadow collapses — matches
+   the .btn-press motion language used elsewhere.
+
+   The shared `.share-btn` class is also used by the floating ShareDock so
+   the visual rhythm carries between surfaces.                          */
+
+.identity-share-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 18px;
   border-top: 1px dashed var(--line);
 }
-.identity-share-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  color: var(--ink-2);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: background 120ms, border-color 120ms, color 120ms;
-  text-transform: lowercase;
+@media (max-width: 720px) {
+  .identity-share-grid { grid-template-columns: 1fr; }
 }
-.identity-share-btn:hover {
-  background: var(--accent-pink-bg);
-  border-color: var(--accent-pink);
-  color: var(--accent-pink);
-}
-.identity-share-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.isb-glyph {
-  display: grid; place-items: center;
-  width: 20px; height: 20px;
-  border: 1px solid var(--line);
-  font-family: var(--font-mono); font-size: 10px;
-  text-transform: uppercase;
-  color: var(--accent-pink);
-  font-weight: 600;
-  flex-shrink: 0;
-}
-.identity-share-btn:hover .isb-glyph { border-color: var(--accent-pink); }
 
-/* hide during html2canvas capture */
-.archetype-frame.capturing .identity-share-btns { display: none; }
+.share-btn {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  /* pink right-edge stroke at rest — reads as armed */
+  border-right: 2px solid var(--accent-pink-soft);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.share-btn:hover {
+  border-color: var(--accent-pink);
+  background: var(--accent-pink-bg);
+  box-shadow: 4px 4px 0 0 var(--accent-pink-shadow);
+  transform: translate(-1px, -1px);
+}
+.share-btn:active {
+  box-shadow: 0 0 0 0 var(--accent-pink-shadow);
+  transform: translate(2px, 2px);
+}
+.share-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-right-color: var(--line);
+}
+.share-btn:disabled:hover {
+  background: var(--bg);
+  border-color: var(--line-2);
+  border-right-color: var(--line);
+  box-shadow: none;
+  transform: none;
+}
+
+.share-btn-mark {
+  display: grid; place-items: center;
+  width: 44px; height: 44px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid var(--line-2);
+  /* corner-crosshair adornment — matches the sigil-plate's register marks */
+  background:
+    linear-gradient(to right, var(--accent-pink) 0 6px, transparent 6px) top left/100% 1px no-repeat,
+    linear-gradient(to bottom, var(--accent-pink) 0 6px, transparent 6px) top left/1px 100% no-repeat,
+    linear-gradient(to left, var(--accent-pink) 0 6px, transparent 6px) bottom right/100% 1px no-repeat,
+    linear-gradient(to top, var(--accent-pink) 0 6px, transparent 6px) bottom right/1px 100% no-repeat,
+    var(--bg-2);
+  color: var(--ink);
+}
+.share-btn-mark--x  { color: #ffffff; background-color: #000000; }
+.share-btn-mark--li {
+  color: #ffffff;
+  background-color: #0a66c2;
+  /* override the pink-crosshair gradients so the LinkedIn blue tile reads cleanly */
+  background-image: none;
+}
+.share-btn-mark--dl { color: var(--accent-pink); }
+
+.share-btn-body {
+  display: flex; flex-direction: column;
+  gap: 2px; min-width: 0;
+}
+.share-btn-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-green);
+}
+.share-btn-label {
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+  font-weight: 500;
+  /* avoid spilling on long localized labels */
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.share-btn-arrow {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--accent-pink);
+  opacity: 0.7;
+  transition: opacity 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.share-btn:hover .share-btn-arrow { opacity: 1; transform: translateX(2px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .share-btn, .share-btn-arrow { transition: none; }
+  .share-btn:hover { transform: none; }
+}
+
+/* hide during html2canvas capture so the buttons don't render into the poster */
+.archetype-frame.capturing .identity-share-grid { display: none; }
 
 /* ───────────────────────── 02 STRENGTHS ───────────────────────── */
 
@@ -1872,4 +1953,114 @@
     animation: none;
   }
   .running-bar-fill { transition: none; }
+}
+
+/* ──────────────── floating share dock ────────────────
+   Persistent share affordance pinned to the bottom-right of the audit
+   page. Uses the same .share-btn styling as the inline strip in
+   identity-section so the visual rhythm carries. The dock can be
+   collapsed to a single pink FAB; preference persists in sessionStorage. */
+
+.share-dock {
+  position: fixed;
+  right: clamp(16px, 2.5vw, 32px);
+  bottom: clamp(16px, 2.5vw, 32px);
+  z-index: 40;
+  width: 300px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  box-shadow:
+    8px 8px 0 0 var(--accent-pink-shadow),
+    16px 16px 0 0 rgba(0, 0, 0, 0.5);
+  animation: share-dock-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.share-dock::before,
+.share-dock::after { content: ""; position: absolute; width: 10px; height: 10px; }
+.share-dock::before {
+  top: -1px; left: -1px;
+  border-top: 1px solid var(--accent-pink);
+  border-left: 1px solid var(--accent-pink);
+}
+.share-dock::after {
+  bottom: -1px; right: -1px;
+  border-bottom: 1px solid var(--accent-pink);
+  border-right: 1px solid var(--accent-pink);
+}
+
+@keyframes share-dock-in {
+  from { opacity: 0; transform: translate(8px, 8px); }
+  to   { opacity: 1; transform: translate(0, 0); }
+}
+
+.share-dock-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px dashed var(--line);
+}
+.share-dock-eyebrow {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent-green);
+}
+.share-dock-eyebrow > span { color: var(--accent-pink); margin-right: 8px; letter-spacing: -2px; }
+.share-dock-caret {
+  display: grid; place-items: center;
+  width: 24px; height: 24px;
+  background: transparent;
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  font-family: var(--font-mono); font-size: 11px;
+  cursor: pointer;
+  transition: color 140ms cubic-bezier(0.22, 1, 0.36, 1), border-color 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.share-dock-caret:hover { color: var(--accent-pink); border-color: var(--accent-pink); }
+
+.share-dock-stack {
+  display: flex; flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px 10px;
+}
+/* Dock buttons fill the dock width — same `.share-btn` skin, just full-width. */
+.share-dock-stack .share-btn { width: 100%; }
+
+.share-dock-foot {
+  padding: 10px 16px 12px;
+  border-top: 1px dashed var(--line);
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--dim);
+  text-align: center;
+}
+.share-dock-foot > span { color: var(--accent-pink); margin-right: 6px; }
+
+/* Collapsed-state FAB — single pink-tile button that re-expands the dock. */
+.share-dock-fab {
+  position: fixed;
+  right: clamp(16px, 2.5vw, 32px);
+  bottom: clamp(16px, 2.5vw, 32px);
+  z-index: 40;
+  width: 56px; height: 56px;
+  display: grid; place-items: center;
+  background: var(--accent-pink);
+  color: var(--bg);
+  border: 1px solid var(--accent-pink);
+  box-shadow: 6px 6px 0 0 var(--accent-pink-shadow);
+  font-family: var(--font-mono);
+  font-size: 22px; font-weight: 700;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: share-dock-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.share-dock-fab:hover { transform: translate(-2px, -2px); box-shadow: 9px 9px 0 0 var(--accent-pink-shadow); }
+.share-dock-fab:active { transform: translate(2px, 2px); box-shadow: 0 0 0 0 var(--accent-pink-shadow); }
+
+/* hide on mobile — inline buttons cover the same affordance there */
+@media (max-width: 760px) {
+  .share-dock, .share-dock-fab { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-dock, .share-dock-fab { animation: none; }
+  .share-dock-fab { transition: none; }
+  .share-dock-caret { transition: none; }
 }

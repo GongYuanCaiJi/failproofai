@@ -22,6 +22,8 @@ import { ARCHETYPES, pickArchetypeVariant, type ArchetypeKey } from "@/src/audit
 import { type Grade } from "@/src/audit/scoring";
 import { usePostHog } from "@/contexts/PostHogContext";
 import { Sigil } from "./sigil";
+import { copyOrDownloadCard, shareCardToastMessage } from "@/lib/share-card";
+import { toast } from "@/app/components/toast";
 
 const SITE_URL = "https://failproof.ai";
 const X_INTENT = (text: string) =>
@@ -81,9 +83,13 @@ export const IdentitySection = forwardRef<HTMLDivElement, Props>(function Identi
   const { capture } = usePostHog();
   const [downloadState, setDownloadState] = useState<"idle" | "busy" | "done" | "error">("idle");
 
-  const captureCard = async (): Promise<boolean> => {
+  /** Renders the archetype frame to a PNG blob via html2canvas. Returns
+   *  `null` if the frame isn't mounted yet, capture failed, or the canvas
+   *  produced no blob. Callers decide whether to copy-to-clipboard or
+   *  download via the `lib/share-card.copyOrDownloadCard` helper. */
+  const captureCardBlob = async (): Promise<Blob | null> => {
     const node = typeof frameRef === "function" ? null : frameRef?.current;
-    if (!node) return false;
+    if (!node) return null;
     node.classList.add("capturing");
     try {
       if (typeof document !== "undefined" && document.fonts?.ready) await document.fonts.ready;
@@ -95,25 +101,18 @@ export const IdentitySection = forwardRef<HTMLDivElement, Props>(function Identi
         logging: false,
         useCORS: true,
       });
-      await new Promise<void>((resolve) => {
-        canvas.toBlob((blob) => {
-          if (!blob) { resolve(); return; }
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `failproofai-identity-${grade.toLowerCase()}-${score}.png`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          resolve();
-        }, "image/png");
+      return await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((blob) => resolve(blob), "image/png");
       });
-      return true;
     } finally {
       node.classList.remove("capturing");
     }
   };
+
+  const filenameFor = (channel: "x" | "linkedin" | "download") =>
+    channel === "download"
+      ? `failproofai-identity-${grade.toLowerCase()}-${score}.png`
+      : `failproofai-${channel}-${grade.toLowerCase()}-${score}.png`;
 
   const handleDownload = async () => {
     if (downloadState === "busy") return;
@@ -124,19 +123,22 @@ export const IdentitySection = forwardRef<HTMLDivElement, Props>(function Identi
     });
     setDownloadState("busy");
     try {
-      const captured = await captureCard();
-      capture("audit_card_capture_completed", {
-        trigger: "download",
-        status: captured ? "success" : "no_frame",
-      });
-      setDownloadState("done");
-      setTimeout(() => setDownloadState("idle"), 2000);
+      const blob = await captureCardBlob();
+      if (!blob) {
+        capture("audit_card_capture_completed", { trigger: "download", status: "no_frame", image_method: "failed" });
+        toast(shareCardToastMessage("failed"));
+        setDownloadState("error");
+      } else {
+        const method = await copyOrDownloadCard(blob, filenameFor("download"));
+        capture("audit_card_capture_completed", { trigger: "download", status: "success", image_method: method });
+        toast(shareCardToastMessage(method));
+        setDownloadState(method === "failed" ? "error" : "done");
+      }
     } catch {
-      capture("audit_card_capture_completed", {
-        trigger: "download",
-        status: "error",
-      });
+      capture("audit_card_capture_completed", { trigger: "download", status: "error", image_method: "failed" });
+      toast(shareCardToastMessage("failed"));
       setDownloadState("error");
+    } finally {
       setTimeout(() => setDownloadState("idle"), 2000);
     }
   };
@@ -145,15 +147,21 @@ export const IdentitySection = forwardRef<HTMLDivElement, Props>(function Identi
     const text = buildXTemplate(score, archetype.name, grade, missing);
     capture("audit_card_share_clicked", {
       channel: "x",
+      source: "identity",
       score,
       grade,
       missing_policies: missing,
     });
-    const captured = await captureCard().catch(() => false);
+    const blob = await captureCardBlob().catch(() => null);
+    const method = blob
+      ? await copyOrDownloadCard(blob, filenameFor("x"))
+      : "failed";
     capture("audit_card_capture_completed", {
       trigger: "share_x",
-      status: captured ? "success" : "error",
+      status: blob ? "success" : "error",
+      image_method: method,
     });
+    toast(shareCardToastMessage(method));
     globalThis.open(X_INTENT(text), "_blank", "noopener,noreferrer");
   };
 
@@ -161,15 +169,21 @@ export const IdentitySection = forwardRef<HTMLDivElement, Props>(function Identi
     const text = buildLinkedInTemplate(score, archetype.name, grade, missing);
     capture("audit_card_share_clicked", {
       channel: "linkedin",
+      source: "identity",
       score,
       grade,
       missing_policies: missing,
     });
-    const captured = await captureCard().catch(() => false);
+    const blob = await captureCardBlob().catch(() => null);
+    const method = blob
+      ? await copyOrDownloadCard(blob, filenameFor("linkedin"))
+      : "failed";
     capture("audit_card_capture_completed", {
       trigger: "share_linkedin",
-      status: captured ? "success" : "error",
+      status: blob ? "success" : "error",
+      image_method: method,
     });
+    toast(shareCardToastMessage(method));
     globalThis.open(LI_INTENT(text), "_blank", "noopener,noreferrer");
   };
 
@@ -249,28 +263,40 @@ export const IdentitySection = forwardRef<HTMLDivElement, Props>(function Identi
           <Sigil archetypeKey={archetypeKey} />
         </div>
 
-        <div className="identity-share-btns">
-          <button type="button" className="identity-share-btn" onClick={handleShareX}>
-            <span className="isb-glyph" aria-hidden="true">x</span>
-            <span className="isb-text">share on x</span>
+        <div className="identity-share-grid" aria-label="Share your audit">
+          <button type="button" className="share-btn share-btn--x" onClick={handleShareX}>
+            <span className="share-btn-mark share-btn-mark--x" aria-hidden="true">𝕏</span>
+            <span className="share-btn-body">
+              <span className="share-btn-eyebrow">share on</span>
+              <span className="share-btn-label">X · Twitter</span>
+            </span>
+            <span className="share-btn-arrow" aria-hidden="true">→</span>
           </button>
-          <button type="button" className="identity-share-btn" onClick={handleShareLI}>
-            <span className="isb-glyph" aria-hidden="true">in</span>
-            <span className="isb-text">share on linkedin</span>
+          <button type="button" className="share-btn share-btn--li" onClick={handleShareLI}>
+            <span className="share-btn-mark share-btn-mark--li" aria-hidden="true">in</span>
+            <span className="share-btn-body">
+              <span className="share-btn-eyebrow">share on</span>
+              <span className="share-btn-label">LinkedIn</span>
+            </span>
+            <span className="share-btn-arrow" aria-hidden="true">→</span>
           </button>
           <button
             type="button"
-            className="identity-share-btn"
+            className="share-btn share-btn--dl"
             onClick={handleDownload}
             disabled={downloadState === "busy"}
           >
-            <span className="isb-glyph" aria-hidden="true">↓</span>
-            <span className="isb-text">
-              {downloadState === "busy" ? "rendering…"
-                : downloadState === "done" ? "downloaded ✓"
-                : downloadState === "error" ? "render failed"
-                : "download audit-card"}
+            <span className="share-btn-mark share-btn-mark--dl" aria-hidden="true">↓</span>
+            <span className="share-btn-body">
+              <span className="share-btn-eyebrow">save</span>
+              <span className="share-btn-label">
+                {downloadState === "busy" ? "rendering…"
+                  : downloadState === "done" ? "saved ✓"
+                  : downloadState === "error" ? "try again"
+                  : "audit-card"}
+              </span>
             </span>
+            <span className="share-btn-arrow" aria-hidden="true">↓</span>
           </button>
         </div>
       </div>
