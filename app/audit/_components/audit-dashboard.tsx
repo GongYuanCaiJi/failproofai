@@ -297,9 +297,6 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
             sessions={result.transcripts.scanned}
             window={scopeWindow}
             seed={project}
-            score={score}
-            grade={grade}
-            missing={missing}
           />
           <StrengthsSection
             strengths={strengths}

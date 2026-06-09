@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { copyOrDownloadCard, shareCardToastMessage } from "@/lib/share-card";
+import {
+  copyOrDownloadCard,
+  downloadCard,
+  shareCardNative,
+  shareCardToastMessage,
+} from "@/lib/share-card";
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47]); // PNG magic header
 
@@ -83,8 +88,57 @@ describe("lib/share-card", () => {
   });
 
   it("toast copy is method-specific", () => {
+    expect(shareCardToastMessage("native")).toMatch(/attached/);
     expect(shareCardToastMessage("clipboard")).toMatch(/copied/);
     expect(shareCardToastMessage("download")).toMatch(/downloaded/);
     expect(shareCardToastMessage("failed")).toMatch(/couldn/i);
+  });
+
+  it("downloadCard triggers an anchor click and returns true", () => {
+    const click = vi.fn();
+    const realCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag) => {
+      const node = realCreate(tag);
+      if (tag === "a") Object.defineProperty(node, "click", { value: click });
+      return node;
+    });
+
+    const ok = downloadCard(makeBlob(), "x.png");
+
+    expect(ok).toBe(true);
+    expect(click).toHaveBeenCalledTimes(1);
+  });
+
+  it("shareCardNative returns false when navigator.share is unavailable", async () => {
+    const originalShare = navigator.share;
+    Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+    try {
+      const ok = await shareCardNative(makeBlob(), "x.png", "hello");
+      expect(ok).toBe(false);
+    } finally {
+      Object.defineProperty(navigator, "share", { configurable: true, value: originalShare });
+    }
+  });
+
+  it("shareCardNative returns true when navigator.share resolves", async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+
+    const ok = await shareCardNative(makeBlob(), "x.png", "hello");
+
+    expect(ok).toBe(true);
+    expect(share).toHaveBeenCalledTimes(1);
+  });
+
+  it("shareCardNative returns false on AbortError (user cancelled)", async () => {
+    const abort = Object.assign(new Error("cancelled"), { name: "AbortError" });
+    const share = vi.fn().mockRejectedValue(abort);
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: () => true });
+
+    const ok = await shareCardNative(makeBlob(), "x.png", "hello");
+
+    expect(ok).toBe(false);
   });
 });

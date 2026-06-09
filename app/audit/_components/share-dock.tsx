@@ -28,7 +28,7 @@
 import React, { useEffect, useState } from "react";
 import { type ArchetypeKey, pickArchetypeVariant } from "@/src/audit/archetypes";
 import { type Grade } from "@/src/audit/scoring";
-import { copyOrDownloadCard, shareCardToastMessage } from "@/lib/share-card";
+import { copyOrDownloadCard, downloadCard, shareCardNative, shareCardToastMessage } from "@/lib/share-card";
 import { toast } from "@/app/components/toast";
 import { usePostHog } from "@/contexts/PostHogContext";
 
@@ -132,21 +132,62 @@ export function ShareDock({ frameRef, archetypeKey, seed, score, grade, missing 
     });
     try {
       const blob = await captureCardBlob().catch(() => null);
-      const method = blob
-        ? await copyOrDownloadCard(blob, filenameFor(channel))
-        : "failed";
+      if (!blob) {
+        capture("audit_card_capture_completed", {
+          trigger: channel === "download" ? "download" : `share_${channel}`,
+          status: "error",
+          image_method: "failed",
+          source: "dock",
+        });
+        toast(shareCardToastMessage("failed"));
+        return;
+      }
+
+      // Dedicated "save audit-card" button: always download, never clipboard.
+      if (channel === "download") {
+        const ok = downloadCard(blob, filenameFor(channel));
+        const method = ok ? "download" : "failed";
+        capture("audit_card_capture_completed", {
+          trigger: "download",
+          status: ok ? "success" : "error",
+          image_method: method,
+          source: "dock",
+        });
+        toast(shareCardToastMessage(method));
+        return;
+      }
+
+      // X / LinkedIn share: try the native share sheet with file first
+      // (one-tap "image attached" on iOS / Android / recent Safari / recent
+      // Chrome). Fall back to clipboard + opening the intent URL when the
+      // native share sheet isn't available or the user dismissed it.
+      const shareText = channel === "x"
+        ? buildXTemplate(score, archetypeDisplayName, grade, missing)
+        : buildLinkedInTemplate(score, archetypeDisplayName, grade, missing);
+      const native = await shareCardNative(blob, filenameFor(channel), shareText);
+      if (native) {
+        capture("audit_card_capture_completed", {
+          trigger: `share_${channel}`,
+          status: "success",
+          image_method: "native",
+          source: "dock",
+        });
+        toast(shareCardToastMessage("native"));
+        return;
+      }
+
+      const fallbackMethod = await copyOrDownloadCard(blob, filenameFor(channel));
       capture("audit_card_capture_completed", {
-        trigger: channel === "download" ? "download" : `share_${channel}`,
-        status: blob ? "success" : "error",
-        image_method: method,
+        trigger: `share_${channel}`,
+        status: "success",
+        image_method: fallbackMethod,
         source: "dock",
       });
-      toast(shareCardToastMessage(method));
-      if (channel === "x") {
-        globalThis.open(X_INTENT(buildXTemplate(score, archetypeDisplayName, grade, missing)), "_blank", "noopener,noreferrer");
-      } else if (channel === "linkedin") {
-        globalThis.open(LI_INTENT(buildLinkedInTemplate(score, archetypeDisplayName, grade, missing)), "_blank", "noopener,noreferrer");
-      }
+      toast(shareCardToastMessage(fallbackMethod));
+      const intent = channel === "x"
+        ? X_INTENT(shareText)
+        : LI_INTENT(shareText);
+      globalThis.open(intent, "_blank", "noopener,noreferrer");
     } finally {
       setBusy(null);
     }
