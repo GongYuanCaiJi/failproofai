@@ -192,10 +192,18 @@
 
 /* ───────────────────────── audit page shell ───────────────────────── */
 
+/* the audit page intentionally runs narrower than the global .report — the
+   archetype hero, findings cards, and score-share card are tuned for a
+   ~1400px-max layout where the headline line measure stays "billboard"
+   tight. On a 2400px+ monitor we still want to break out of the 1180px
+   feel that used to leave too much black on both flanks; clamp up to
+   1480px and let `.archetype-frame` cap itself further so the hero doesn't
+   stretch past its compositional break-point. */
 .report {
-  max-width: 1180px;
+  width: 100%;
+  max-width: clamp(720px, 92vw, 1480px);
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 0 clamp(20px, 3vw, 48px);
 }
 
 .section {
@@ -242,6 +250,11 @@
 
 .archetype-frame {
   position: relative;
+  /* hero composition was tuned for ~1180px max — let it grow a little but
+     don't let the giant Bitcount name turn into a billboard on 4K */
+  max-width: 1320px;
+  margin-left: auto;
+  margin-right: auto;
   border: 1px solid var(--line-2);
   background:
     repeating-linear-gradient(0deg, rgba(228,88,125,0.025) 0 1px, transparent 1px 16px),

@@ -346,13 +346,17 @@ input[type="date"] { color-scheme: dark; }
 
 /* ───────────────────────── canonical page chrome ───────────────────────── */
 
+/* the canonical content shell. Scales to fill ultrawide monitors without
+   collapsing on mobile or letting prose lines get unreadable. The cap at
+   1840px keeps the line measure for tabular pages (policies activity,
+   sessions list) comfortably below "scan back to start of next row" length
+   on a 2560px display. Side gutter is clamped 20→56px so the chrome breathes
+   on big screens without crowding small ones. */
 .report {
-  max-width: 1380px;
+  width: 100%;
+  max-width: clamp(720px, 96vw, 1840px);
   margin: 0 auto;
-  padding: 0 40px;
-}
-@media (max-width: 720px) {
-  .report { padding: 0 20px; }
+  padding: 0 clamp(20px, 3vw, 56px);
 }
 
 .section {
