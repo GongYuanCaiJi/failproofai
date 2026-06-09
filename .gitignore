@@ -90,3 +90,4 @@ packages/*/assets/
 
 # Local Mintlify dev server log (transient)
 mint-dev.log
+.release-notes-0.0.11-beta.3.md
