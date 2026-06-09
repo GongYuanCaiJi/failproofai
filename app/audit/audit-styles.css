@@ -295,6 +295,9 @@
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(0.85); }
 }
+@media (prefers-reduced-motion: reduce) {
+  .arch-target .dot-live { animation: none; }
+}
 .arch-counter {
   font-family: var(--font-mono); font-size: 11px;
   letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim);
@@ -1723,4 +1726,18 @@
   .strength-row { grid-template-columns: 40px 1fr; }
   .strength-metric { grid-column: 2; text-align: left; margin-top: 6px; }
   .return-hook { padding: 28px 24px; }
+}
+
+/* reduced-motion: silence the ambient terminal motion (blinking cursor,
+   spinner, marquee shine, status pulse) so vestibular-sensitive users get a
+   still UI. Functional progress (.running-bar-fill width) still updates;
+   only the decorative loops are stopped. */
+@media (prefers-reduced-motion: reduce) {
+  .running-cursor,
+  .running-stage-spin,
+  .running-bar-fill::after,
+  .auth-status-pill .dot {
+    animation: none;
+  }
+  .running-bar-fill { transition: none; }
 }
