@@ -65,7 +65,13 @@ jobs:
           # needing the submodule contents on disk.
           git update-index --add --cacheinfo "160000,$NEW_SHA,failproofai/oss"
 
-          SUBJECT_LINE=$(printf '%s\n' "${COMMIT_SUBJECT:-Manual trigger}" | head -n 1)
+          # Extract the first line via pure bash parameter expansion — piping
+          # printf into `head -n 1` raced under `set -o pipefail`: head closes
+          # the pipe after the first line, printf dies with SIGPIPE, and the
+          # pipeline exits non-zero. The squash-merge commit body that broke
+          # run 27208748580 was several KB, easily triggering it.
+          SUBJECT_LINE=${COMMIT_SUBJECT:-Manual trigger}
+          SUBJECT_LINE=${SUBJECT_LINE%%$'\n'*}
           SHORT_SHA=${NEW_SHA:0:7}
 
           git commit -m "Bump failproofai/oss to $SHORT_SHA" \
