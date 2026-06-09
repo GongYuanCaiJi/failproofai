@@ -2,6 +2,9 @@
 
 ## 0.0.11-beta.3 — 2026-06-08
 
+### Dependencies
+- Swap the Vitest DOM environment from `happy-dom` to `jsdom` (`vitest.config.mts`, `package.json`, 15 `docs/*/testing.mdx`). happy-dom is single-maintainer and had a 2024 critical CVE; jsdom has 6 maintainers, ~7× the weekly downloads, and a perfect Snyk maintenance score. Test suite (1691 tests across 82 files) stays green on jsdom (#419).
+
 ### Features
 - Drop the standalone pixel icon from the top navbar (`components/navbar.tsx`) — the brand cluster is now wordmark-only. Logo resolution is also reworked: a new `useBrandLogo` hook attempts a runtime `fetch` of the remote brand URL on mount, blob-wraps the response into an object URL on success, and falls back to the bundled `/logo.svg` (served from `public/`, mirrored at `assets/logos/company/logo.svg`) on any error/non-OK status. The local fallback is also rendered as the initial state so SSR + pre-fetch frames show the brand without a flash.
 - Swap the display font across the app from `Architype Stedelijk` to `Bitcount Prop Single` (the wordmark treatment used on befailproof.ai). Replaces both font binaries — `public/audit/fonts/architype-stedelijk.{woff2,ttf}` and `assets/audit/assets/fonts/architype-stedelijk.{woff2,ttf}` — with the single self-hosted static instance `bitcount-prop-single.woff2` (wght 417 + ELSH 55 baked in, so no `font-variation-settings` plumbing is needed). Both `@font-face` blocks (`app/globals.css`, `assets/audit/styles.css`) and both `--font-display` declarations are updated; the CSS variable name and fallback stack (`"VT323", "JetBrains Mono", monospace`) stay unchanged so every consumer of `var(--font-display)` picks up the new face with no further edits. Stale Architype references in the comment headers of `components/navbar.tsx`, `app/audit/_components/empty-state.tsx`, and `app/audit/_components/show-off-cta.tsx` are renamed to match.
@@ -43,6 +46,7 @@
 - Add `docs/.vale.ini` and a `Mintlify` Vocab accept-list to suppress noisy `Mintlify Validation (exosphere) - vale-spellcheck` CI failures. Disables `Vale.Spelling` on the 14 translated language subdirs (`ar/`, `de/`, …, `zh/`) and `i18n/`, since running an English dictionary over auto-translated content produces only noise; keeps spellcheck active on the canonical English `*.{md,mdx}` files with a project Vocab covering brand names (`failproofai`, `Claude`, `Codex`, …), CLI tooling (`npx`, `bunx`, `gcloud`, `systemctl`, …), and Claude Code event names (`PreToolUse`, `SessionStart`, …) (#410).
 - Update the README logo (EN + 14 translated READMEs) from `logo-wordmark.png` to the new `fa_updated_full.svg` wordmark served on befailproof.ai (#387).
 - Change the README supply-chain badge from the live OSV-Scanner workflow-status badge (`supply chain: passing`) to a static `supply chain: secure` badge, still linked to the workflow runs (#393).
+- Add a Bitcount Prop Single font template under `templates/bitcount-font/` (next/font loader + framework-agnostic CSS with tunable knobs) capturing the befailproof.ai title treatment for reuse. Bundles a self-hosted static instance (`bitcount-prop-single.woff2`, wght 417 + ELSH 55 baked in) so the rounded-square shape renders consistently on every device, avoiding Google Fonts' CDN serving a static default-instance to mobile user-agents (where `font-variation-settings: "ELSH" 55` silently no-ops and the title renders as round dots) (#390).
 
 ## 0.0.11-beta.2 — 2026-05-21
 
