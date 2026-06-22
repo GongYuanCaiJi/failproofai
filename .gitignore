@@ -91,5 +91,5 @@ packages/*/assets/
 # Local Mintlify dev server log (transient)
 mint-dev.log
 
-# local scratch (dev logs, probe scripts)
-/.tmp/
+# superpowers brainstorm session scratch
+.superpowers/
