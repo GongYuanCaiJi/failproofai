@@ -152,6 +152,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 3
+          timeout_minutes: 5
+          command: bun install --frozen-lockfile
+
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -159,9 +176,18 @@ jobs:
       - name: Install Mintlify CLI
         run: npm install -g mintlify
 
-      - name: Validate docs
+      # Validates docs.json structure + nav-link resolution.
+      - name: Validate docs config
         working-directory: docs
         run: mintlify validate
+
+      # Parses every MDX page with the same engine Mintlify runs at deploy
+      # time. `mintlify validate` does NOT parse page content, so a syntax
+      # error (e.g. a translation that breaks a JSX tag or injects a `{#id}`
+      # heading anchor) passes that step but fails the post-merge deploy.
+      # This catches it on the PR instead.
+      - name: Validate MDX pages parse
+        run: bun run validate:mdx
 
   test-e2e:
     runs-on: ubuntu-latest
