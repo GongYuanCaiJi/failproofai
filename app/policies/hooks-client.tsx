@@ -183,9 +183,14 @@ function IntegrationBadge({ integration }: { integration?: string }) {
 
 function ModeBadge({ mode }: { mode: string }) {
   const isDefault = mode === "default";
+  // inline-block + max-w-full + truncate: the pill fits its column for known
+  // modes (incl. the longest, "bypassPermissions") and, for any unexpectedly
+  // long / custom mode, ellipsizes inside the pill with a hover tooltip rather
+  // than being hard-clipped mid-word at the cell edge by .activity-data-row > td.
   return (
     <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-medium border ${
+      title={mode}
+      className={`inline-block max-w-full truncate rounded px-1.5 py-0.5 align-middle text-[0.6rem] font-medium border ${
         isDefault
           ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
           : "bg-amber-500/10 text-amber-400 border-amber-500/20"
@@ -632,32 +637,36 @@ function ActivityTab({
         ) : (
           <div className="overflow-x-auto activity-table-wrap">
             <table className="w-full text-xs activity-table" style={{ tableLayout: "fixed" }}>
+              {/* Column widths (table-layout: fixed). Order must match <thead>:
+                  chevron · time · decision · event · cli · tool · policy · reason · mode · duration · session.
+                  Badge columns (decision/event/cli/mode) must stay wide enough for their widest
+                  pill — mode holds "bypassPermissions", the longest badge text in the table. */}
               <colgroup>
                 <col style={{ width: 32 }} />
-                <col style={{ width: "8%" }} />
-                <col style={{ width: "8%" }} />
-                <col style={{ width: "8%" }} />
                 <col style={{ width: "7%" }} />
-                <col style={{ width: "18%" }} />
-                <col style={{ width: "22%" }} />
-                <col style={{ width: "6%" }} />
+                <col style={{ width: "9%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "9%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "11%" }} />
                 <col style={{ width: "8%" }} />
                 <col style={{ width: "8%" }} />
-                <col style={{ width: "7%" }} />
               </colgroup>
               <thead className="activity-thead">
                 <tr>
                   <th className="px-4 py-3" />
+                  <th className="px-3 py-3 activity-th">Time</th>
                   <th className="px-3 py-3 activity-th">Decision</th>
                   <th className="px-3 py-3 activity-th">Event</th>
                   <th className="px-3 py-3 activity-th">CLI</th>
                   <th className="px-3 py-3 activity-th">Tool</th>
                   <th className="px-3 py-3 activity-th">Policy</th>
                   <th className="px-3 py-3 activity-th">Reason</th>
+                  <th className="px-3 py-3 activity-th">Mode</th>
                   <th className="px-3 py-3 activity-th">Duration</th>
                   <th className="px-3 py-3 activity-th">Session</th>
-                  <th className="px-3 py-3 activity-th">Mode</th>
-                  <th className="px-3 py-3 activity-th text-right">Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
@@ -669,7 +678,7 @@ function ActivityTab({
                     <React.Fragment key={`${item.timestamp}-${i}`}>
                       <tr
                         onClick={() => toggleRow(i)}
-                        className={`cursor-pointer transition-colors ${
+                        className={`activity-data-row cursor-pointer transition-colors ${
                           isDeny
                             ? "bg-red-500/[0.03] hover:bg-red-500/[0.07] border-l-2 border-l-red-500/40"
                             : isInstruct
@@ -685,6 +694,12 @@ function ActivityTab({
                               isExpanded ? "rotate-0" : "-rotate-90"
                             }`}
                           />
+                        </td>
+                        <td
+                          className="px-3 py-2 text-muted-foreground whitespace-nowrap"
+                          title={formatAbsoluteTime(item.timestamp)}
+                        >
+                          {formatRelativeTime(item.timestamp)}
                         </td>
                         <td className="px-3 py-2">
                           <DecisionBadge decision={item.decision} />
@@ -715,6 +730,13 @@ function ActivityTab({
                           {item.reason ?? "\u2014"}
                         </td>
                         <td className="px-3 py-2">
+                          {item.permissionMode ? (
+                            <ModeBadge mode={item.permissionMode} />
+                          ) : (
+                            "\u2014"
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
                           <DurationDisplay ms={item.durationMs} />
                         </td>
                         <td className="px-3 py-2" title={item.sessionId ?? ""}>
@@ -724,19 +746,6 @@ function ActivityTab({
                             integration={item.integration}
                             cwd={item.cwd}
                           />
-                        </td>
-                        <td className="px-3 py-2">
-                          {item.permissionMode ? (
-                            <ModeBadge mode={item.permissionMode} />
-                          ) : (
-                            "\u2014"
-                          )}
-                        </td>
-                        <td
-                          className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap"
-                          title={formatAbsoluteTime(item.timestamp)}
-                        >
-                          {formatRelativeTime(item.timestamp)}
                         </td>
                       </tr>
                       {isExpanded && <DetailPanel item={item} />}
