@@ -18,6 +18,18 @@ export const CODEX_HOOK_EVENT_TYPES = [
   "post_tool_use",
   "user_prompt_submit",
   "stop",
+  // Newly documented upstream (https://developers.openai.com/codex/hooks) —
+  // snake_case forms of the documented SubagentStart / PreCompact / PostCompact /
+  // SubagentStop events. Each has an exact 1:1 canonical HookEventType (already
+  // present in HOOK_EVENT_TYPES), so their CODEX_EVENT_MAP entries below are
+  // filled in directly. The map is an exhaustive `Record<CodexHookEventType,
+  // HookEventType>`, so tsc guarantees every event here keeps a mapping — a
+  // partial sync (event added, mapping missing) fails the build instead of
+  // silently writing an `undefined` event key into users' .codex/hooks.json.
+  "subagent_start",
+  "pre_compact",
+  "post_compact",
+  "subagent_stop",
 ] as const;
 export type CodexHookEventType = (typeof CODEX_HOOK_EVENT_TYPES)[number];
 
@@ -28,6 +40,10 @@ export const CODEX_EVENT_MAP: Record<CodexHookEventType, HookEventType> = {
   post_tool_use: "PostToolUse",
   user_prompt_submit: "UserPromptSubmit",
   stop: "Stop",
+  subagent_start: "SubagentStart",
+  pre_compact: "PreCompact",
+  post_compact: "PostCompact",
+  subagent_stop: "SubagentStop",
 };
 
 /**
@@ -92,6 +108,18 @@ export const COPILOT_HOOK_EVENT_TYPES = [
   "PostToolUse",
   "Stop",
   "SubagentStop",
+  // Newly documented upstream (cli-hooks-reference), each with an explicit
+  // PascalCase "VS Code compatible" variant shown in the docs. No COPILOT_EVENT_MAP
+  // exists (Copilot names are already Pascal), so appending keeps the build green.
+  // NOTE: `subagentStart` is also newly documented but appears camelCase-ONLY (no
+  // PascalCase variant listed), so it is deferred to the reviewer checklist rather
+  // than guessing a casing. `notification`, by contrast, DOES have a documented
+  // `Notification` PascalCase variant, so it is appended below.
+  "PostToolUseFailure",
+  "ErrorOccurred",
+  "PreCompact",
+  "PermissionRequest",
+  "Notification",
 ] as const;
 export type CopilotHookEventType = (typeof COPILOT_HOOK_EVENT_TYPES)[number];
 
@@ -556,6 +584,18 @@ export const HOOK_EVENT_TYPES = [
   "ElicitationResult",
   "UserPromptExpansion",
   "PostToolBatch",
+  // Newly documented upstream (https://code.claude.com/docs/en/hooks lifecycle
+  // table). `Setup` fires only on `--init`/`--maintenance` (low-frequency), so it
+  // is appended and installed like any other event.
+  //
+  // `MessageDisplay` is intentionally NOT appended. The docs mark it observe-only
+  // (it cannot block or modify anything) and note it fires on *every* assistant
+  // message display with no matcher support. Since `writeHookEntries` installs a
+  // hook for every entry in this array, appending it would spawn a failproofai
+  // subprocess on every message render for zero enforcement value. Deferred to the
+  // PR reviewer checklist; add it here only if a future observe-only use case
+  // (e.g. redaction/telemetry) justifies the per-message cost.
+  "Setup",
 ] as const;
 
 export type HookEventType = (typeof HOOK_EVENT_TYPES)[number];
