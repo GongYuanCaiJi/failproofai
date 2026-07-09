@@ -204,6 +204,12 @@ describe("OpenAI Codex integration", () => {
     expect(entry[FAILPROOFAI_HOOK_MARKER]).toBe(true);
   });
 
+  it("buildHookEntry sets timeout in SECONDS (60), not milliseconds", () => {
+    // Codex reads `timeout` as seconds (its `timeout_sec` field); 60000 would be ~16.7h.
+    const entry = codex.buildHookEntry("/usr/bin/failproofai", "pre_tool_use", "user");
+    expect(entry.timeout).toBe(60);
+  });
+
   it("project scope uses npx -y failproofai", () => {
     const entry = codex.buildHookEntry("/usr/bin/failproofai", "pre_tool_use", "project");
     expect(entry.command).toBe("npx -y failproofai --hook pre_tool_use --cli codex");
@@ -220,16 +226,23 @@ describe("OpenAI Codex integration", () => {
       // Snake-case keys must NOT be present (Codex stores under Pascal)
       expect(hooks[snake]).toBeUndefined();
     }
-    // Settings file carries version: 1
-    expect(settings.version).toBe(1);
+    // Settings file does NOT carry version (Codex strictly expects only `hooks`)
+    expect(settings.version).toBeUndefined();
   });
 
-  it("readSettings backfills version: 1 on existing files without it", () => {
+  it("writeHookEntries removes version on existing files if present", () => {
+    const settings: Record<string, unknown> = { version: 1, hooks: {} };
+    codex.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    expect(settings.version).toBeUndefined();
+  });
+
+  it("removeHooksFromFile removes version on existing files even if no failproofai hooks are present", () => {
     const settingsPath = resolve(tempDir, ".codex", "hooks.json");
     mkdirSync(resolve(tempDir, ".codex"), { recursive: true });
-    writeFileSync(settingsPath, JSON.stringify({ hooks: {} }));
-    const read = codex.readSettings(settingsPath);
-    expect(read.version).toBe(1);
+    writeFileSync(settingsPath, JSON.stringify({ version: 1, hooks: {} }));
+    codex.removeHooksFromFile(settingsPath);
+    const read = JSON.parse(readFileSync(settingsPath, "utf-8"));
+    expect(read.version).toBeUndefined();
   });
 
   it("re-running writeHookEntries is idempotent", () => {

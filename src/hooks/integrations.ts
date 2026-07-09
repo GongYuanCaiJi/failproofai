@@ -59,6 +59,14 @@ function isMarkedHook(hook: unknown): boolean {
   return cmd.includes("failproofai") && cmd.includes("--hook");
 }
 
+function stripLegacyVersion(settings: Record<string, unknown>): boolean {
+  if ("version" in settings) {
+    delete settings.version;
+    return true;
+  }
+  return false;
+}
+
 function binaryExists(name: string): boolean {
   try {
     const cmd = process.platform === "win32" ? `where ${name}` : `which ${name}`;
@@ -232,10 +240,9 @@ export const claudeCode: Integration = {
 //   • Settings paths: ~/.codex/hooks.json (user) and <cwd>/.codex/hooks.json (project)
 //   • Stdin event names arrive snake_case (pre_tool_use); we canonicalize to PascalCase before policy lookup
 //   • No "local" scope
-//   • Settings file carries a top-level "version": 1 marker
+//   • Settings file does NOT carry a top-level "version" marker (Codex strictly expects only `hooks`)
 
 interface CodexSettingsFile {
-  version?: number;
   hooks?: Record<string, ClaudeHookMatcher[]>;
   [key: string]: unknown;
 }
@@ -261,9 +268,7 @@ export const codex: Integration = {
   },
 
   readSettings(settingsPath) {
-    const raw = readJsonFile(settingsPath);
-    if (raw.version === undefined) raw.version = 1;
-    return raw;
+    return readJsonFile(settingsPath);
   },
 
   writeSettings(settingsPath, settings) {
@@ -280,8 +285,10 @@ export const codex: Integration = {
         : `"${binaryPath}" --hook ${eventType} --cli codex`;
     return {
       type: "command",
+      // Codex reads `timeout` in SECONDS (its `timeout_sec` field, default 600) —
+      // NOT milliseconds like Claude/Cursor/Gemini. 60 = 60s, not 60000ms (~16.7h).
       command,
-      timeout: 60_000,
+      timeout: 60,
       [FAILPROOFAI_HOOK_MARKER]: true,
     };
   },
@@ -290,7 +297,7 @@ export const codex: Integration = {
 
   writeHookEntries(settings, binaryPath, scope) {
     const s = settings as CodexSettingsFile;
-    if (s.version === undefined) s.version = 1;
+    stripLegacyVersion(s as Record<string, unknown>);
     if (!s.hooks) s.hooks = {};
 
     for (const eventType of CODEX_HOOK_EVENT_TYPES) {
@@ -315,7 +322,11 @@ export const codex: Integration = {
 
   removeHooksFromFile(settingsPath) {
     const settings = this.readSettings(settingsPath) as CodexSettingsFile;
-    if (!settings.hooks) return 0;
+    const hadVersion = stripLegacyVersion(settings as Record<string, unknown>);
+    if (!settings.hooks) {
+      if (hadVersion) this.writeSettings(settingsPath, settings as Record<string, unknown>);
+      return 0;
+    }
 
     let removed = 0;
     for (const eventType of Object.keys(settings.hooks)) {
@@ -333,7 +344,9 @@ export const codex: Integration = {
     }
     if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
-    this.writeSettings(settingsPath, settings as Record<string, unknown>);
+    if (removed > 0 || hadVersion) {
+      this.writeSettings(settingsPath, settings as Record<string, unknown>);
+    }
     return removed;
   },
 
