@@ -11,6 +11,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import { parseDocument, type Document } from "yaml";
 import {
   HOOK_EVENT_TYPES,
   HOOK_SCOPES,
@@ -27,6 +28,8 @@ import {
   PI_HOOK_SCOPES,
   GEMINI_HOOK_EVENT_TYPES,
   GEMINI_HOOK_SCOPES,
+  HERMES_HOOK_EVENT_TYPES,
+  HERMES_HOOK_SCOPES,
   FAILPROOFAI_HOOK_MARKER,
   INTEGRATION_TYPES,
   type IntegrationType,
@@ -48,6 +51,23 @@ function readJsonFile(path: string): Record<string, unknown> {
 function writeJsonFile(path: string, data: Record<string, unknown>): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(data, null, 2) + "\n", "utf8");
+}
+
+/** Read a YAML file as a `Document` so writes round-trip the user's other keys +
+ *  comments (a plain parse→stringify would strip comments). Empty / missing /
+ *  corrupt → an empty Document. Used by the Hermes integration, whose config
+ *  lives in `~/.hermes/config.yaml`. */
+function readYamlDoc(path: string): Document {
+  try {
+    return existsSync(path) ? parseDocument(readFileSync(path, "utf8")) : parseDocument("");
+  } catch {
+    return parseDocument("");
+  }
+}
+
+function writeYamlDoc(path: string, doc: Document): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, doc.toString(), "utf8");
 }
 
 function isMarkedHook(hook: unknown): boolean {
@@ -1423,9 +1443,146 @@ export const gemini: Integration = {
   },
 };
 
+// ── Hermes (hermes-agent) — live hooks (Pillar 1) ────────────────────────────
+//
+// External-command CLI like codex/cursor, but its config is YAML
+// (`~/.hermes/config.yaml`) under a `hooks:` map, so the I/O layer uses the yaml
+// Document API (comment-preserving). Flat per-event arrays like cursor:
+// `hooks: { pre_tool_call: [ { command, timeout, <marker> } ], … }`. Hermes
+// reads a `{"decision":"block",…}` JSON response on stdout (see
+// policy-evaluator.ts); exit codes are ignored. User-scope only.
+
+/** One hook entry as stored under a `hooks:` event key in config.yaml. */
+interface HermesHookEntry {
+  command: string;
+  timeout?: number;
+  [key: string]: unknown;
+}
+
+export const hermes: Integration = {
+  id: "hermes",
+  displayName: "Hermes",
+  scopes: HERMES_HOOK_SCOPES,
+  eventTypes: HERMES_HOOK_EVENT_TYPES,
+
+  // Hermes config is USER-scope only (`~/.hermes/config.yaml`); there is no
+  // project/local file, so scope/cwd are irrelevant here.
+  getSettingsPath() {
+    return resolve(homedir(), ".hermes", "config.yaml");
+  },
+
+  readSettings(settingsPath) {
+    // Return the yaml Document (cast) so writeHookEntries/writeSettings can
+    // round-trip it while preserving the user's other keys + comments.
+    return readYamlDoc(settingsPath) as unknown as Record<string, unknown>;
+  },
+
+  writeSettings(settingsPath, settings) {
+    writeYamlDoc(settingsPath, settings as unknown as Document);
+  },
+
+  buildHookEntry(binaryPath, eventType, scope) {
+    // No matcher → fires for ALL tools / all platforms (slack/telegram/cli/cron)
+    // and internal subagents. `timeout` is in seconds; Hermes runs the command
+    // via shlex.split (shell=false).
+    const command =
+      scope === "project"
+        ? `npx -y failproofai --hook ${eventType} --cli hermes`
+        : `"${binaryPath}" --hook ${eventType} --cli hermes`;
+    return {
+      command,
+      timeout: 30,
+      [FAILPROOFAI_HOOK_MARKER]: true,
+    };
+  },
+
+  isFailproofaiHook: isMarkedHook,
+
+  writeHookEntries(settings, binaryPath, scope) {
+    const doc = settings as unknown as Document;
+    // Read the current hooks map as plain JS, then re-set ONLY the `hooks` key —
+    // preserving comments on every other part of config.yaml.
+    const js = (doc.toJS() ?? {}) as { hooks?: Record<string, HermesHookEntry[]> };
+    const hooks: Record<string, HermesHookEntry[]> =
+      js.hooks && typeof js.hooks === "object" ? js.hooks : {};
+
+    for (const eventType of HERMES_HOOK_EVENT_TYPES) {
+      const entry = this.buildHookEntry(binaryPath, eventType, scope) as unknown as HermesHookEntry;
+      const arr = Array.isArray(hooks[eventType]) ? hooks[eventType] : [];
+      const idx = arr.findIndex((h) => isMarkedHook(h));
+      if (idx >= 0) arr[idx] = entry;
+      else arr.push(entry);
+      hooks[eventType] = arr;
+    }
+    doc.set("hooks", hooks);
+    // The headless gateway has no TTY to answer Hermes's first-use hook-consent
+    // prompt, so auto-accept declared hooks. Tradeoff: also auto-accepts any
+    // other hook the operator adds; a targeted `shell-hooks-allowlist.json`
+    // pre-seed is a future refinement.
+    doc.set("hooks_auto_accept", true);
+  },
+
+  removeHooksFromFile(settingsPath) {
+    if (!existsSync(settingsPath)) return 0;
+    const doc = readYamlDoc(settingsPath);
+    const js = (doc.toJS() ?? {}) as { hooks?: Record<string, HermesHookEntry[]> };
+    const hooks = js.hooks;
+
+    let removed = 0;
+    if (hooks && typeof hooks === "object") {
+      for (const eventType of Object.keys(hooks)) {
+        const entries = hooks[eventType];
+        if (!Array.isArray(entries)) continue;
+        const before = entries.length;
+        const filtered = entries.filter((h) => !isMarkedHook(h));
+        removed += before - filtered.length;
+        if (filtered.length === 0) delete hooks[eventType];
+        else hooks[eventType] = filtered;
+      }
+      if (removed > 0) {
+        if (Object.keys(hooks).length === 0) doc.delete("hooks");
+        else doc.set("hooks", hooks);
+      }
+    }
+
+    // Always drop our headless-consent flag on uninstall — even if the hooks were
+    // already removed manually — so it can't silently auto-accept future operator
+    // hooks. `doc.delete` returns true iff the key was present.
+    const droppedAutoAccept = doc.delete("hooks_auto_accept");
+    if (removed > 0 || droppedAutoAccept) writeYamlDoc(settingsPath, doc);
+    return removed;
+  },
+
+  hooksInstalledInSettings(scope, cwd) {
+    const settingsPath = this.getSettingsPath(scope, cwd);
+    if (!existsSync(settingsPath)) return false;
+    try {
+      const doc = readYamlDoc(settingsPath);
+      const js = (doc.toJS() ?? {}) as { hooks?: Record<string, HermesHookEntry[]> };
+      const hooks = js.hooks;
+      if (!hooks || typeof hooks !== "object") return false;
+      for (const entries of Object.values(hooks)) {
+        if (Array.isArray(entries) && entries.some((h) => isMarkedHook(h))) return true;
+      }
+    } catch {
+      // Corrupt config — treat as not installed.
+    }
+    return false;
+  },
+
+  detectInstalled() {
+    return binaryExists("hermes");
+  },
+};
+
 // ── Registry ────────────────────────────────────────────────────────────────
 
-const INTEGRATIONS: Record<IntegrationType, Integration> = {
+// `Partial` is kept (not every IntegrationType is guaranteed installable for
+// LIVE hooks / Pillar 1) so a future audit-only CLI can omit its entry without a
+// type error. `hermes` now has BOTH an audit adapter
+// (src/audit/cli-adapters/hermes.ts) AND live-hook install support, so it is
+// registered here.
+const INTEGRATIONS: Partial<Record<IntegrationType, Integration>> = {
   claude: claudeCode,
   codex,
   copilot,
@@ -1433,21 +1590,38 @@ const INTEGRATIONS: Record<IntegrationType, Integration> = {
   opencode,
   pi,
   gemini,
+  hermes,
 };
 
 export function getIntegration(id: IntegrationType): Integration {
   const integration = INTEGRATIONS[id];
   if (!integration) {
-    throw new Error(`Unknown integration: ${id}. Valid: ${INTEGRATION_TYPES.join(", ")}`);
+    // A future audit-only CLI (one with an audit adapter but no INTEGRATIONS
+    // entry) reaches here when someone tries to install live hooks for it. Be
+    // explicit rather than "unknown integration". (hermes is NOT audit-only — it
+    // has a live-hook entry — so it never reaches this branch.)
+    throw new Error(
+      `"${id}" is audit-only — live-hook install is not supported for it yet. Installable: ${listInstallableIds().join(", ")}`,
+    );
   }
   return integration;
 }
 
-export function listIntegrations(): Integration[] {
-  return INTEGRATION_TYPES.map((id) => INTEGRATIONS[id]);
+/** IntegrationTypes that support live-hook install (i.e. have an INTEGRATIONS
+ *  entry). Any audit-only CLI (one with an audit adapter but no hook install)
+ *  is excluded so it never appears in install menus. */
+export function listInstallableIds(): IntegrationType[] {
+  return INTEGRATION_TYPES.filter((id) => INTEGRATIONS[id] !== undefined);
 }
 
-/** Detect which agent CLIs are installed on PATH. */
+export function listIntegrations(): Integration[] {
+  return INTEGRATION_TYPES.map((id) => INTEGRATIONS[id]).filter(
+    (i): i is Integration => i !== undefined,
+  );
+}
+
+/** Detect which agent CLIs are installed on PATH. Only considers CLIs that
+ *  support live-hook install (audit-only CLIs have no INTEGRATIONS entry). */
 export function detectInstalledClis(): IntegrationType[] {
-  return INTEGRATION_TYPES.filter((id) => INTEGRATIONS[id].detectInstalled());
+  return INTEGRATION_TYPES.filter((id) => INTEGRATIONS[id]?.detectInstalled());
 }
