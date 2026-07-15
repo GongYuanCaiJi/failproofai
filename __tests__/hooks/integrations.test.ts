@@ -20,8 +20,12 @@ import {
   cursor,
   opencode,
   pi,
-  gemini,
   hermes,
+  openclaw,
+  factory,
+  devin,
+  antigravity,
+  goose,
   getIntegration,
   listIntegrations,
 } from "../../src/hooks/integrations";
@@ -35,18 +39,18 @@ import {
   OPENCODE_EVENT_MAP,
   PI_HOOK_EVENT_TYPES,
   PI_EVENT_MAP,
-  GEMINI_HOOK_EVENT_TYPES,
-  GEMINI_EVENT_MAP,
-  GEMINI_TOOL_MAP,
   HERMES_HOOK_EVENT_TYPES,
   HERMES_EVENT_MAP,
+  FACTORY_HOOK_EVENT_TYPES,
+  DEVIN_HOOK_EVENT_TYPES,
+  ANTIGRAVITY_HOOK_EVENT_TYPES,
+  GOOSE_HOOK_EVENT_TYPES,
   HOOK_EVENT_TYPES,
   FAILPROOFAI_HOOK_MARKER,
   type CodexHookEventType,
   type CursorHookEventType,
   type OpenCodeHookEventType,
   type PiHookEventType,
-  type GeminiHookEventType,
   type HermesHookEventType,
 } from "../../src/hooks/types";
 import { homedir } from "node:os";
@@ -73,9 +77,9 @@ afterEach(() => {
 });
 
 describe("integrations registry", () => {
-  it("listIntegrations returns claude, codex, copilot, cursor, opencode, pi, gemini, and hermes in declared order", () => {
+  it("listIntegrations returns claude, codex, copilot, cursor, opencode, pi, hermes, and openclaw in declared order", () => {
     const ids = listIntegrations().map((i) => i.id);
-    expect(ids).toEqual(["claude", "codex", "copilot", "cursor", "opencode", "pi", "gemini", "hermes"]);
+    expect(ids).toEqual(["claude", "codex", "copilot", "cursor", "opencode", "pi", "hermes", "openclaw", "factory", "devin", "antigravity", "goose"]);
   });
 
   it("getIntegration('claude') returns claudeCode", () => {
@@ -102,12 +106,28 @@ describe("integrations registry", () => {
     expect(getIntegration("pi")).toBe(pi);
   });
 
-  it("getIntegration('gemini') returns gemini", () => {
-    expect(getIntegration("gemini")).toBe(gemini);
-  });
-
   it("getIntegration('hermes') returns hermes", () => {
     expect(getIntegration("hermes")).toBe(hermes);
+  });
+
+  it("getIntegration('openclaw') returns openclaw", () => {
+    expect(getIntegration("openclaw")).toBe(openclaw);
+  });
+
+  it("getIntegration('factory') returns factory", () => {
+    expect(getIntegration("factory")).toBe(factory);
+  });
+
+  it("getIntegration('antigravity') returns antigravity", () => {
+    expect(getIntegration("antigravity")).toBe(antigravity);
+  });
+
+  it("getIntegration('goose') returns goose", () => {
+    expect(getIntegration("goose")).toBe(goose);
+  });
+
+  it("getIntegration('devin') returns devin", () => {
+    expect(getIntegration("devin")).toBe(devin);
   });
 
   it("getIntegration throws for unknown id", () => {
@@ -1096,204 +1116,525 @@ describe("PI_EVENT_MAP", () => {
   });
 });
 
-describe("Gemini CLI integration", () => {
-  it("getSettingsPath maps user → ~/.gemini/settings.json and project → <cwd>/.gemini/settings.json", () => {
-    expect(gemini.getSettingsPath("project", tempDir)).toBe(
-      resolve(tempDir, ".gemini", "settings.json"),
-    );
-    expect(gemini.getSettingsPath("user")).toMatch(/\.gemini\/settings\.json$/);
+describe("OpenClaw integration", () => {
+  it("is user-scope only and points at ~/.openclaw/openclaw.json", () => {
+    expect(openclaw.scopes).toEqual(["user"]);
+    // getSettingsPath ignores scope/cwd (OpenClaw has no project config).
+    const p = openclaw.getSettingsPath("user");
+    expect(p).toBe(join(homedir(), ".openclaw", "openclaw.json"));
+    expect(openclaw.getSettingsPath("project", "/some/where")).toBe(p);
   });
 
-  it("getSettingsPath('local') falls back to project (no gemini local scope)", () => {
-    expect(gemini.getSettingsPath("local", tempDir)).toBe(
-      resolve(tempDir, ".gemini", "settings.json"),
-    );
-  });
-
-  it("scopes are user|project (no local; system scope ignored)", () => {
-    expect(gemini.scopes).toEqual(["user", "project"]);
-    expect(gemini.scopes).not.toContain("local");
-  });
-
-  it("eventTypes are the 11 PascalCase Gemini events", () => {
-    expect(gemini.eventTypes).toEqual(GEMINI_HOOK_EVENT_TYPES);
-    expect(gemini.eventTypes).toContain("SessionStart");
-    expect(gemini.eventTypes).toContain("SessionEnd");
-    expect(gemini.eventTypes).toContain("BeforeAgent");
-    expect(gemini.eventTypes).toContain("AfterAgent");
-    expect(gemini.eventTypes).toContain("BeforeModel");
-    expect(gemini.eventTypes).toContain("AfterModel");
-    expect(gemini.eventTypes).toContain("BeforeToolSelection");
-    expect(gemini.eventTypes).toContain("BeforeTool");
-    expect(gemini.eventTypes).toContain("AfterTool");
-    expect(gemini.eventTypes).toContain("PreCompress");
-    expect(gemini.eventTypes).toContain("Notification");
-    expect(gemini.eventTypes).toHaveLength(11);
-  });
-
-  it("buildHookEntry uses Claude-shaped {type,command,timeout,marker} with --cli gemini", () => {
-    const entry = gemini.buildHookEntry("/usr/bin/failproofai", "BeforeTool", "user") as Record<string, unknown>;
-    expect(entry.type).toBe("command");
-    expect(entry.command).toBe('"/usr/bin/failproofai" --hook BeforeTool --cli gemini');
-    expect(entry.timeout).toBe(60_000);
-    expect(entry[FAILPROOFAI_HOOK_MARKER]).toBe(true);
-    // Gemini entries use Claude's `command` field, not Copilot's bash/powershell split.
-    expect(entry.bash).toBeUndefined();
-    expect(entry.powershell).toBeUndefined();
-  });
-
-  it("project scope uses npx -y failproofai (portable across machines)", () => {
-    const entry = gemini.buildHookEntry("/usr/bin/failproofai", "BeforeTool", "project") as Record<string, unknown>;
-    expect(entry.command).toBe("npx -y failproofai --hook BeforeTool --cli gemini");
-  });
-
-  it("writeHookEntries writes the matcher-wrapper schema for all 11 events with matcher='*'", () => {
+  it("writeHookEntries registers the plugin path + enables the entry with allowConversationAccess", () => {
     const settings: Record<string, unknown> = {};
-    gemini.writeHookEntries(settings, "/usr/bin/failproofai", "user");
-    const hooks = settings.hooks as Record<string, Array<Record<string, unknown>>>;
-    for (const eventType of GEMINI_HOOK_EVENT_TYPES) {
-      expect(hooks[eventType]).toBeDefined();
-      const matchers = hooks[eventType];
-      expect(matchers.length).toBeGreaterThanOrEqual(1);
-      // Matcher-wrapper: each element is {matcher, hooks: [{type, command, ...}]}
-      expect(matchers[0].matcher).toBe("*");
-      const inner = matchers[0].hooks as Array<Record<string, unknown>>;
-      expect(inner).toHaveLength(1);
-      expect(inner[0].type).toBe("command");
-      expect(typeof inner[0].command).toBe("string");
-      expect(inner[0][FAILPROOFAI_HOOK_MARKER]).toBe(true);
+    openclaw.writeHookEntries(settings, "");
+    const plugins = settings.plugins as Record<string, any>;
+    expect(Array.isArray(plugins.load.paths)).toBe(true);
+    expect(plugins.load.paths.some((p: string) => p.endsWith("openclaw-plugin"))).toBe(true);
+    expect(plugins.entries.failproofai.enabled).toBe(true);
+    expect(plugins.entries.failproofai.hooks.allowConversationAccess).toBe(true);
+  });
+
+  it("writeHookEntries is idempotent (double install → single path entry)", () => {
+    const settings: Record<string, unknown> = {};
+    openclaw.writeHookEntries(settings, "");
+    openclaw.writeHookEntries(settings, "");
+    const plugins = settings.plugins as Record<string, any>;
+    const ours = plugins.load.paths.filter((p: string) => p.includes("openclaw-plugin"));
+    expect(ours).toHaveLength(1);
+  });
+
+  it("writeHookEntries preserves operator config (other plugins, deny list, load extras)", () => {
+    const settings: Record<string, unknown> = {
+      plugins: {
+        deny: ["untrusted"],
+        load: { paths: ["/opt/other-plugin"], watch: true },
+        entries: { other: { enabled: true, config: { x: 1 } } },
+      },
+    };
+    openclaw.writeHookEntries(settings, "");
+    const plugins = settings.plugins as Record<string, any>;
+    expect(plugins.deny).toEqual(["untrusted"]);
+    expect(plugins.load.watch).toBe(true);
+    expect(plugins.load.paths).toContain("/opt/other-plugin");
+    expect(plugins.entries.other).toEqual({ enabled: true, config: { x: 1 } });
+    expect(plugins.entries.failproofai.enabled).toBe(true);
+  });
+
+  it("isFailproofaiHook recognizes our load.paths string entry and the marked sentinel", () => {
+    expect(openclaw.isFailproofaiHook("/x/failproofai/openclaw-plugin")).toBe(true);
+    expect(openclaw.isFailproofaiHook("/abs/openclaw-plugin")).toBe(true);
+    expect(openclaw.isFailproofaiHook("/opt/other-plugin")).toBe(false);
+    expect(openclaw.isFailproofaiHook({ [FAILPROOFAI_HOOK_MARKER]: true })).toBe(true);
+  });
+
+  it("removeHooksFromFile reverses install and prunes empties, leaving operator config intact", () => {
+    const file = join(tempDir, "openclaw.json");
+    const settings: Record<string, unknown> = {
+      plugins: { deny: ["untrusted"], load: { paths: ["/opt/other-plugin"] }, entries: { other: { enabled: true } } },
+    };
+    openclaw.writeHookEntries(settings, "");
+    writeFileSync(file, JSON.stringify(settings));
+
+    const removed = openclaw.removeHooksFromFile(file);
+    expect(removed).toBeGreaterThanOrEqual(2); // path + entry
+
+    const after = JSON.parse(readFileSync(file, "utf-8")) as Record<string, any>;
+    expect(after.plugins.entries.failproofai).toBeUndefined();
+    expect(after.plugins.entries.other).toEqual({ enabled: true });
+    expect(after.plugins.load.paths).toEqual(["/opt/other-plugin"]);
+    expect(after.plugins.deny).toEqual(["untrusted"]);
+  });
+
+  it("removeHooksFromFile deletes an empty plugins object when nothing else remains", () => {
+    const file = join(tempDir, "openclaw2.json");
+    const settings: Record<string, unknown> = {};
+    openclaw.writeHookEntries(settings, "");
+    writeFileSync(file, JSON.stringify(settings));
+
+    openclaw.removeHooksFromFile(file);
+    const after = JSON.parse(readFileSync(file, "utf-8")) as Record<string, unknown>;
+    expect(after.plugins).toBeUndefined();
+  });
+});
+
+describe("Factory Droid integration", () => {
+  it("getSettingsPath maps user → ~/.factory/hooks.json and project → <cwd>/.factory/hooks.json", () => {
+    expect(factory.getSettingsPath("project", tempDir)).toBe(
+      resolve(tempDir, ".factory", "hooks.json"),
+    );
+    expect(factory.getSettingsPath("user")).toMatch(/\.factory\/hooks\.json$/);
+  });
+
+  it("scopes are user|project (no local)", () => {
+    expect(factory.scopes).toEqual(["user", "project"]);
+  });
+
+  it("buildHookEntry includes --cli factory and a 30s timeout", () => {
+    const entry = factory.buildHookEntry("/usr/bin/failproofai", "PreToolUse", "user");
+    expect(entry.command).toContain("--cli factory");
+    expect(entry.command).toContain("--hook PreToolUse");
+    expect(entry.timeout).toBe(30);
+    expect(entry[FAILPROOFAI_HOOK_MARKER]).toBe(true);
+  });
+
+  it("project scope uses npx -y failproofai", () => {
+    const entry = factory.buildHookEntry("/usr/bin/failproofai", "PreToolUse", "project");
+    expect(entry.command).toBe("npx -y failproofai --hook PreToolUse --cli factory");
+  });
+
+  it("writeHookEntries stores event names at the TOP LEVEL (no `hooks` wrapper)", () => {
+    const settings: Record<string, unknown> = {};
+    factory.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    // No wrapper key — the file IS the events object.
+    expect(settings.hooks).toBeUndefined();
+    for (const eventType of FACTORY_HOOK_EVENT_TYPES) {
+      expect(Array.isArray(settings[eventType])).toBe(true);
     }
   });
 
-  it("re-running writeHookEntries is idempotent (replaces, doesn't duplicate)", () => {
+  it("writeHookEntries adds matcher:'*' for tool events and omits it elsewhere", () => {
     const settings: Record<string, unknown> = {};
-    gemini.writeHookEntries(settings, "/usr/bin/failproofai", "user");
-    gemini.writeHookEntries(settings, "/different/path/failproofai", "user");
-    const hooks = settings.hooks as Record<string, Array<Record<string, unknown>>>;
-    // Each event has exactly one matcher; the inner hook is the most recent.
-    expect(hooks.BeforeTool).toHaveLength(1);
-    const inner = (hooks.BeforeTool[0].hooks as Array<Record<string, unknown>>)[0];
-    expect(inner.command).toBe('"/different/path/failproofai" --hook BeforeTool --cli gemini');
+    factory.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    const pre = (settings.PreToolUse as Array<Record<string, unknown>>)[0];
+    const post = (settings.PostToolUse as Array<Record<string, unknown>>)[0];
+    const stop = (settings.Stop as Array<Record<string, unknown>>)[0];
+    expect(pre.matcher).toBe("*");
+    expect(post.matcher).toBe("*");
+    expect(stop.matcher).toBeUndefined();
   });
 
-  it("writeHookEntries preserves a hand-written user hook with the same event key", () => {
-    const userHook = { type: "command", command: "/my/script.sh", timeout: 5000 };
-    const settings: Record<string, unknown> = {
-      hooks: { BeforeTool: [{ matcher: "write_file", hooks: [userHook] }] },
-    };
-    gemini.writeHookEntries(settings, "/usr/bin/failproofai", "user");
-    const hooks = settings.hooks as Record<string, Array<Record<string, unknown>>>;
-    // User's hook is preserved at index 0, ours appended at index 1
-    expect(hooks.BeforeTool).toHaveLength(2);
-    const userMatcher = hooks.BeforeTool[0];
-    expect(userMatcher.matcher).toBe("write_file");
-    expect((userMatcher.hooks as Array<Record<string, unknown>>)[0].command).toBe("/my/script.sh");
-    const ourMatcher = hooks.BeforeTool[1];
-    expect(ourMatcher.matcher).toBe("*");
-    expect((ourMatcher.hooks as Array<Record<string, unknown>>)[0][FAILPROOFAI_HOOK_MARKER]).toBe(true);
+  it("re-running writeHookEntries is idempotent", () => {
+    const settings: Record<string, unknown> = {};
+    factory.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    factory.writeHookEntries(settings, "/different/path/failproofai", "user");
+    const pre = settings.PreToolUse as Array<{ hooks: unknown[] }>;
+    expect(pre).toHaveLength(1);
+    expect(pre[0].hooks).toHaveLength(1);
   });
 
-  it("removeHooksFromFile removes only failproofai-marked entries (preserves user hooks)", () => {
-    const userHook = { type: "command", command: "/my/script.sh", timeout: 5000 };
-    const settingsPath = gemini.getSettingsPath("project", tempDir);
-    mkdirSync(resolve(tempDir, ".gemini"), { recursive: true });
-    const settings: Record<string, unknown> = {
-      hooks: { BeforeTool: [{ matcher: "write_file", hooks: [userHook] }] },
-    };
-    gemini.writeHookEntries(settings, "/usr/bin/failproofai", "project");
-    gemini.writeSettings(settingsPath, settings);
+  it("removeHooksFromFile clears all failproofai entries (returns count)", () => {
+    const settingsPath = factory.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    factory.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    factory.writeSettings(settingsPath, settings);
+    expect(existsSync(settingsPath)).toBe(true);
 
-    const removed = gemini.removeHooksFromFile(settingsPath);
-    // 11 events × 1 marked entry each = 11 removed
-    expect(removed).toBe(GEMINI_HOOK_EVENT_TYPES.length);
+    const removed = factory.removeHooksFromFile(settingsPath);
+    expect(removed).toBe(FACTORY_HOOK_EVENT_TYPES.length);
 
     const after = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
-    const afterHooks = after.hooks as Record<string, unknown[]>;
-    // User's BeforeTool hook still there
-    expect(afterHooks.BeforeTool).toHaveLength(1);
-    expect((afterHooks.BeforeTool[0] as Record<string, unknown>).matcher).toBe("write_file");
-    // Other event keys (which only had failproofai entries) are deleted
-    expect(afterHooks.SessionStart).toBeUndefined();
+    for (const eventType of FACTORY_HOOK_EVENT_TYPES) {
+      expect(after[eventType]).toBeUndefined();
+    }
   });
 
-  it("removeHooksFromFile clears all and removes the top-level hooks key when nothing remains", () => {
-    const settingsPath = gemini.getSettingsPath("project", tempDir);
-    mkdirSync(resolve(tempDir, ".gemini"), { recursive: true });
-    const settings: Record<string, unknown> = {};
-    gemini.writeHookEntries(settings, "/usr/bin/failproofai", "project");
-    gemini.writeSettings(settingsPath, settings);
+  it("removeHooksFromFile preserves a user's own hook entries", () => {
+    const settingsPath = factory.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {
+      PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: "my-own-hook" }] }],
+    };
+    factory.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    factory.writeSettings(settingsPath, settings);
 
-    const removed = gemini.removeHooksFromFile(settingsPath);
-    expect(removed).toBe(GEMINI_HOOK_EVENT_TYPES.length);
+    factory.removeHooksFromFile(settingsPath);
+    const after = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, any>;
+    // The user's own hook survives; only the failproofai-marked entry is gone.
+    const flattened = (after.PreToolUse ?? []).flatMap((m: any) => m.hooks ?? []);
+    expect(flattened.some((h: any) => h.command === "my-own-hook")).toBe(true);
+    expect(flattened.some((h: any) => h[FAILPROOFAI_HOOK_MARKER] === true)).toBe(false);
+  });
+
+  it("hooksInstalledInSettings detects installed hooks", () => {
+    const settingsPath = factory.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    factory.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    factory.writeSettings(settingsPath, settings);
+
+    expect(factory.hooksInstalledInSettings("project", tempDir)).toBe(true);
+  });
+});
+
+describe("Devin CLI integration", () => {
+  it("getSettingsPath maps user → ~/.config/devin/config.json and project → <cwd>/.devin/config.json", () => {
+    expect(devin.getSettingsPath("project", tempDir)).toBe(
+      resolve(tempDir, ".devin", "config.json"),
+    );
+    expect(devin.getSettingsPath("user")).toMatch(/\.config\/devin\/config\.json$/);
+  });
+
+  it("scopes are user|project (no local)", () => {
+    expect(devin.scopes).toEqual(["user", "project"]);
+  });
+
+  it("subscribes to the 7 verified devin events", () => {
+    expect(DEVIN_HOOK_EVENT_TYPES).toEqual([
+      "SessionStart",
+      "UserPromptSubmit",
+      "PreToolUse",
+      "PostToolUse",
+      "PermissionRequest",
+      "Stop",
+      "SessionEnd",
+    ]);
+  });
+
+  it("every devin event is a canonical HookEventType (no event map needed)", () => {
+    const canonical = new Set<string>(HOOK_EVENT_TYPES);
+    for (const ev of DEVIN_HOOK_EVENT_TYPES) {
+      expect(canonical.has(ev), `${ev} must be a HookEventType`).toBe(true);
+    }
+  });
+
+  it("buildHookEntry includes --cli devin and a 60s timeout", () => {
+    const entry = devin.buildHookEntry("/usr/bin/failproofai", "PreToolUse", "user");
+    expect(entry.command).toContain("--cli devin");
+    expect(entry.command).toContain("--hook PreToolUse");
+    expect(entry.command).toBe(`"/usr/bin/failproofai" --hook PreToolUse --cli devin`);
+    expect(entry.timeout).toBe(60);
+    expect(entry[FAILPROOFAI_HOOK_MARKER]).toBe(true);
+  });
+
+  it("project scope uses npx -y failproofai", () => {
+    const entry = devin.buildHookEntry("/usr/bin/failproofai", "PreToolUse", "project");
+    expect(entry.command).toBe("npx -y failproofai --hook PreToolUse --cli devin");
+  });
+
+  it("writeHookEntries stores events under a Claude-style `hooks` wrapper", () => {
+    const settings: Record<string, unknown> = {};
+    devin.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    const hooks = settings.hooks as Record<string, unknown[]>;
+    expect(hooks).toBeDefined();
+    for (const eventType of DEVIN_HOOK_EVENT_TYPES) {
+      expect(Array.isArray(hooks[eventType])).toBe(true);
+    }
+  });
+
+  it("writeHookEntries preserves other top-level config keys (org_id, theme_mode)", () => {
+    const settings: Record<string, unknown> = { org_id: "acme", theme_mode: "dark" };
+    devin.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    expect(settings.org_id).toBe("acme");
+    expect(settings.theme_mode).toBe("dark");
+  });
+
+  it("re-running writeHookEntries is idempotent", () => {
+    const settings: Record<string, unknown> = {};
+    devin.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    devin.writeHookEntries(settings, "/different/path/failproofai", "user");
+    const hooks = settings.hooks as Record<string, Array<{ hooks: unknown[] }>>;
+    expect(hooks.PreToolUse).toHaveLength(1);
+    expect(hooks.PreToolUse[0].hooks).toHaveLength(1);
+  });
+
+  it("removeHooksFromFile clears all failproofai entries (returns count)", () => {
+    const settingsPath = devin.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    devin.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    devin.writeSettings(settingsPath, settings);
+    expect(existsSync(settingsPath)).toBe(true);
+
+    const removed = devin.removeHooksFromFile(settingsPath);
+    expect(removed).toBe(DEVIN_HOOK_EVENT_TYPES.length);
 
     const after = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
     expect(after.hooks).toBeUndefined();
   });
 
+  it("removeHooksFromFile preserves a user's own hook entries and other keys", () => {
+    const settingsPath = devin.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {
+      org_id: "acme",
+      hooks: {
+        PreToolUse: [{ hooks: [{ type: "command", command: "my-own-hook" }] }],
+      },
+    };
+    devin.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    devin.writeSettings(settingsPath, settings);
+
+    devin.removeHooksFromFile(settingsPath);
+    const after = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, any>;
+    expect(after.org_id).toBe("acme");
+    const flattened = (after.hooks?.PreToolUse ?? []).flatMap((m: any) => m.hooks ?? []);
+    expect(flattened.some((h: any) => h.command === "my-own-hook")).toBe(true);
+    expect(flattened.some((h: any) => h[FAILPROOFAI_HOOK_MARKER] === true)).toBe(false);
+  });
+
   it("hooksInstalledInSettings detects installed hooks", () => {
-    const settingsPath = gemini.getSettingsPath("project", tempDir);
-    mkdirSync(resolve(tempDir, ".gemini"), { recursive: true });
+    const settingsPath = devin.getSettingsPath("project", tempDir);
     const settings: Record<string, unknown> = {};
-    gemini.writeHookEntries(settings, "/usr/bin/failproofai", "project");
-    gemini.writeSettings(settingsPath, settings);
+    devin.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    devin.writeSettings(settingsPath, settings);
 
-    expect(gemini.hooksInstalledInSettings("project", tempDir)).toBe(true);
-  });
-
-  it("hooksInstalledInSettings returns false when file is missing", () => {
-    expect(gemini.hooksInstalledInSettings("project", tempDir)).toBe(false);
-  });
-
-  it("hooksInstalledInSettings returns false on corrupt JSON (fail-open)", () => {
-    const settingsPath = gemini.getSettingsPath("project", tempDir);
-    mkdirSync(resolve(tempDir, ".gemini"), { recursive: true });
-    writeFileSync(settingsPath, "{not json");
-    expect(gemini.hooksInstalledInSettings("project", tempDir)).toBe(false);
+    expect(devin.hooksInstalledInSettings("project", tempDir)).toBe(true);
   });
 });
 
-describe("GEMINI_EVENT_MAP", () => {
-  it("maps every Gemini event to a canonical HookEventType (or passthrough)", () => {
-    expect(GEMINI_EVENT_MAP.SessionStart).toBe("SessionStart");
-    expect(GEMINI_EVENT_MAP.SessionEnd).toBe("SessionEnd");
-    expect(GEMINI_EVENT_MAP.BeforeAgent).toBe("UserPromptSubmit");
-    expect(GEMINI_EVENT_MAP.AfterAgent).toBe("Stop");
-    expect(GEMINI_EVENT_MAP.BeforeTool).toBe("PreToolUse");
-    expect(GEMINI_EVENT_MAP.AfterTool).toBe("PostToolUse");
-    expect(GEMINI_EVENT_MAP.PreCompress).toBe("PreCompact");
-    expect(GEMINI_EVENT_MAP.Notification).toBe("Notification");
-    // Three Gemini-only events have no canonical Claude equivalent — passthrough.
-    expect(GEMINI_EVENT_MAP.BeforeModel).toBe("BeforeModel");
-    expect(GEMINI_EVENT_MAP.AfterModel).toBe("AfterModel");
-    expect(GEMINI_EVENT_MAP.BeforeToolSelection).toBe("BeforeToolSelection");
+describe("Antigravity CLI integration", () => {
+  it("getSettingsPath maps user → ~/.gemini/config/hooks.json and project → <cwd>/.agents/hooks.json", () => {
+    expect(antigravity.getSettingsPath("project", tempDir)).toBe(
+      resolve(tempDir, ".agents", "hooks.json"),
+    );
+    expect(antigravity.getSettingsPath("user")).toMatch(/\.gemini\/config\/hooks\.json$/);
   });
 
-  it("GEMINI_EVENT_MAP keys exactly match GEMINI_HOOK_EVENT_TYPES", () => {
-    const mapKeys = Object.keys(GEMINI_EVENT_MAP).sort();
-    const eventTypes = [...GEMINI_HOOK_EVENT_TYPES].sort();
-    expect(mapKeys).toEqual(eventTypes);
+  it("scopes are user|project (no local)", () => {
+    expect(antigravity.scopes).toEqual(["user", "project"]);
   });
 
-  it("GeminiHookEventType is exhaustive", () => {
-    const sample: GeminiHookEventType = "BeforeTool";
-    expect(GEMINI_EVENT_MAP[sample]).toBe("PreToolUse");
+  it("subscribes to the 4 verified agy events", () => {
+    expect(ANTIGRAVITY_HOOK_EVENT_TYPES).toEqual([
+      "PreToolUse",
+      "PostToolUse",
+      "PreInvocation",
+      "Stop",
+    ]);
+  });
+
+  it("buildHookEntry includes --cli antigravity and a 30s timeout", () => {
+    const entry = antigravity.buildHookEntry("/usr/bin/failproofai", "PreToolUse", "user");
+    expect(entry.command).toContain("--cli antigravity");
+    expect(entry.command).toContain("--hook PreToolUse");
+    expect(entry.timeout).toBe(30);
+    expect(entry[FAILPROOFAI_HOOK_MARKER]).toBe(true);
+  });
+
+  it("project scope uses npx -y failproofai", () => {
+    const entry = antigravity.buildHookEntry("/usr/bin/failproofai", "PreToolUse", "project");
+    expect(entry.command).toBe("npx -y failproofai --hook PreToolUse --cli antigravity");
+  });
+
+  it("writeHookEntries nests events under a named 'failproofai' hook key", () => {
+    const settings: Record<string, unknown> = {};
+    antigravity.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    const named = settings.failproofai as Record<string, unknown>;
+    expect(named).toBeDefined();
+    for (const eventType of ANTIGRAVITY_HOOK_EVENT_TYPES) {
+      expect(Array.isArray(named[eventType])).toBe(true);
+    }
+  });
+
+  it("tool events use a {matcher:'*', hooks} wrapper; PreInvocation/Stop are flat handler arrays", () => {
+    const settings: Record<string, unknown> = {};
+    antigravity.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    const named = settings.failproofai as Record<string, any[]>;
+
+    // Tool events → wrapper with matcher "*".
+    const pre = named.PreToolUse[0];
+    const post = named.PostToolUse[0];
+    expect(pre.matcher).toBe("*");
+    expect(Array.isArray(pre.hooks)).toBe(true);
+    expect(pre.hooks[0][FAILPROOFAI_HOOK_MARKER]).toBe(true);
+    expect(post.matcher).toBe("*");
+
+    // Flat events → the handler object sits directly in the array (no wrapper).
+    const preInvocation = named.PreInvocation[0];
+    const stop = named.Stop[0];
+    expect(preInvocation.matcher).toBeUndefined();
+    expect(preInvocation.hooks).toBeUndefined();
+    expect(preInvocation.type).toBe("command");
+    expect(preInvocation[FAILPROOFAI_HOOK_MARKER]).toBe(true);
+    expect(stop.matcher).toBeUndefined();
+    expect(stop.type).toBe("command");
+    expect(stop[FAILPROOFAI_HOOK_MARKER]).toBe(true);
+  });
+
+  it("re-running writeHookEntries is idempotent (tool wrapper + flat handler)", () => {
+    const settings: Record<string, unknown> = {};
+    antigravity.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    antigravity.writeHookEntries(settings, "/different/path/failproofai", "user");
+    const named = settings.failproofai as Record<string, any[]>;
+    expect(named.PreToolUse).toHaveLength(1);
+    expect(named.PreToolUse[0].hooks).toHaveLength(1);
+    expect(named.Stop).toHaveLength(1);
+  });
+
+  it("removeHooksFromFile clears all failproofai entries (returns count)", () => {
+    const settingsPath = antigravity.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    antigravity.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    antigravity.writeSettings(settingsPath, settings);
+    expect(existsSync(settingsPath)).toBe(true);
+
+    const removed = antigravity.removeHooksFromFile(settingsPath);
+    expect(removed).toBe(ANTIGRAVITY_HOOK_EVENT_TYPES.length);
+
+    const after = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
+    // The named hook is dropped entirely once empty.
+    expect(after.failproofai).toBeUndefined();
+  });
+
+  it("removeHooksFromFile preserves other named hooks", () => {
+    const settingsPath = antigravity.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {
+      "lint-checker": {
+        PostToolUse: [{ matcher: "run_command", hooks: [{ type: "command", command: "./lint.sh" }] }],
+      },
+    };
+    antigravity.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    antigravity.writeSettings(settingsPath, settings);
+
+    antigravity.removeHooksFromFile(settingsPath);
+    const after = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, any>;
+    // The user's own named hook survives; the failproofai named hook is gone.
+    expect(after["lint-checker"]).toBeDefined();
+    expect(after["lint-checker"].PostToolUse[0].hooks[0].command).toBe("./lint.sh");
+    expect(after.failproofai).toBeUndefined();
+  });
+
+  it("hooksInstalledInSettings detects installed hooks", () => {
+    const settingsPath = antigravity.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    antigravity.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    antigravity.writeSettings(settingsPath, settings);
+
+    expect(antigravity.hooksInstalledInSettings("project", tempDir)).toBe(true);
   });
 });
 
-describe("GEMINI_TOOL_MAP", () => {
-  it("maps every documented Gemini snake_case tool name to a Claude PascalCase canonical name", () => {
-    expect(GEMINI_TOOL_MAP.run_shell_command).toBe("Bash");
-    expect(GEMINI_TOOL_MAP.read_file).toBe("Read");
-    expect(GEMINI_TOOL_MAP.read_many_files).toBe("Read");
-    expect(GEMINI_TOOL_MAP.write_file).toBe("Write");
-    expect(GEMINI_TOOL_MAP.replace).toBe("Edit");
-    expect(GEMINI_TOOL_MAP.glob).toBe("Glob");
-    expect(GEMINI_TOOL_MAP.grep_search).toBe("Grep");
-    expect(GEMINI_TOOL_MAP.list_directory).toBe("LS");
-    expect(GEMINI_TOOL_MAP.web_fetch).toBe("WebFetch");
-    expect(GEMINI_TOOL_MAP.google_web_search).toBe("WebSearch");
-    expect(GEMINI_TOOL_MAP.write_todos).toBe("TodoWrite");
-    expect(GEMINI_TOOL_MAP.save_memory).toBe("Memory");
-    expect(GEMINI_TOOL_MAP.ask_user).toBe("AskUser");
+describe("Goose integration", () => {
+  it("getSettingsPath maps user/project to the Open Plugins hooks.json in the plugin dir", () => {
+    expect(goose.getSettingsPath("project", tempDir)).toBe(
+      resolve(tempDir, ".agents", "plugins", "failproofai", "hooks", "hooks.json"),
+    );
+    expect(goose.getSettingsPath("user")).toMatch(
+      /\.agents\/plugins\/failproofai\/hooks\/hooks\.json$/,
+    );
+  });
+
+  it("scopes are user|project (no local)", () => {
+    expect(goose.scopes).toEqual(["user", "project"]);
+  });
+
+  it("subscribes to the 5 verified events and NOT Stop (goose has none)", () => {
+    expect(GOOSE_HOOK_EVENT_TYPES).toEqual([
+      "SessionStart",
+      "UserPromptSubmit",
+      "PreToolUse",
+      "PostToolUse",
+      "SessionEnd",
+    ]);
+    expect(GOOSE_HOOK_EVENT_TYPES).not.toContain("Stop");
+  });
+
+  it("buildHookEntry emits a clean {type, command} with --cli goose and NO marker field", () => {
+    const entry = goose.buildHookEntry("/usr/bin/failproofai", "PreToolUse", "user");
+    expect(entry.type).toBe("command");
+    expect(entry.command).toContain("--cli goose");
+    expect(entry.command).toContain("--hook PreToolUse");
+    // Goose parses this file, so we add NO __failproofai_hook__ marker.
+    expect(entry[FAILPROOFAI_HOOK_MARKER]).toBeUndefined();
+    expect(entry.timeout).toBeUndefined();
+  });
+
+  it("project scope uses npx -y failproofai", () => {
+    const entry = goose.buildHookEntry("/usr/bin/failproofai", "PreToolUse", "project");
+    expect(entry.command).toBe("npx -y failproofai --hook PreToolUse --cli goose");
+  });
+
+  it("writeHookEntries writes the Open Plugins schema (top-level 'hooks' wrapper, matcher OMITTED)", () => {
+    const settings: Record<string, unknown> = {};
+    goose.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    const hooks = settings.hooks as Record<string, any[]>;
+    expect(hooks).toBeDefined();
+    for (const eventType of GOOSE_HOOK_EVENT_TYPES) {
+      expect(Array.isArray(hooks[eventType])).toBe(true);
+      const matcherObj = hooks[eventType][0];
+      // matcher must be OMITTED — a bare "*" is an invalid regex that matches nothing.
+      expect(matcherObj.matcher).toBeUndefined();
+      expect(Array.isArray(matcherObj.hooks)).toBe(true);
+      expect(matcherObj.hooks[0].command).toContain("--cli goose");
+    }
+  });
+
+  it("re-running writeHookEntries is idempotent (updates in place, no dup)", () => {
+    const settings: Record<string, unknown> = {};
+    goose.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    goose.writeHookEntries(settings, "/different/path/failproofai", "user");
+    const hooks = settings.hooks as Record<string, any[]>;
+    expect(hooks.PreToolUse).toHaveLength(1);
+    expect(hooks.PreToolUse[0].hooks).toHaveLength(1);
+    // Updated to the new binary path.
+    expect(hooks.PreToolUse[0].hooks[0].command).toContain("/different/path/failproofai");
+  });
+
+  it("removeHooksFromFile clears all failproofai entries (returns count)", () => {
+    const settingsPath = goose.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    goose.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    goose.writeSettings(settingsPath, settings);
+    expect(existsSync(settingsPath)).toBe(true);
+
+    const removed = goose.removeHooksFromFile(settingsPath);
+    expect(removed).toBe(GOOSE_HOOK_EVENT_TYPES.length);
+
+    const after = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
+    expect(after.hooks).toBeUndefined();
+  });
+
+  it("removeHooksFromFile preserves a user's own non-failproofai plugin hooks", () => {
+    const settingsPath = goose.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {
+      hooks: {
+        PostToolUse: [{ hooks: [{ type: "command", command: "${PLUGIN_ROOT}/scripts/log.sh" }] }],
+      },
+    };
+    goose.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    goose.writeSettings(settingsPath, settings);
+
+    goose.removeHooksFromFile(settingsPath);
+    const after = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, any>;
+    // The user's own log hook survives; failproofai's is gone.
+    const postHooks = after.hooks.PostToolUse.flatMap((m: any) => m.hooks);
+    expect(postHooks.some((h: any) => h.command.includes("log.sh"))).toBe(true);
+    expect(postHooks.some((h: any) => h.command.includes("--cli goose"))).toBe(false);
+  });
+
+  it("hooksInstalledInSettings detects installed hooks", () => {
+    const settingsPath = goose.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    goose.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    goose.writeSettings(settingsPath, settings);
+
+    expect(goose.hooksInstalledInSettings("project", tempDir)).toBe(true);
   });
 });

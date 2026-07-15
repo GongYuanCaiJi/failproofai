@@ -27,7 +27,7 @@
 import type { IntegrationType } from "@/src/hooks/types";
 
 /** Canonical CLI ids the registry knows about. Mirrors `INTEGRATION_TYPES`. */
-export const KNOWN_CLI_IDS = ["claude", "codex", "copilot", "cursor", "opencode", "pi", "gemini", "hermes"] as const satisfies readonly IntegrationType[];
+export const KNOWN_CLI_IDS = ["claude", "codex", "copilot", "cursor", "opencode", "pi", "hermes", "openclaw", "factory", "devin", "antigravity", "goose"] as const satisfies readonly IntegrationType[];
 export type CliId = (typeof KNOWN_CLI_IDS)[number];
 
 /** Per-CLI metadata consumed by the dashboard. */
@@ -69,15 +69,35 @@ const CLI_ENTRIES: Record<CliId, CliEntry> = {
     label: "Pi",
     badgeClasses: "bg-pink-500/10 text-pink-400 border-pink-500/20",
   },
-  gemini: {
-    id: "gemini",
-    label: "Gemini CLI",
-    badgeClasses: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-  },
   hermes: {
     id: "hermes",
     label: "Hermes",
     badgeClasses: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+  },
+  openclaw: {
+    id: "openclaw",
+    label: "OpenClaw",
+    badgeClasses: "bg-teal-500/10 text-teal-400 border-teal-500/20",
+  },
+  factory: {
+    id: "factory",
+    label: "Factory Droid",
+    badgeClasses: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+  },
+  devin: {
+    id: "devin",
+    label: "Devin CLI",
+    badgeClasses: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+  },
+  antigravity: {
+    id: "antigravity",
+    label: "Antigravity CLI",
+    badgeClasses: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+  },
+  goose: {
+    id: "goose",
+    label: "Goose",
+    badgeClasses: "bg-lime-500/10 text-lime-400 border-lime-500/20",
   },
 };
 

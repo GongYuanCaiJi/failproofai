@@ -26,10 +26,18 @@ import {
   OPENCODE_HOOK_SCOPES,
   PI_HOOK_EVENT_TYPES,
   PI_HOOK_SCOPES,
-  GEMINI_HOOK_EVENT_TYPES,
-  GEMINI_HOOK_SCOPES,
   HERMES_HOOK_EVENT_TYPES,
   HERMES_HOOK_SCOPES,
+  OPENCLAW_HOOK_EVENT_TYPES,
+  OPENCLAW_HOOK_SCOPES,
+  FACTORY_HOOK_EVENT_TYPES,
+  FACTORY_HOOK_SCOPES,
+  DEVIN_HOOK_EVENT_TYPES,
+  DEVIN_HOOK_SCOPES,
+  ANTIGRAVITY_HOOK_EVENT_TYPES,
+  ANTIGRAVITY_HOOK_SCOPES,
+  GOOSE_HOOK_EVENT_TYPES,
+  GOOSE_HOOK_SCOPES,
   FAILPROOFAI_HOOK_MARKER,
   INTEGRATION_TYPES,
   type IntegrationType,
@@ -310,8 +318,7 @@ export const codex: Integration = {
       type: "command",
       // Codex reads `timeout` in SECONDS (the field is literally `timeout`,
       // default 600 per https://developers.openai.com/codex/hooks) — same unit as
-      // Claude/Cursor/Copilot, and unlike Gemini, whose `timeout` is in
-      // milliseconds (default 60000). 60 = 60s, not 60000ms (~16.7h).
+      // Claude/Cursor/Copilot. 60 = 60s.
       command,
       timeout: 60,
       [FAILPROOFAI_HOOK_MARKER]: true,
@@ -1286,163 +1293,6 @@ function makePiProjectRelativeEntry(extPath: string): string {
   // works for the local user.
   return extResolved;
 }
-// ── Gemini CLI integration ──────────────────────────────────────────────────
-//
-// Gemini's hook contract is the closest thing to a Claude Code clone we've
-// shipped: same `{matcher, hooks: [{type, command, timeout}]}` settings shape,
-// PascalCase event names, snake_case stdin payload field names (session_id,
-// tool_name, tool_input, hook_event_name, cwd, transcript_path), subprocess
-// execution model, and `$CLAUDE_PROJECT_DIR` env-var alias on top of its own
-// `$GEMINI_PROJECT_DIR`. The integration is structurally identical to
-// claudeCode below, with three deltas:
-//
-//   • Settings paths: ~/.gemini/settings.json (user) / <cwd>/.gemini/settings.json (project).
-//     System scope (/etc/gemini-cli/settings.json) is documented but not exposed.
-//
-//   • Matcher field: each Gemini matcher entry carries an explicit `matcher`
-//     regex (e.g. `"write_file|replace"`). We default to `"*"` so policies fire
-//     on every tool call, mirroring the failproofai default of "every event,
-//     every tool". Users can hand-edit settings.json to scope tighter; we
-//     preserve their `matcher` field across re-installs by NOT replacing
-//     entries that aren't failproofai-marked.
-//
-//   • Tool name canonicalization happens in handler.ts (snake_case →
-//     PascalCase via GEMINI_TOOL_MAP) so policies match unchanged; not the
-//     install layer's concern.
-//
-// Detected via the `gemini` binary on PATH.
-//
-// Ref: https://geminicli.com/docs/hooks/
-
-interface GeminiHookMatcher {
-  matcher?: string;
-  hooks?: Array<ClaudeHookEntry | Record<string, unknown>>;
-}
-
-interface GeminiSettingsFile {
-  hooks?: Record<string, GeminiHookMatcher[]>;
-  [key: string]: unknown;
-}
-
-export const gemini: Integration = {
-  id: "gemini",
-  displayName: "Gemini CLI",
-  scopes: GEMINI_HOOK_SCOPES,
-  eventTypes: GEMINI_HOOK_EVENT_TYPES,
-
-  getSettingsPath(scope, cwd) {
-    const base = cwd ? resolve(cwd) : process.cwd();
-    switch (scope) {
-      case "user":
-        return resolve(homedir(), ".gemini", "settings.json");
-      case "project":
-        return resolve(base, ".gemini", "settings.json");
-      case "local":
-        // Gemini has no "local" scope; CLI rejects --cli gemini --scope local
-        // before reaching here, but fall back to project so callers don't crash.
-        return resolve(base, ".gemini", "settings.json");
-    }
-  },
-
-  readSettings(settingsPath) {
-    return readJsonFile(settingsPath);
-  },
-
-  writeSettings(settingsPath, settings) {
-    writeJsonFile(settingsPath, settings);
-  },
-
-  buildHookEntry(binaryPath, eventType, scope) {
-    const command =
-      scope === "project"
-        ? `npx -y failproofai --hook ${eventType} --cli gemini`
-        : `"${binaryPath}" --hook ${eventType} --cli gemini`;
-    return {
-      type: "command",
-      command,
-      timeout: 60_000,
-      [FAILPROOFAI_HOOK_MARKER]: true,
-    };
-  },
-
-  isFailproofaiHook: isMarkedHook,
-
-  writeHookEntries(settings, binaryPath, scope) {
-    const s = settings as GeminiSettingsFile;
-    if (!s.hooks) s.hooks = {};
-
-    for (const eventType of GEMINI_HOOK_EVENT_TYPES) {
-      const hookEntry = this.buildHookEntry(binaryPath, eventType, scope) as unknown as ClaudeHookEntry;
-      if (!s.hooks[eventType]) s.hooks[eventType] = [];
-      const matchers: GeminiHookMatcher[] = s.hooks[eventType];
-
-      // Idempotent: replace an existing failproofai-marked entry inside our
-      // own matcher; otherwise append a new `{matcher: "*", hooks: [...]}`.
-      // Hand-written matchers (with their own `matcher` regex) are never
-      // touched — we identify our matcher by checking whether ANY of its
-      // inner hooks are failproofai-marked.
-      let found = false;
-      for (const matcher of matchers) {
-        if (!matcher.hooks) continue;
-        const idx = matcher.hooks.findIndex((h) => isMarkedHook(h as Record<string, unknown>));
-        if (idx >= 0) {
-          matcher.hooks[idx] = hookEntry;
-          found = true;
-          break;
-        }
-      }
-      if (!found) matchers.push({ matcher: "*", hooks: [hookEntry] });
-    }
-  },
-
-  removeHooksFromFile(settingsPath) {
-    const settings = this.readSettings(settingsPath) as GeminiSettingsFile;
-    if (!settings.hooks) return 0;
-
-    let removed = 0;
-    for (const eventType of Object.keys(settings.hooks)) {
-      const matchers = settings.hooks[eventType];
-      if (!Array.isArray(matchers)) continue;
-      for (let i = matchers.length - 1; i >= 0; i--) {
-        const matcher = matchers[i];
-        if (!matcher.hooks) continue;
-        const before = matcher.hooks.length;
-        matcher.hooks = matcher.hooks.filter((h) => !isMarkedHook(h as Record<string, unknown>));
-        removed += before - matcher.hooks.length;
-        if (matcher.hooks.length === 0) matchers.splice(i, 1);
-      }
-      if (matchers.length === 0) delete settings.hooks[eventType];
-    }
-    if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
-
-    this.writeSettings(settingsPath, settings as Record<string, unknown>);
-    return removed;
-  },
-
-  hooksInstalledInSettings(scope, cwd) {
-    const settingsPath = this.getSettingsPath(scope, cwd);
-    if (!existsSync(settingsPath)) return false;
-    try {
-      const settings = this.readSettings(settingsPath) as GeminiSettingsFile;
-      if (!settings.hooks) return false;
-      for (const matchers of Object.values(settings.hooks)) {
-        if (!Array.isArray(matchers)) continue;
-        for (const matcher of matchers) {
-          if (!matcher.hooks) continue;
-          if (matcher.hooks.some((h) => isMarkedHook(h as Record<string, unknown>))) return true;
-        }
-      }
-    } catch {
-      // Corrupt settings — treat as not installed
-    }
-    return false;
-  },
-
-  detectInstalled() {
-    return binaryExists("gemini");
-  },
-};
-
 // ── Hermes (hermes-agent) — live hooks (Pillar 1) ────────────────────────────
 //
 // External-command CLI like codex/cursor, but its config is YAML
@@ -1575,6 +1425,753 @@ export const hermes: Integration = {
   },
 };
 
+// ── OpenClaw integration ────────────────────────────────────────────────────
+//
+// OpenClaw is a self-hosted assistant gateway. Enforcement is via its in-process
+// PLUGIN hooks (file-based "internal hooks" are observation-only), so failproofai
+// ships a static plugin package (`openclaw-plugin/`, like Pi's pi-extension) that
+// async-spawns the binary and maps verdicts back. Install registers the plugin in
+// `~/.openclaw/openclaw.json` (JSON):
+//   • plugins.load.paths[]  → the shipped openclaw-plugin dir (absolute path)
+//   • plugins.entries.failproofai = { enabled: true, hooks: { allowConversationAccess: true } }
+//     (allowConversationAccess is required for the raw-conversation hooks
+//      before_agent_run / before_agent_finalize; verified live v2026.7.1).
+// USER scope only — OpenClaw has no project config (workspace plugins are
+// disabled by default). We NEVER delete the shipped plugin dir on uninstall
+// (unlike OpenCode's generated shim) — uninstall only edits openclaw.json.
+// Detected via the `openclaw` binary on PATH.
+
+const OPENCLAW_PLUGIN_ID = "failproofai";
+
+interface OpenClawPluginsSection {
+  load?: { paths?: string[]; [k: string]: unknown };
+  entries?: Record<string, Record<string, unknown>>;
+  allow?: string[];
+  deny?: string[];
+  [k: string]: unknown;
+}
+interface OpenClawSettingsFile {
+  plugins?: OpenClawPluginsSection;
+  [k: string]: unknown;
+}
+
+/** Absolute path to the failproofai-shipped OpenClaw plugin package. */
+function getOpenClawPluginPath(): string {
+  const fromEnv = process.env.FAILPROOFAI_PACKAGE_ROOT;
+  if (fromEnv) return resolve(fromEnv, "openclaw-plugin");
+  return resolve(fileURLToPath(import.meta.url), "..", "..", "..", "openclaw-plugin");
+}
+
+/** True iff a plugins.load.paths entry was written by failproofai. */
+function isFailproofaiOpenClawPath(p: unknown): boolean {
+  if (typeof p !== "string") return false;
+  return /(?:^|\/)openclaw-plugin\/?$/.test(p) || (p.includes("openclaw-plugin") && p.includes("failproofai"));
+}
+
+export const openclaw: Integration = {
+  id: "openclaw",
+  displayName: "OpenClaw",
+  scopes: OPENCLAW_HOOK_SCOPES,
+  eventTypes: OPENCLAW_HOOK_EVENT_TYPES,
+
+  // USER scope only (~/.openclaw/openclaw.json); OpenClaw has no project config.
+  getSettingsPath() {
+    return resolve(homedir(), ".openclaw", "openclaw.json");
+  },
+
+  readSettings(settingsPath) {
+    return readJsonFile(settingsPath);
+  },
+
+  writeSettings(settingsPath, settings) {
+    writeJsonFile(settingsPath, settings);
+  },
+
+  buildHookEntry() {
+    // OpenClaw registers plugins at the package level — one registration covers
+    // all hooks (the plugin's index.js wires every api.on(...) handler). This
+    // sentinel satisfies the interface; writeHookEntries does the real work.
+    return {
+      [FAILPROOFAI_HOOK_MARKER]: true,
+      _openclawPluginPath: getOpenClawPluginPath(),
+    };
+  },
+
+  isFailproofaiHook(hook) {
+    if (typeof hook === "string") return isFailproofaiOpenClawPath(hook);
+    if (!hook || typeof hook !== "object") return false;
+    const h = hook as Record<string, unknown>;
+    if (h[FAILPROOFAI_HOOK_MARKER] === true) return true;
+    if (typeof h.source === "string") return isFailproofaiOpenClawPath(h.source);
+    return false;
+  },
+
+  writeHookEntries(settings) {
+    const s = settings as OpenClawSettingsFile;
+    const plugins = (s.plugins ??= {});
+    const load = (plugins.load ??= {});
+    if (!Array.isArray(load.paths)) load.paths = [];
+    const dir = getOpenClawPluginPath();
+    // Idempotent: replace any existing failproofai path, otherwise append.
+    const idx = load.paths.findIndex((p) => isFailproofaiOpenClawPath(p));
+    if (idx >= 0) load.paths[idx] = dir;
+    else load.paths.push(dir);
+
+    // Enable the plugin + grant conversation access (needed for before_agent_run
+    // / before_agent_finalize). Only set our own keys — operator config on this
+    // entry (e.g. hooks.timeouts.<hookName>) and other entries are preserved.
+    const entries = (plugins.entries ??= {});
+    const entry = (entries[OPENCLAW_PLUGIN_ID] ??= {});
+    entry.enabled = true;
+    const hooks = ((entry.hooks as Record<string, unknown>) ??= {});
+    hooks.allowConversationAccess = true;
+  },
+
+  removeHooksFromFile(settingsPath) {
+    if (!existsSync(settingsPath)) return 0;
+    const settings = this.readSettings(settingsPath) as OpenClawSettingsFile;
+    const plugins = settings.plugins;
+    if (!plugins) return 0;
+    let removed = 0;
+
+    if (Array.isArray(plugins.load?.paths)) {
+      const before = plugins.load.paths.length;
+      plugins.load.paths = plugins.load.paths.filter((p) => !isFailproofaiOpenClawPath(p));
+      removed += before - plugins.load.paths.length;
+      if (plugins.load.paths.length === 0) delete plugins.load.paths;
+      if (plugins.load && Object.keys(plugins.load).length === 0) delete plugins.load;
+    }
+    if (plugins.entries && OPENCLAW_PLUGIN_ID in plugins.entries) {
+      delete plugins.entries[OPENCLAW_PLUGIN_ID];
+      removed += 1;
+      if (Object.keys(plugins.entries).length === 0) delete plugins.entries;
+    }
+    // Prune an empty plugins object so uninstall leaves openclaw.json clean.
+    if (Object.keys(plugins).length === 0) delete settings.plugins;
+
+    this.writeSettings(settingsPath, settings as Record<string, unknown>);
+    return removed;
+  },
+
+  hooksInstalledInSettings(scope, cwd) {
+    const settingsPath = this.getSettingsPath(scope, cwd);
+    if (!existsSync(settingsPath)) return false;
+    try {
+      const settings = this.readSettings(settingsPath) as OpenClawSettingsFile;
+      const paths = settings.plugins?.load?.paths;
+      const pathPresent = Array.isArray(paths) && paths.some((p) => isFailproofaiOpenClawPath(p));
+      const entryEnabled = settings.plugins?.entries?.[OPENCLAW_PLUGIN_ID]?.enabled === true;
+      return pathPresent && entryEnabled;
+    } catch {
+      return false;
+    }
+  },
+
+  detectInstalled() {
+    return binaryExists("openclaw");
+  },
+};
+
+// ── Factory Droid (droid) integration ───────────────────────────────────────
+//
+// Factory's droid CLI uses a Claude-compatible external-command hook system,
+// but its hooks.json puts event names at the TOP LEVEL — there is NO `"hooks"`
+// wrapper (the file IS the events object). Verified live against droid
+// v0.171.0: a `{"hooks":{…}}` wrapper is rejected with `WARN Ignoring unknown
+// hook event keys keys:["hooks"]`. Tool events (PreToolUse / PostToolUse) carry
+// `"matcher": "*"`; non-tool events omit the matcher. Deny is exit-2 + stderr
+// (see policy-evaluator.ts). Event names are already PascalCase, so no event
+// canonicalization is needed. Settings paths: ~/.factory/hooks.json (user) and
+// <cwd>/.factory/hooks.json (project); no "local" scope.
+
+interface FactoryHookMatcher {
+  matcher?: string;
+  hooks: Array<ClaudeHookEntry | Record<string, unknown>>;
+}
+
+/** The Factory settings file IS the top-level events map (no wrapper key). */
+type FactorySettingsFile = Record<string, FactoryHookMatcher[] | unknown>;
+
+export const factory: Integration = {
+  id: "factory",
+  displayName: "Factory Droid",
+  scopes: FACTORY_HOOK_SCOPES,
+  eventTypes: FACTORY_HOOK_EVENT_TYPES,
+
+  getSettingsPath(scope, cwd) {
+    const base = cwd ? resolve(cwd) : process.cwd();
+    switch (scope) {
+      case "user":
+        return resolve(homedir(), ".factory", "hooks.json");
+      case "project":
+        return resolve(base, ".factory", "hooks.json");
+      case "local":
+        // Factory has no "local" scope; the CLI rejects --cli factory --scope
+        // local before reaching here, but fall back to project so callers don't
+        // crash.
+        return resolve(base, ".factory", "hooks.json");
+    }
+  },
+
+  readSettings(settingsPath) {
+    return readJsonFile(settingsPath);
+  },
+
+  writeSettings(settingsPath, settings) {
+    writeJsonFile(settingsPath, settings);
+  },
+
+  buildHookEntry(binaryPath, eventType, scope) {
+    const command =
+      scope === "project"
+        ? `npx -y failproofai --hook ${eventType} --cli factory`
+        : `"${binaryPath}" --hook ${eventType} --cli factory`;
+    return {
+      type: "command",
+      command,
+      // droid reads `timeout` in SECONDS (verified against droid v0.171.0). 30s.
+      timeout: 30,
+      [FAILPROOFAI_HOOK_MARKER]: true,
+    };
+  },
+
+  isFailproofaiHook: isMarkedHook,
+
+  writeHookEntries(settings, binaryPath, scope) {
+    const s = settings as Record<string, FactoryHookMatcher[]>;
+
+    for (const eventType of FACTORY_HOOK_EVENT_TYPES) {
+      const hookEntry = this.buildHookEntry(binaryPath, eventType, scope) as unknown as ClaudeHookEntry;
+      if (!Array.isArray(s[eventType])) s[eventType] = [];
+      const matchers: FactoryHookMatcher[] = s[eventType];
+
+      let found = false;
+      for (const matcher of matchers) {
+        if (!matcher.hooks) continue;
+        const idx = matcher.hooks.findIndex((h) => isMarkedHook(h as Record<string, unknown>));
+        if (idx >= 0) {
+          matcher.hooks[idx] = hookEntry;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        // Tool events match all tools via `matcher: "*"`; non-tool events carry
+        // no matcher (verified live against droid v0.171.0).
+        const isToolEvent = eventType === "PreToolUse" || eventType === "PostToolUse";
+        matchers.push(isToolEvent ? { matcher: "*", hooks: [hookEntry] } : { hooks: [hookEntry] });
+      }
+    }
+  },
+
+  removeHooksFromFile(settingsPath) {
+    const settings = this.readSettings(settingsPath) as FactorySettingsFile;
+
+    let removed = 0;
+    for (const eventType of Object.keys(settings)) {
+      const matchers = settings[eventType];
+      if (!Array.isArray(matchers)) continue;
+      for (let i = matchers.length - 1; i >= 0; i--) {
+        const matcher = matchers[i] as FactoryHookMatcher;
+        if (!matcher || !matcher.hooks) continue;
+        const before = matcher.hooks.length;
+        matcher.hooks = matcher.hooks.filter((h) => !isMarkedHook(h as Record<string, unknown>));
+        removed += before - matcher.hooks.length;
+        if (matcher.hooks.length === 0) matchers.splice(i, 1);
+      }
+      if (matchers.length === 0) delete settings[eventType];
+    }
+
+    this.writeSettings(settingsPath, settings as Record<string, unknown>);
+    return removed;
+  },
+
+  hooksInstalledInSettings(scope, cwd) {
+    const settingsPath = this.getSettingsPath(scope, cwd);
+    if (!existsSync(settingsPath)) return false;
+    try {
+      const settings = this.readSettings(settingsPath) as FactorySettingsFile;
+      for (const matchers of Object.values(settings)) {
+        if (!Array.isArray(matchers)) continue;
+        for (const matcher of matchers as FactoryHookMatcher[]) {
+          if (!matcher || !matcher.hooks) continue;
+          if (matcher.hooks.some((h) => isMarkedHook(h as Record<string, unknown>))) return true;
+        }
+      }
+    } catch {
+      // Corrupt settings — treat as not installed
+    }
+    return false;
+  },
+
+  detectInstalled() {
+    return binaryExists("droid");
+  },
+};
+
+// ── Devin CLI (devin) integration ────────────────────────────────────────────
+//
+// Devin's CLI (Cognition) is a **pure Claude-clone** external-command hook
+// system, verified live against devin v3000.1.27. It uses the standard Claude
+// `"hooks"`-wrapper schema, so this Integration mirrors `claudeCode` verbatim —
+// only the settings paths and the `--cli devin` command flag differ. The
+// config file also carries the operator's own keys (`org_id`, `theme_mode`,
+// …), so readSettings/writeSettings use the merge-preserving JSON helpers.
+//
+// Settings paths (verified against devin v3000.1.27):
+//   user    → ~/.config/devin/config.json  (the `"hooks"` key)
+//   project → <cwd>/.devin/config.json      (the `"hooks"` key)
+// No "local" scope. Event names are already PascalCase (no event map / no
+// handler branch); the stdin payload is Claude snake_case (no normalization).
+// Deny/instruct semantics live in policy-evaluator.ts's `cli === "devin"`
+// branch (`{decision:"block", reason}` on stdout at exit 0).
+
+export const devin: Integration = {
+  id: "devin",
+  displayName: "Devin CLI",
+  scopes: DEVIN_HOOK_SCOPES,
+  eventTypes: DEVIN_HOOK_EVENT_TYPES,
+
+  getSettingsPath(scope, cwd) {
+    const base = cwd ? resolve(cwd) : process.cwd();
+    switch (scope) {
+      case "user":
+        return resolve(homedir(), ".config", "devin", "config.json");
+      case "project":
+        return resolve(base, ".devin", "config.json");
+      case "local":
+        // Devin has no "local" scope; the CLI rejects --cli devin --scope local
+        // before reaching here, but fall back to project so callers don't crash.
+        return resolve(base, ".devin", "config.json");
+    }
+  },
+
+  readSettings(settingsPath) {
+    return readJsonFile(settingsPath);
+  },
+
+  writeSettings(settingsPath, settings) {
+    writeJsonFile(settingsPath, settings);
+  },
+
+  buildHookEntry(binaryPath, eventType, scope) {
+    const command =
+      scope === "project"
+        ? `npx -y failproofai --hook ${eventType} --cli devin`
+        : `"${binaryPath}" --hook ${eventType} --cli devin`;
+    return {
+      type: "command",
+      command,
+      // Devin reads `timeout` in SECONDS like Claude. 60 = 60s.
+      timeout: 60,
+      [FAILPROOFAI_HOOK_MARKER]: true,
+    };
+  },
+
+  isFailproofaiHook: isMarkedHook,
+
+  writeHookEntries(settings, binaryPath, scope) {
+    const s = settings as ClaudeSettings;
+    if (!s.hooks) s.hooks = {};
+
+    for (const eventType of DEVIN_HOOK_EVENT_TYPES) {
+      const hookEntry = this.buildHookEntry(binaryPath, eventType, scope) as unknown as ClaudeHookEntry;
+      if (!s.hooks[eventType]) s.hooks[eventType] = [];
+      const matchers: ClaudeHookMatcher[] = s.hooks[eventType];
+
+      let found = false;
+      for (const matcher of matchers) {
+        if (!matcher.hooks) continue;
+        const idx = matcher.hooks.findIndex((h) => isMarkedHook(h as Record<string, unknown>));
+        if (idx >= 0) {
+          matcher.hooks[idx] = hookEntry;
+          found = true;
+          break;
+        }
+      }
+      if (!found) matchers.push({ hooks: [hookEntry] });
+    }
+  },
+
+  removeHooksFromFile(settingsPath) {
+    const settings = this.readSettings(settingsPath) as ClaudeSettings;
+    if (!settings.hooks) return 0;
+
+    let removed = 0;
+    for (const eventType of Object.keys(settings.hooks)) {
+      const matchers = settings.hooks[eventType];
+      if (!Array.isArray(matchers)) continue;
+      for (let i = matchers.length - 1; i >= 0; i--) {
+        const matcher = matchers[i];
+        if (!matcher.hooks) continue;
+        const before = matcher.hooks.length;
+        matcher.hooks = matcher.hooks.filter((h) => !isMarkedHook(h as Record<string, unknown>));
+        removed += before - matcher.hooks.length;
+        if (matcher.hooks.length === 0) matchers.splice(i, 1);
+      }
+      if (matchers.length === 0) delete settings.hooks[eventType];
+    }
+    if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
+
+    this.writeSettings(settingsPath, settings as Record<string, unknown>);
+    return removed;
+  },
+
+  hooksInstalledInSettings(scope, cwd) {
+    const settingsPath = this.getSettingsPath(scope, cwd);
+    if (!existsSync(settingsPath)) return false;
+    try {
+      const settings = this.readSettings(settingsPath) as ClaudeSettings;
+      if (!settings.hooks) return false;
+      for (const matchers of Object.values(settings.hooks)) {
+        if (!Array.isArray(matchers)) continue;
+        for (const matcher of matchers) {
+          if (!matcher.hooks) continue;
+          if (matcher.hooks.some((h) => isMarkedHook(h as Record<string, unknown>))) return true;
+        }
+      }
+    } catch {
+      // Corrupt settings — treat as not installed
+    }
+    return false;
+  },
+
+  detectInstalled() {
+    return binaryExists("devin");
+  },
+};
+
+// ── Antigravity CLI (antigravity) integration ────────────────────────────────
+//
+// Antigravity's `agy` CLI uses a NAMED-hook schema: the hooks.json top-level key
+// is a hook *name* ("failproofai"), whose value is an event→handlers map. Tool
+// events (PreToolUse / PostToolUse) wrap handlers in `{matcher, hooks:[…]}`;
+// non-tool events (PreInvocation / Stop) are FLAT arrays of handler objects.
+// Verified live against agy v1.1.2. Settings paths:
+//   user    → ~/.gemini/config/hooks.json
+//   project → <cwd>/.agents/hooks.json
+// No "local" scope. Deny/instruct semantics live in policy-evaluator.ts's
+// `cli === "antigravity"` branch (Antigravity's OWN `{decision:"deny"}` /
+// `{decision:"continue"}` / `{injectSteps}` shapes — NOT Claude's).
+
+/** The Antigravity settings file is `{ "<hookName>": { <event>: … } }`. Our
+ *  named hook is "failproofai". */
+const ANTIGRAVITY_HOOK_NAME = "failproofai";
+
+interface AntigravityToolMatcher {
+  matcher?: string;
+  hooks: Array<ClaudeHookEntry | Record<string, unknown>>;
+}
+/** An Antigravity named-hook body: tool events → `{matcher, hooks}[]`; flat
+ *  events (PreInvocation / Stop) → `handler[]`. */
+type AntigravityNamedHook = Record<
+  string,
+  AntigravityToolMatcher[] | Array<ClaudeHookEntry | Record<string, unknown>>
+>;
+
+const ANTIGRAVITY_TOOL_EVENTS = new Set(["PreToolUse", "PostToolUse"]);
+
+export const antigravity: Integration = {
+  id: "antigravity",
+  displayName: "Antigravity CLI",
+  scopes: ANTIGRAVITY_HOOK_SCOPES,
+  eventTypes: ANTIGRAVITY_HOOK_EVENT_TYPES,
+
+  getSettingsPath(scope, cwd) {
+    const base = cwd ? resolve(cwd) : process.cwd();
+    switch (scope) {
+      case "user":
+        return resolve(homedir(), ".gemini", "config", "hooks.json");
+      case "project":
+        return resolve(base, ".agents", "hooks.json");
+      case "local":
+        // Antigravity has no "local" scope; the CLI rejects it before reaching
+        // here, but fall back to project so callers don't crash.
+        return resolve(base, ".agents", "hooks.json");
+    }
+  },
+
+  readSettings(settingsPath) {
+    return readJsonFile(settingsPath);
+  },
+
+  writeSettings(settingsPath, settings) {
+    writeJsonFile(settingsPath, settings);
+  },
+
+  buildHookEntry(binaryPath, eventType, scope) {
+    const command =
+      scope === "project"
+        ? `npx -y failproofai --hook ${eventType} --cli antigravity`
+        : `"${binaryPath}" --hook ${eventType} --cli antigravity`;
+    return {
+      type: "command",
+      command,
+      // Antigravity reads `timeout` in SECONDS (verified agy v1.1.2). 30s.
+      timeout: 30,
+      [FAILPROOFAI_HOOK_MARKER]: true,
+    };
+  },
+
+  isFailproofaiHook: isMarkedHook,
+
+  writeHookEntries(settings, binaryPath, scope) {
+    const s = settings as Record<string, unknown>;
+    if (!s[ANTIGRAVITY_HOOK_NAME] || typeof s[ANTIGRAVITY_HOOK_NAME] !== "object") {
+      s[ANTIGRAVITY_HOOK_NAME] = {};
+    }
+    const named = s[ANTIGRAVITY_HOOK_NAME] as AntigravityNamedHook;
+
+    for (const eventType of ANTIGRAVITY_HOOK_EVENT_TYPES) {
+      const hookEntry = this.buildHookEntry(binaryPath, eventType, scope) as unknown as ClaudeHookEntry;
+      const isToolEvent = ANTIGRAVITY_TOOL_EVENTS.has(eventType);
+
+      if (isToolEvent) {
+        if (!Array.isArray(named[eventType])) named[eventType] = [] as AntigravityToolMatcher[];
+        const matchers = named[eventType] as AntigravityToolMatcher[];
+        let found = false;
+        for (const matcher of matchers) {
+          if (!matcher.hooks) continue;
+          const idx = matcher.hooks.findIndex((h) => isMarkedHook(h as Record<string, unknown>));
+          if (idx >= 0) {
+            matcher.hooks[idx] = hookEntry;
+            found = true;
+            break;
+          }
+        }
+        if (!found) matchers.push({ matcher: "*", hooks: [hookEntry] });
+      } else {
+        // Flat array of handler objects (PreInvocation / Stop).
+        if (!Array.isArray(named[eventType])) named[eventType] = [] as Array<ClaudeHookEntry | Record<string, unknown>>;
+        const handlers = named[eventType] as Array<ClaudeHookEntry | Record<string, unknown>>;
+        const idx = handlers.findIndex((h) => isMarkedHook(h as Record<string, unknown>));
+        if (idx >= 0) handlers[idx] = hookEntry;
+        else handlers.push(hookEntry);
+      }
+    }
+  },
+
+  removeHooksFromFile(settingsPath) {
+    const settings = this.readSettings(settingsPath) as Record<string, unknown>;
+    const named = settings[ANTIGRAVITY_HOOK_NAME];
+    if (!named || typeof named !== "object") {
+      this.writeSettings(settingsPath, settings);
+      return 0;
+    }
+    const namedHook = named as AntigravityNamedHook;
+
+    let removed = 0;
+    for (const eventType of Object.keys(namedHook)) {
+      const value = namedHook[eventType];
+      if (!Array.isArray(value)) continue;
+      if (ANTIGRAVITY_TOOL_EVENTS.has(eventType)) {
+        const matchers = value as AntigravityToolMatcher[];
+        for (let i = matchers.length - 1; i >= 0; i--) {
+          const matcher = matchers[i];
+          if (!matcher || !matcher.hooks) continue;
+          const before = matcher.hooks.length;
+          matcher.hooks = matcher.hooks.filter((h) => !isMarkedHook(h as Record<string, unknown>));
+          removed += before - matcher.hooks.length;
+          if (matcher.hooks.length === 0) matchers.splice(i, 1);
+        }
+        if (matchers.length === 0) delete namedHook[eventType];
+      } else {
+        const handlers = value as Array<Record<string, unknown>>;
+        const before = handlers.length;
+        const filtered = handlers.filter((h) => !isMarkedHook(h));
+        removed += before - filtered.length;
+        if (filtered.length === 0) delete namedHook[eventType];
+        else namedHook[eventType] = filtered as Array<ClaudeHookEntry | Record<string, unknown>>;
+      }
+    }
+    // Drop the named hook entirely if it has no remaining events.
+    if (Object.keys(namedHook).length === 0) delete settings[ANTIGRAVITY_HOOK_NAME];
+
+    this.writeSettings(settingsPath, settings);
+    return removed;
+  },
+
+  hooksInstalledInSettings(scope, cwd) {
+    const settingsPath = this.getSettingsPath(scope, cwd);
+    if (!existsSync(settingsPath)) return false;
+    try {
+      const settings = this.readSettings(settingsPath) as Record<string, unknown>;
+      const named = settings[ANTIGRAVITY_HOOK_NAME];
+      if (!named || typeof named !== "object") return false;
+      for (const value of Object.values(named as AntigravityNamedHook)) {
+        if (!Array.isArray(value)) continue;
+        for (const item of value) {
+          if (isMarkedHook(item as Record<string, unknown>)) return true;
+          const matcher = item as AntigravityToolMatcher;
+          if (matcher && Array.isArray(matcher.hooks) && matcher.hooks.some((h) => isMarkedHook(h as Record<string, unknown>))) {
+            return true;
+          }
+        }
+      }
+    } catch {
+      // Corrupt settings — treat as not installed
+    }
+    return false;
+  },
+
+  detectInstalled() {
+    return binaryExists("agy");
+  },
+};
+
+// ── Goose (codename goose, Block) integration ────────────────────────────────
+//
+// Goose's "hooks" system follows the cross-agent Open Plugins spec: a plugin
+// directory whose hooks/hooks.json wires shell commands into agent events.
+// failproofai owns the entire `failproofai` plugin dir and writes an Open
+// Plugins hooks.json — `{"hooks": {<Event>: [{"hooks": [{type, command}]}]}}`.
+// Two differences from Factory (verified live against goose v1.43.0):
+//   1. the schema DOES carry the top-level "hooks" wrapper (like Claude), and
+//   2. the matcher is OMITTED on every event — a bare "*" is an invalid regex
+//      that matches NOTHING (omitted = match all tools).
+// Entries are the clean `{type, command}` shape with NO marker field — Goose
+// parses this file, so we identify our hooks by the `--cli goose` command
+// substring instead of injecting `__failproofai_hook__`. Goose auto-discovers
+// the dir at startup (no config edit) and self-registers it into
+// ~/.config/goose/config.yaml; uninstall clears our entries (the emptied
+// hooks.json and the auto-added config `plugins:` entry are left for Goose to
+// reconcile on next start — it logs the empty plugin and continues, harmless).
+// Deny is PreToolUse-only JSON (see policy-evaluator.ts). Settings paths:
+// ~/.agents/plugins/failproofai/hooks/hooks.json (user) and
+// <cwd>/.agents/plugins/failproofai/hooks/hooks.json (project); no "local" scope.
+
+interface GooseHookMatcher {
+  matcher?: string;
+  hooks: Array<Record<string, unknown>>;
+}
+/** The Open Plugins hooks file: { "hooks": { <Event>: GooseHookMatcher[] } }. */
+interface GooseHooksFile {
+  hooks?: Record<string, GooseHookMatcher[]>;
+  [key: string]: unknown;
+}
+
+/** failproofai owns the `failproofai` Goose plugin dir; identify our hook
+ *  entries by the `--cli goose` command substring (the file is Goose-parsed, so
+ *  entries stay the clean {type, command} shape with no marker field). */
+function isGooseFailproofaiHook(hook: unknown): boolean {
+  if (!hook || typeof hook !== "object") return false;
+  const cmd = (hook as { command?: unknown }).command;
+  return typeof cmd === "string" && cmd.includes("failproofai") && cmd.includes("--cli goose");
+}
+
+export const goose: Integration = {
+  id: "goose",
+  displayName: "Goose",
+  scopes: GOOSE_HOOK_SCOPES,
+  eventTypes: GOOSE_HOOK_EVENT_TYPES,
+
+  getSettingsPath(scope, cwd) {
+    const base = cwd ? resolve(cwd) : process.cwd();
+    switch (scope) {
+      case "user":
+        return resolve(homedir(), ".agents", "plugins", "failproofai", "hooks", "hooks.json");
+      case "project":
+        return resolve(base, ".agents", "plugins", "failproofai", "hooks", "hooks.json");
+      case "local":
+        // Goose has no "local" scope; the CLI rejects --scope local before
+        // reaching here, but fall back to project so callers don't crash.
+        return resolve(base, ".agents", "plugins", "failproofai", "hooks", "hooks.json");
+    }
+  },
+
+  readSettings(settingsPath) {
+    return readJsonFile(settingsPath);
+  },
+
+  writeSettings(settingsPath, settings) {
+    writeJsonFile(settingsPath, settings);
+  },
+
+  buildHookEntry(binaryPath, eventType, scope) {
+    const command =
+      scope === "project"
+        ? `npx -y failproofai --hook ${eventType} --cli goose`
+        : `"${binaryPath}" --hook ${eventType} --cli goose`;
+    // Open Plugins command entry: { type, command } only (Goose applies its own
+    // timeout; no marker field — see isGooseFailproofaiHook).
+    return { type: "command", command };
+  },
+
+  isFailproofaiHook: isGooseFailproofaiHook,
+
+  writeHookEntries(settings, binaryPath, scope) {
+    const s = settings as GooseHooksFile;
+    if (!s.hooks) s.hooks = {};
+
+    for (const eventType of GOOSE_HOOK_EVENT_TYPES) {
+      const hookEntry = this.buildHookEntry(binaryPath, eventType, scope);
+      if (!Array.isArray(s.hooks[eventType])) s.hooks[eventType] = [];
+      const matchers: GooseHookMatcher[] = s.hooks[eventType];
+
+      let found = false;
+      for (const matcher of matchers) {
+        if (!matcher.hooks) continue;
+        const idx = matcher.hooks.findIndex((h) => isGooseFailproofaiHook(h));
+        if (idx >= 0) {
+          matcher.hooks[idx] = hookEntry;
+          found = true;
+          break;
+        }
+      }
+      // matcher OMITTED on every event (a bare "*" matches nothing; omitted =
+      // match all tools — verified live against goose v1.43.0).
+      if (!found) matchers.push({ hooks: [hookEntry] });
+    }
+  },
+
+  removeHooksFromFile(settingsPath) {
+    const settings = this.readSettings(settingsPath) as GooseHooksFile;
+    if (!settings.hooks) return 0;
+
+    let removed = 0;
+    for (const eventType of Object.keys(settings.hooks)) {
+      const matchers = settings.hooks[eventType];
+      if (!Array.isArray(matchers)) continue;
+      for (let i = matchers.length - 1; i >= 0; i--) {
+        const matcher = matchers[i];
+        if (!matcher || !matcher.hooks) continue;
+        const before = matcher.hooks.length;
+        matcher.hooks = matcher.hooks.filter((h) => !isGooseFailproofaiHook(h));
+        removed += before - matcher.hooks.length;
+        if (matcher.hooks.length === 0) matchers.splice(i, 1);
+      }
+      if (matchers.length === 0) delete settings.hooks[eventType];
+    }
+    if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
+
+    this.writeSettings(settingsPath, settings as Record<string, unknown>);
+    return removed;
+  },
+
+  hooksInstalledInSettings(scope, cwd) {
+    const settingsPath = this.getSettingsPath(scope, cwd);
+    if (!existsSync(settingsPath)) return false;
+    try {
+      const settings = this.readSettings(settingsPath) as GooseHooksFile;
+      if (!settings.hooks) return false;
+      for (const matchers of Object.values(settings.hooks)) {
+        if (!Array.isArray(matchers)) continue;
+        for (const matcher of matchers) {
+          if (!matcher || !matcher.hooks) continue;
+          if (matcher.hooks.some((h) => isGooseFailproofaiHook(h))) return true;
+        }
+      }
+    } catch {
+      // Corrupt settings — treat as not installed
+    }
+    return false;
+  },
+
+  detectInstalled() {
+    return binaryExists("goose");
+  },
+};
+
 // ── Registry ────────────────────────────────────────────────────────────────
 
 // `Partial` is kept (not every IntegrationType is guaranteed installable for
@@ -1589,8 +2186,12 @@ const INTEGRATIONS: Partial<Record<IntegrationType, Integration>> = {
   cursor,
   opencode,
   pi,
-  gemini,
   hermes,
+  openclaw,
+  factory,
+  devin,
+  antigravity,
+  goose,
 };
 
 export function getIntegration(id: IntegrationType): Integration {

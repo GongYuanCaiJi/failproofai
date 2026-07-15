@@ -13,9 +13,6 @@ const SESSION_ID = "test-session-e2e-001";
  */
 const TRANSCRIPT_PATH = "/dev/null";
 
-/** ISO-8601 timestamp used by integrations that include one in stdin (Gemini). */
-const TIMESTAMP = "2026-05-03T18:00:00.000Z";
-
 export const Payloads = {
   preToolUse: {
     bash(command: string, cwd: string): Record<string, unknown> {
@@ -591,163 +588,287 @@ export const PiPayloads = {
   },
 };
 
-const GEMINI_SESSION_ID = "g1234567-9abc-7def-0123-456789abcdef";
-
 /**
- * Gemini CLI hook payload shapes.
- *
- * Gemini sends Claude-shape stdin: snake_case fields (`session_id`,
- * `tool_name`, `tool_input`, `hook_event_name`, `cwd`, `transcript_path`)
- * plus `timestamp`. Tool names are snake_case (`run_shell_command`,
- * `read_file`, `write_file`, `replace`, etc.) — the binary canonicalizes
- * these to PascalCase via GEMINI_TOOL_MAP before policy lookup.
- *
- * Per https://geminicli.com/docs/hooks/ as of 2026-04-13.
+ * Factory (droid) payload factories. droid's hook stdin is Claude snake_case
+ * (`session_id`, `transcript_path`, `cwd`, `permission_mode`, `hook_event_name`,
+ * `tool_name`, `tool_input`) with already-PascalCase event names — so no payload
+ * or event canonicalization is needed. droid's tool registry uses
+ * `Execute`/`Read`/`Edit`/`Create`/… which the handler maps to Claude builtins
+ * via FACTORY_TOOL_MAP (see src/hooks/types.ts). Verified live against droid
+ * v0.171.0.
  */
-export const GeminiPayloads = {
-  beforeTool: {
-    runShellCommand(command: string, cwd: string): Record<string, unknown> {
+const FACTORY_SESSION_ID = "test-session-factory-001";
+
+export const FactoryPayloads = {
+  preToolUse: {
+    bash(command: string, cwd: string): Record<string, unknown> {
       return {
-        session_id: GEMINI_SESSION_ID,
+        session_id: FACTORY_SESSION_ID,
         transcript_path: TRANSCRIPT_PATH,
         cwd,
-        hook_event_name: "BeforeTool",
-        timestamp: TIMESTAMP,
-        tool_name: "run_shell_command",
+        permission_mode: "default",
+        hook_event_name: "PreToolUse",
+        tool_name: "Execute",
         tool_input: { command },
       };
     },
-    readFile(filePath: string, cwd: string): Record<string, unknown> {
+    write(filePath: string, content: string, cwd: string): Record<string, unknown> {
       return {
-        session_id: GEMINI_SESSION_ID,
+        session_id: FACTORY_SESSION_ID,
         transcript_path: TRANSCRIPT_PATH,
         cwd,
-        hook_event_name: "BeforeTool",
-        timestamp: TIMESTAMP,
-        tool_name: "read_file",
-        tool_input: { file_path: filePath },
-      };
-    },
-    writeFile(filePath: string, content: string, cwd: string): Record<string, unknown> {
-      return {
-        session_id: GEMINI_SESSION_ID,
-        transcript_path: TRANSCRIPT_PATH,
-        cwd,
-        hook_event_name: "BeforeTool",
-        timestamp: TIMESTAMP,
-        tool_name: "write_file",
+        permission_mode: "default",
+        hook_event_name: "PreToolUse",
+        tool_name: "Create",
         tool_input: { file_path: filePath, content },
       };
     },
-    replace(filePath: string, oldStr: string, newStr: string, cwd: string): Record<string, unknown> {
+    read(filePath: string, cwd: string): Record<string, unknown> {
       return {
-        session_id: GEMINI_SESSION_ID,
+        session_id: FACTORY_SESSION_ID,
         transcript_path: TRANSCRIPT_PATH,
         cwd,
-        hook_event_name: "BeforeTool",
-        timestamp: TIMESTAMP,
-        tool_name: "replace",
-        tool_input: { file_path: filePath, old_string: oldStr, new_string: newStr },
-      };
-    },
-    mcpExtension(toolName: string, input: Record<string, unknown>, cwd: string): Record<string, unknown> {
-      return {
-        session_id: GEMINI_SESSION_ID,
-        transcript_path: TRANSCRIPT_PATH,
-        cwd,
-        hook_event_name: "BeforeTool",
-        timestamp: TIMESTAMP,
-        tool_name: toolName,
-        tool_input: input,
+        permission_mode: "default",
+        hook_event_name: "PreToolUse",
+        tool_name: "Read",
+        tool_input: { file_path: filePath },
       };
     },
   },
-  afterTool: {
-    runShellCommand(command: string, output: string, cwd: string): Record<string, unknown> {
+  postToolUse: {
+    bash(command: string, output: string, cwd: string): Record<string, unknown> {
       return {
-        session_id: GEMINI_SESSION_ID,
+        session_id: FACTORY_SESSION_ID,
         transcript_path: TRANSCRIPT_PATH,
         cwd,
-        hook_event_name: "AfterTool",
-        timestamp: TIMESTAMP,
-        tool_name: "run_shell_command",
+        permission_mode: "default",
+        hook_event_name: "PostToolUse",
+        tool_name: "Execute",
         tool_input: { command },
-        tool_response: { llmContent: output, returnDisplay: output },
+        tool_response: output,
       };
     },
   },
-  beforeAgent(prompt: string, cwd: string): Record<string, unknown> {
+  userPromptSubmit(prompt: string, cwd: string): Record<string, unknown> {
     return {
-      session_id: GEMINI_SESSION_ID,
+      session_id: FACTORY_SESSION_ID,
       transcript_path: TRANSCRIPT_PATH,
       cwd,
-      hook_event_name: "BeforeAgent",
-      timestamp: TIMESTAMP,
+      permission_mode: "default",
+      hook_event_name: "UserPromptSubmit",
       prompt,
     };
   },
-  afterAgent(prompt: string, response: string, cwd: string): Record<string, unknown> {
+  stop(cwd: string): Record<string, unknown> {
     return {
-      session_id: GEMINI_SESSION_ID,
+      session_id: FACTORY_SESSION_ID,
       transcript_path: TRANSCRIPT_PATH,
       cwd,
-      hook_event_name: "AfterAgent",
-      timestamp: TIMESTAMP,
+      permission_mode: "default",
+      hook_event_name: "Stop",
+    };
+  },
+};
+
+/**
+ * Devin (Cognition) payload factories. Devin is a pure Claude-clone: its hook
+ * stdin is Claude snake_case (`session_id`, `transcript_path`, `cwd`,
+ * `permission_mode`, `hook_event_name`, `tool_name`, `tool_input`) with
+ * already-PascalCase event names — so no payload or event canonicalization is
+ * needed. Devin's shell tool is `exec` (mapped to Bash via DEVIN_TOOL_MAP);
+ * `tool_input.command` is already canonical. Verified live against devin
+ * v3000.1.27.
+ */
+const DEVIN_SESSION_ID = "test-session-devin-001";
+
+export const DevinPayloads = {
+  preToolUse: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: DEVIN_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        permission_mode: "default",
+        hook_event_name: "PreToolUse",
+        tool_name: "exec",
+        tool_input: { command },
+        tool_use_id: "call_devin_0001",
+      };
+    },
+  },
+  postToolUse: {
+    bash(command: string, output: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: DEVIN_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        permission_mode: "default",
+        hook_event_name: "PostToolUse",
+        tool_name: "exec",
+        tool_input: { command },
+        tool_response: { success: true, output, error: null },
+        tool_use_id: "call_devin_0001",
+      };
+    },
+  },
+  userPromptSubmit(prompt: string, cwd: string): Record<string, unknown> {
+    return {
+      session_id: DEVIN_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      permission_mode: "default",
+      hook_event_name: "UserPromptSubmit",
       prompt,
-      prompt_response: response,
+    };
+  },
+  stop(cwd: string): Record<string, unknown> {
+    return {
+      session_id: DEVIN_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      permission_mode: "default",
+      hook_event_name: "Stop",
       stop_hook_active: false,
     };
   },
-  sessionStart(cwd: string, source: "startup" | "resume" | "clear" = "startup"): Record<string, unknown> {
+};
+
+/**
+ * Antigravity (agy) payload factories. Antigravity pipes a camelCase protojson
+ * payload (`toolCall:{name,args}`, `conversationId`, `workspacePaths`,
+ * `transcriptPath`) — the handler normalizes these to snake_case before
+ * canonicalization. `run_command`'s args are PascalCase (`CommandLine`, `Cwd`).
+ * Verified live against agy v1.1.2. Note: no `hook_event_name` field — the
+ * event comes solely from the `--hook <event>` arg.
+ */
+const ANTIGRAVITY_CONVERSATION_ID = "test-conversation-antigravity-001";
+
+export const AntigravityPayloads = {
+  preToolUse: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        conversationId: ANTIGRAVITY_CONVERSATION_ID,
+        workspacePaths: [cwd],
+        transcriptPath: TRANSCRIPT_PATH,
+        modelName: "auto",
+        stepIdx: 19,
+        toolCall: {
+          name: "run_command",
+          args: { CommandLine: command, Cwd: cwd, WaitMsBeforeAsync: 5000 },
+        },
+      };
+    },
+  },
+  postToolUse: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        conversationId: ANTIGRAVITY_CONVERSATION_ID,
+        workspacePaths: [cwd],
+        transcriptPath: TRANSCRIPT_PATH,
+        modelName: "auto",
+        stepIdx: 20,
+        toolCall: {
+          name: "run_command",
+          args: { CommandLine: command, Cwd: cwd },
+        },
+      };
+    },
+  },
+  // PreInvocation → canonical UserPromptSubmit.
+  preInvocation(cwd: string): Record<string, unknown> {
     return {
-      session_id: GEMINI_SESSION_ID,
-      transcript_path: TRANSCRIPT_PATH,
-      cwd,
-      hook_event_name: "SessionStart",
-      timestamp: TIMESTAMP,
-      source,
+      conversationId: ANTIGRAVITY_CONVERSATION_ID,
+      workspacePaths: [cwd],
+      transcriptPath: TRANSCRIPT_PATH,
+      modelName: "auto",
+      invocationNum: 3,
+      initialNumSteps: 10,
     };
   },
-  sessionEnd(cwd: string, reason: "exit" | "clear" | "logout" | "prompt_input_exit" | "other" = "exit"): Record<string, unknown> {
+  stop(cwd: string): Record<string, unknown> {
     return {
-      session_id: GEMINI_SESSION_ID,
-      transcript_path: TRANSCRIPT_PATH,
-      cwd,
-      hook_event_name: "SessionEnd",
-      timestamp: TIMESTAMP,
-      reason,
+      conversationId: ANTIGRAVITY_CONVERSATION_ID,
+      workspacePaths: [cwd],
+      transcriptPath: TRANSCRIPT_PATH,
+      modelName: "auto",
+      executionNum: 1,
+      terminationReason: "model_stop",
+      fullyIdle: true,
     };
   },
-  beforeModel(cwd: string): Record<string, unknown> {
+};
+
+/**
+ * Goose (codename goose, Block) payload factories. Goose pipes a hook stdin that
+ * uses `event` (not `hook_event_name`), `working_dir` (not `cwd`), and
+ * `matcher_context` (the string the matcher regex tests). tool_name is BARE
+ * (`shell`, `write`, `view`) — mapped to Claude builtins via GOOSE_TOOL_MAP —
+ * and path-bearing tools deliver the path as `path`/`source` (→ `file_path` via
+ * GOOSE_TOOL_INPUT_MAP). There is NO transcript_path (audit reads sessions.db).
+ * Verified live against goose v1.43.0.
+ */
+const GOOSE_SESSION_ID = "20260714_1";
+
+export const GoosePayloads = {
+  preToolUse: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        event: "PreToolUse",
+        session_id: GOOSE_SESSION_ID,
+        matcher_context: "shell",
+        tool_name: "shell",
+        tool_input: { command },
+        working_dir: cwd,
+      };
+    },
+    write(filePath: string, content: string, cwd: string): Record<string, unknown> {
+      return {
+        event: "PreToolUse",
+        session_id: GOOSE_SESSION_ID,
+        matcher_context: "write",
+        tool_name: "write",
+        tool_input: { path: filePath, content },
+        working_dir: cwd,
+      };
+    },
+    read(filePath: string, cwd: string): Record<string, unknown> {
+      return {
+        event: "PreToolUse",
+        session_id: GOOSE_SESSION_ID,
+        matcher_context: "view",
+        tool_name: "view",
+        tool_input: { path: filePath },
+        working_dir: cwd,
+      };
+    },
+  },
+  postToolUse: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        event: "PostToolUse",
+        session_id: GOOSE_SESSION_ID,
+        matcher_context: "shell",
+        tool_name: "shell",
+        tool_input: { command },
+        working_dir: cwd,
+      };
+    },
+  },
+  userPromptSubmit(prompt: string, cwd: string): Record<string, unknown> {
     return {
-      session_id: GEMINI_SESSION_ID,
-      transcript_path: TRANSCRIPT_PATH,
-      cwd,
-      hook_event_name: "BeforeModel",
-      timestamp: TIMESTAMP,
-      llm_request: { model: "gemini-pro", messages: [] },
+      event: "UserPromptSubmit",
+      session_id: GOOSE_SESSION_ID,
+      matcher_context: prompt,
+      message: prompt,
+      working_dir: cwd,
     };
   },
-  preCompress(cwd: string): Record<string, unknown> {
+  sessionStart(cwd: string): Record<string, unknown> {
     return {
-      session_id: GEMINI_SESSION_ID,
-      transcript_path: TRANSCRIPT_PATH,
-      cwd,
-      hook_event_name: "PreCompress",
-      timestamp: TIMESTAMP,
-      trigger: "auto",
-    };
-  },
-  notification(cwd: string, message = "test"): Record<string, unknown> {
-    return {
-      session_id: GEMINI_SESSION_ID,
-      transcript_path: TRANSCRIPT_PATH,
-      cwd,
-      hook_event_name: "Notification",
-      timestamp: TIMESTAMP,
-      notification_type: "ToolPermission",
-      message,
-      details: {},
+      event: "SessionStart",
+      session_id: GOOSE_SESSION_ID,
+      matcher_context: null,
+      working_dir: cwd,
     };
   },
 };

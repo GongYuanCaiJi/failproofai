@@ -22,10 +22,6 @@
  *   • Pi: shim doesn't forward transcript_path. Discover at
  *     ~/.pi/agent/sessions/<encodedCwd>/<isoTimestamp>_<sessionId>.jsonl.
  *
- *   • Gemini: docs say stdin carries transcript_path, but coverage is uneven
- *     across versions. Trust stdin first; fall back to discovery under
- *     ~/.gemini/tmp/<projectHash>/chats/<sessionId>.json.
- *
  * Mirrors the dispatch pattern of `resolve-permission-mode.ts`. Each
  * `find*Transcript` helper performs its own existsSync + path-traversal
  * containment check, so passing in a malformed sessionId is safe (returns
@@ -35,7 +31,8 @@ import { findCodexTranscript } from "../../lib/codex-sessions";
 import { findCopilotTranscript } from "../../lib/copilot-sessions";
 import { findCursorTranscript } from "../../lib/cursor-sessions";
 import { findPiTranscript } from "../../lib/pi-sessions";
-import { findGeminiTranscript } from "../../lib/gemini-sessions";
+import { findFactoryTranscript } from "../../lib/factory-sessions";
+import { findAntigravityTranscript } from "../../lib/antigravity-sessions";
 import type { IntegrationType } from "./types";
 
 export function resolveTranscriptPath(
@@ -59,13 +56,34 @@ export function resolveTranscriptPath(
       return findCursorTranscript(sessionId) ?? undefined;
     case "pi":
       return findPiTranscript(sessionId) ?? undefined;
-    case "gemini":
-      return findGeminiTranscript(sessionId) ?? undefined;
+    case "factory":
+      // Factory writes real JSONL at
+      // ~/.factory/sessions/<encoded-cwd>/<sessionId>.jsonl (Claude-style).
+      return findFactoryTranscript(sessionId) ?? undefined;
+    case "antigravity":
+      // Antigravity writes real JSONL at ~/.gemini/antigravity-cli/brain/
+      // <conversationId>/.system_generated/logs/transcript_full.jsonl.
+      return findAntigravityTranscript(sessionId) ?? undefined;
+    case "devin":
+      // Devin keeps sessions in SQLite (~/.local/share/devin/cli/sessions.db);
+      // there is no on-disk transcript file, so hand back a virtual path (like
+      // opencode) — audit/download read the DB directly.
+      return `devin-db://${sessionId}`;
+    case "goose":
+      // Goose keeps sessions in SQLite (~/.local/share/goose/sessions/sessions.db);
+      // its live-hook payload carries no transcript file, so hand back a virtual
+      // path (like devin) — audit/download read the DB directly.
+      return `goose-db://${sessionId}`;
     case "opencode":
       return `opencode-db://${sessionId}`;
     case "hermes":
       // Hermes live-hook payloads carry no transcript file; the audit path
       // reads sessions straight from ~/.hermes/state.db (see hermes-sessions.ts).
+      return undefined;
+    case "openclaw":
+      // OpenClaw's plugin shim forwards transcript_path in stdin (handled by the
+      // early return above); its audit path reads the real JSONL sessions
+      // directly via lib/openclaw-sessions.ts, so no discovery is needed here.
       return undefined;
     default:
       return undefined;

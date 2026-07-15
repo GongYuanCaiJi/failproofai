@@ -12,15 +12,17 @@ import type {
   CodexHookEventType,
   CursorHookEventType,
   PiHookEventType,
-  GeminiHookEventType,
   HermesHookEventType,
+  OpenClawHookEventType,
+  AntigravityHookEventType,
 } from "./types";
 import {
   CODEX_EVENT_MAP,
   CURSOR_EVENT_MAP,
   PI_EVENT_MAP,
-  GEMINI_EVENT_MAP,
   HERMES_EVENT_MAP,
+  OPENCLAW_EVENT_MAP,
+  ANTIGRAVITY_EVENT_MAP,
 } from "./types";
 import { canonicalizeToolName, canonicalizeToolInput } from "./tool-name-canonicalize";
 import type { PolicyFunction, PolicyResult } from "./policy-types";
@@ -45,9 +47,7 @@ import { hookLogInfo, hookLogWarn } from "./hook-logger";
  * `session_start`); Claude Code sends PascalCase. Copilot CLI is installed
  * in "VS Code compatible" PascalCase mode (see integrations.ts), so its event
  * NAMES arrive PascalCase already (note: tool names are a separate matter and
- * are canonicalized in canonicalizeToolName below). Gemini also sends
- * PascalCase event names but with different spellings (`BeforeTool`,
- * `BeforeAgent`, `AfterAgent`); we map via GEMINI_EVENT_MAP. The internal
+ * are canonicalized in canonicalizeToolName below). The internal
  * registry, builtin policies, and policy.match.events all key on PascalCase.
  */
 function canonicalizeEventType(raw: string, cli: IntegrationType): HookEventType {
@@ -63,14 +63,23 @@ function canonicalizeEventType(raw: string, cli: IntegrationType): HookEventType
     const mapped = PI_EVENT_MAP[raw as PiHookEventType];
     if (mapped) return mapped;
   }
-  if (cli === "gemini") {
-    const mapped = GEMINI_EVENT_MAP[raw as GeminiHookEventType];
-    if (mapped) return mapped;
-  }
   if (cli === "hermes") {
     // Hermes sends snake_case event names (pre_tool_call, on_session_start, …);
     // map to PascalCase. Has no turn-end Stop event, so no Stop mapping exists.
     const mapped = HERMES_EVENT_MAP[raw as HermesHookEventType];
+    if (mapped) return mapped;
+  }
+  if (cli === "openclaw") {
+    // The openclaw-plugin shim forwards raw snake_case plugin-hook names
+    // (before_tool_call, before_agent_finalize, …); map to PascalCase.
+    // before_agent_finalize is the real turn-end gate → Stop.
+    const mapped = OPENCLAW_EVENT_MAP[raw as OpenClawHookEventType];
+    if (mapped) return mapped;
+  }
+  if (cli === "antigravity") {
+    // Antigravity's --hook args are PreToolUse|PostToolUse|PreInvocation|Stop.
+    // PreInvocation (before-model) → UserPromptSubmit. Verified agy v1.1.2.
+    const mapped = ANTIGRAVITY_EVENT_MAP[raw as AntigravityHookEventType];
     if (mapped) return mapped;
   }
   // claude / copilot / unknown — already PascalCase, pass through.
@@ -139,6 +148,36 @@ export async function handleHookEvent(
     }
   }
 
+  // Antigravity (agy) pipes a camelCase protojson payload; normalize the fields
+  // the handler downstream reads to canonical snake_case BEFORE any
+  // canonicalization runs. `toolCall.{name,args}` → `tool_name`/`tool_input`,
+  // `conversationId` → `session_id`, `workspacePaths[0]` → `cwd`,
+  // `transcriptPath` → `transcript_path`. Verified against agy v1.1.2.
+  if (cli === "antigravity") {
+    const tc = parsed.toolCall as { name?: string; args?: unknown } | undefined;
+    if (tc && typeof tc === "object") {
+      if (tc.name !== undefined) parsed.tool_name = tc.name;
+      if (tc.args !== undefined) parsed.tool_input = tc.args;
+    }
+    if (typeof parsed.conversationId === "string") parsed.session_id = parsed.conversationId;
+    if (Array.isArray(parsed.workspacePaths) && typeof parsed.workspacePaths[0] === "string") {
+      parsed.cwd = parsed.workspacePaths[0];
+    }
+    if (typeof parsed.transcriptPath === "string") parsed.transcript_path = parsed.transcriptPath;
+  }
+
+  // Goose pipes `event` / `working_dir` instead of Claude's `hook_event_name` /
+  // `cwd` (its `tool_name` / `tool_input` are already canonical field names).
+  // Normalize both so resolveCwd keeps its cwd (block-read-outside-cwd) and the
+  // round-tripped event name is available. The --hook arg is already PascalCase,
+  // so canonicalizeEventType needs no goose branch. Verified goose v1.43.0.
+  if (cli === "goose") {
+    if (typeof parsed.working_dir === "string") parsed.cwd = parsed.working_dir;
+    if (typeof parsed.event === "string" && parsed.hook_event_name === undefined) {
+      parsed.hook_event_name = parsed.event;
+    }
+  }
+
   // Canonicalize event name (Codex sends snake_case; internals expect PascalCase)
   const canonicalEventType = canonicalizeEventType(eventType, cli);
 
@@ -173,8 +212,8 @@ export async function handleHookEvent(
     hookEventName: parsed.hook_event_name as string | undefined,
     // Preserve the raw CLI-side event name (eventType arg) before
     // canonicalization. Response shapes that round-trip the agent-emitted
-    // event name (e.g. Gemini's `hookSpecificOutput.hookEventName`) prefer
-    // this over the canonicalized form when stdin omits hook_event_name.
+    // event name prefer this over the canonicalized form when stdin omits
+    // hook_event_name.
     rawHookEventName: eventType,
     cli,
   };

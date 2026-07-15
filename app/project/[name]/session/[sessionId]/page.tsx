@@ -8,8 +8,12 @@ import { getCachedCopilotSessionLog } from "@/lib/copilot-sessions";
 import { getCachedCursorSessionLog } from "@/lib/cursor-sessions";
 import { getCachedOpenCodeSessionLog } from "@/lib/opencode-sessions";
 import { getCachedPiSessionLog } from "@/lib/pi-sessions";
-import { getCachedGeminiSessionLog } from "@/lib/gemini-sessions";
 import { getCachedHermesSessionLog } from "@/lib/hermes-sessions";
+import { getCachedOpenClawSessionLog } from "@/lib/openclaw-sessions";
+import { getCachedFactorySessionLog } from "@/lib/factory-sessions";
+import { getCachedDevinSessionLog } from "@/lib/devin-sessions";
+import { getCachedAntigravitySessionLog } from "@/lib/antigravity-sessions";
+import { getCachedGooseSessionLog } from "@/lib/goose-sessions";
 import { decodeFolderName } from "@/lib/paths";
 import { baseSessionId } from "@/lib/utils/session-id";
 import { resolveProjectPath, UUID_RE } from "@/lib/projects";
@@ -53,7 +57,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
   let entries: LogEntry[] | null = null;
   let rawLines: Record<string, unknown>[] | null = null;
   let error: string | null = null;
-  let cli: "claude" | "codex" | "copilot" | "cursor" | "opencode" | "pi" | "gemini" | "hermes" = "claude";
+  let cli: "claude" | "codex" | "copilot" | "cursor" | "opencode" | "pi" | "hermes" | "openclaw" | "factory" | "devin" | "antigravity" | "goose" = "claude";
   let externalCwd: string | undefined;
 
   try {
@@ -102,21 +106,53 @@ export default async function SessionPage({ params }: SessionPageProps) {
                 externalCwd = pi.cwd;
                 cli = "pi";
               } else {
-                const gemini = await getCachedGeminiSessionLog(decodedSessionId);
-                if (gemini) {
-                  entries = gemini.entries;
-                  rawLines = gemini.rawLines;
-                  externalCwd = gemini.cwd;
-                  cli = "gemini";
+                const hermes = await getCachedHermesSessionLog(decodedSessionId);
+                if (hermes) {
+                  entries = hermes.entries;
+                  rawLines = hermes.rawLines;
+                  externalCwd = hermes.cwd;
+                  cli = "hermes";
                 } else {
-                  const hermes = await getCachedHermesSessionLog(decodedSessionId);
-                  if (hermes) {
-                    entries = hermes.entries;
-                    rawLines = hermes.rawLines;
-                    externalCwd = hermes.cwd;
-                    cli = "hermes";
+                  const openclaw = await getCachedOpenClawSessionLog(decodedSessionId);
+                  if (openclaw) {
+                    entries = openclaw.entries;
+                    rawLines = openclaw.rawLines;
+                    externalCwd = openclaw.cwd;
+                    cli = "openclaw";
                   } else {
-                    error = "Session log file not found.";
+                    const factory = await getCachedFactorySessionLog(decodedSessionId);
+                    if (factory) {
+                      entries = factory.entries;
+                      rawLines = factory.rawLines;
+                      externalCwd = factory.cwd;
+                      cli = "factory";
+                    } else {
+                      const devin = await getCachedDevinSessionLog(decodedSessionId);
+                      if (devin) {
+                        entries = devin.entries;
+                        rawLines = devin.rawLines;
+                        externalCwd = devin.cwd;
+                        cli = "devin";
+                      } else {
+                        const antigravity = await getCachedAntigravitySessionLog(decodedSessionId);
+                        if (antigravity) {
+                          entries = antigravity.entries;
+                          rawLines = antigravity.rawLines;
+                          externalCwd = antigravity.cwd;
+                          cli = "antigravity";
+                        } else {
+                          const goose = await getCachedGooseSessionLog(decodedSessionId);
+                          if (goose) {
+                            entries = goose.entries;
+                            rawLines = goose.rawLines;
+                            externalCwd = goose.cwd;
+                            cli = "goose";
+                          } else {
+                            error = "Session log file not found.";
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -142,11 +178,19 @@ export default async function SessionPage({ params }: SessionPageProps) {
             ? `OpenCode${externalCwd ? ` · ${externalCwd}` : ""}`
             : cli === "pi"
               ? `Pi${externalCwd ? ` · ${externalCwd}` : ""}`
-              : cli === "gemini"
-                ? `Gemini CLI${externalCwd ? ` · ${externalCwd}` : ""}`
-                : cli === "hermes"
-                  ? `Hermes${externalCwd ? ` · ${externalCwd}` : ""}`
-                  : decodedName;
+              : cli === "hermes"
+                ? `Hermes${externalCwd ? ` · ${externalCwd}` : ""}`
+                : cli === "openclaw"
+                  ? `OpenClaw${externalCwd ? ` · ${externalCwd}` : ""}`
+                  : cli === "factory"
+                    ? `Factory Droid${externalCwd ? ` · ${externalCwd}` : ""}`
+                    : cli === "devin"
+                      ? `Devin CLI${externalCwd ? ` · ${externalCwd}` : ""}`
+                      : cli === "antigravity"
+                        ? `Antigravity CLI${externalCwd ? ` · ${externalCwd}` : ""}`
+                        : cli === "goose"
+                          ? `Goose${externalCwd ? ` · ${externalCwd}` : ""}`
+                          : decodedName;
 
   return (
     <main className="min-h-screen bg-background">
@@ -216,7 +260,13 @@ export default async function SessionPage({ params }: SessionPageProps) {
                               ? "Pi"
                               : cli === "hermes"
                                 ? "Hermes"
-                                : "Gemini CLI"))
+                                : cli === "openclaw"
+                                  ? "OpenClaw"
+                                  : cli === "factory"
+                                    ? "Factory Droid"
+                                    : cli === "devin"
+                                      ? "Devin CLI"
+                                      : "Antigravity CLI"))
                 : decodedName
             }
             sessionId={decodedSessionId}

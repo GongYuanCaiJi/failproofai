@@ -16,7 +16,7 @@ import { formatDate } from "./format-date";
 export const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 export const PATH_TRAVERSAL_RE = /(^|[\\/])\.\.($|[\\/])/;
 
-export type ProjectCli = "claude" | "codex" | "copilot" | "cursor" | "opencode" | "pi" | "gemini" | "hermes";
+export type ProjectCli = "claude" | "codex" | "copilot" | "cursor" | "opencode" | "pi" | "hermes" | "openclaw" | "factory" | "devin" | "antigravity" | "goose";
 
 export interface ProjectFolder {
   name: string;
@@ -143,18 +143,26 @@ export async function getProjectFolders(): Promise<ProjectFolder[]> {
     { getCursorProjects },
     { getOpenCodeProjects },
     { getPiProjects },
-    { getGeminiProjects },
     { getHermesProjects },
+    { getOpenClawProjects },
+    { getFactoryProjects },
+    { getDevinProjects },
+    { getAntigravityProjects },
+    { getGooseProjects },
   ] = await Promise.all([
     import("./codex-projects"),
     import("./copilot-projects"),
     import("./cursor-projects"),
     import("./opencode-projects"),
     import("./pi-projects"),
-    import("./gemini-projects"),
     import("./hermes-projects"),
+    import("./openclaw-projects"),
+    import("./factory-projects"),
+    import("./devin-projects"),
+    import("./antigravity-projects"),
+    import("./goose-projects"),
   ]);
-  const [claude, codex, copilot, cursor, opencode, pi, gemini, hermes] = await Promise.all([
+  const [claude, codex, copilot, cursor, opencode, pi, hermes, openclaw, factory, devin, antigravity, goose] = await Promise.all([
     getClaudeProjectFolders(),
     getCodexProjects().catch((error) => {
       logError("Error reading Codex projects:", error);
@@ -176,16 +184,32 @@ export async function getProjectFolders(): Promise<ProjectFolder[]> {
       logError("Error reading Pi projects:", error);
       return [] as ProjectFolder[];
     }),
-    getGeminiProjects().catch((error) => {
-      logError("Error reading Gemini projects:", error);
-      return [] as ProjectFolder[];
-    }),
     getHermesProjects().catch((error) => {
       logError("Error reading Hermes projects:", error);
       return [] as ProjectFolder[];
     }),
+    getOpenClawProjects().catch((error) => {
+      logError("Error reading OpenClaw projects:", error);
+      return [] as ProjectFolder[];
+    }),
+    getFactoryProjects().catch((error) => {
+      logError("Error reading Factory projects:", error);
+      return [] as ProjectFolder[];
+    }),
+    getDevinProjects().catch((error) => {
+      logError("Error reading Devin projects:", error);
+      return [] as ProjectFolder[];
+    }),
+    getAntigravityProjects().catch((error) => {
+      logError("Error reading Antigravity projects:", error);
+      return [] as ProjectFolder[];
+    }),
+    getGooseProjects().catch((error) => {
+      logError("Error reading Goose projects:", error);
+      return [] as ProjectFolder[];
+    }),
   ]);
-  return mergeProjectFolders(claude, codex, copilot, cursor, opencode, pi, gemini, hermes);
+  return mergeProjectFolders(claude, codex, copilot, cursor, opencode, pi, hermes, openclaw, factory, devin, antigravity, goose);
 }
 
 /**

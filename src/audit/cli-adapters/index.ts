@@ -17,8 +17,12 @@ import { listCopilotTranscriptMetadata, streamCopilotEvents } from "./copilot";
 import { listCursorTranscriptMetadata, streamCursorEvents } from "./cursor";
 import { listOpenCodeTranscriptMetadata, streamOpenCodeEvents } from "./opencode";
 import { listPiTranscriptMetadata, streamPiEvents } from "./pi";
-import { listGeminiTranscriptMetadata, streamGeminiEvents } from "./gemini";
 import { listHermesTranscriptMetadata, streamHermesEvents } from "./hermes";
+import { listOpenClawTranscriptMetadata, streamOpenClawEvents } from "./openclaw";
+import { listFactoryTranscriptMetadata, streamFactoryEvents } from "./factory";
+import { listAntigravityTranscriptMetadata, streamAntigravityEvents } from "./antigravity";
+import { listDevinTranscriptMetadata, streamDevinEvents } from "./devin";
+import { listGooseTranscriptMetadata, streamGooseEvents } from "./goose";
 
 export type { ListOpts };
 
@@ -59,15 +63,35 @@ export const ADAPTERS: Record<IntegrationType, CliAdapter> = {
     listTranscripts: listPiTranscriptMetadata,
     streamEvents: streamPiEvents,
   },
-  gemini: {
-    cli: "gemini",
-    listTranscripts: listGeminiTranscriptMetadata,
-    streamEvents: streamGeminiEvents,
-  },
   hermes: {
     cli: "hermes",
     listTranscripts: listHermesTranscriptMetadata,
     streamEvents: streamHermesEvents,
+  },
+  openclaw: {
+    cli: "openclaw",
+    listTranscripts: listOpenClawTranscriptMetadata,
+    streamEvents: streamOpenClawEvents,
+  },
+  factory: {
+    cli: "factory",
+    listTranscripts: listFactoryTranscriptMetadata,
+    streamEvents: streamFactoryEvents,
+  },
+  devin: {
+    cli: "devin",
+    listTranscripts: listDevinTranscriptMetadata,
+    streamEvents: streamDevinEvents,
+  },
+  antigravity: {
+    cli: "antigravity",
+    listTranscripts: listAntigravityTranscriptMetadata,
+    streamEvents: streamAntigravityEvents,
+  },
+  goose: {
+    cli: "goose",
+    listTranscripts: listGooseTranscriptMetadata,
+    streamEvents: streamGooseEvents,
   },
 };
 

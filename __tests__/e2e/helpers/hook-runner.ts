@@ -40,7 +40,7 @@ export interface HookRunResult {
 export function runHook(
   event: string,
   payload: Record<string, unknown>,
-  opts?: { homeDir?: string; cli?: "claude" | "codex" | "copilot" | "cursor" | "opencode" | "pi" | "gemini" },
+  opts?: { homeDir?: string; cli?: "claude" | "codex" | "copilot" | "cursor" | "opencode" | "pi" | "hermes" | "openclaw" | "factory" | "devin" | "antigravity" | "goose" },
 ): HookRunResult {
   const binaryPath = getBinaryPath();
 
@@ -144,7 +144,7 @@ export function assertCursorStopBlock(result: HookRunResult): void {
   // Cursor's stop / subagentStop hooks honor `{followup_message}` on stdout
   // (exit 0) — auto-submitted as next user message, capped at loop_limit
   // (default 5). The flat `{permission: "deny"}` shape is ignored on Stop.
-  // Mirrors assertCopilotStopBlock and assertGeminiStopBlock.
+  // Mirrors assertCopilotStopBlock.
   // Ref: https://cursor.com/docs/hooks
   expect(result.exitCode).toBe(0);
   expect(typeof result.parsed?.followup_message).toBe("string");
@@ -180,28 +180,88 @@ export function assertPiAllow(result: HookRunResult): void {
   }
 }
 
-// ── Gemini-shaped assertions ───────────────────────────────────────────────
-// Gemini uses a flat `{decision: "deny", reason}` JSON shape per its "Golden
-// Rule" exit-0 contract. Stop policies emit `{decision: "block", reason}` to
-// trigger AfterAgent's force-retry. Context injection uses Claude's
-// `{hookSpecificOutput: {hookEventName, additionalContext}}` shape but with
-// the hookEventName carrying the raw Gemini event name (BeforeTool/AfterTool/
-// BeforeAgent/SessionStart). Ref: https://geminicli.com/docs/hooks/
+// ── Factory (droid) assertions ─────────────────────────────────────────────
+// Factory drives tool blocking off EXIT CODE 2 + stderr (it ignores a JSON
+// decision on tool events — verified live against droid v0.171.0). The Stop
+// event is the exception: droid reads `{decision:"block", reason}` on stdout.
 
-export function assertGeminiDeny(result: HookRunResult): void {
-  expect(result.exitCode).toBe(0);
-  expect(result.parsed?.decision).toBe("deny");
-  expect(typeof result.parsed?.reason).toBe("string");
-  expect(result.parsed?.reason).toMatch(/Blocked/i);
-  // Gemini uses the flat shape — no Claude-style hookSpecificOutput wrapper.
-  expect(result.parsed?.hookSpecificOutput).toBeUndefined();
+export function assertFactoryDeny(result: HookRunResult): void {
+  // Non-Stop deny: exit 2, no stdout, blocked message on stderr.
+  expect(result.exitCode).toBe(2);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toMatch(/Blocked/i);
 }
 
-export function assertGeminiStopBlock(result: HookRunResult): void {
+export function assertFactoryStopBlock(result: HookRunResult): void {
+  // Stop deny/instruct: droid honors `{decision:"block", reason}` on stdout at
+  // exit 0 ("if decision is block, Droid does not stop").
   expect(result.exitCode).toBe(0);
   expect(result.parsed?.decision).toBe("block");
   expect(typeof result.parsed?.reason).toBe("string");
   expect(result.parsed?.reason).toMatch(/MANDATORY ACTION REQUIRED/);
+}
+
+// ── Devin (Cognition) assertions ───────────────────────────────────────────
+// Devin is a pure Claude-clone that honors `{decision:"block", reason}` on
+// stdout at exit 0 for EVERY event (verified live against devin v3000.1.27 —
+// the block overrode `--permission-mode dangerous`).
+
+export function assertDevinDeny(result: HookRunResult): void {
+  // Non-Stop deny: exit 0, `{decision:"block", reason}` on stdout.
+  expect(result.exitCode).toBe(0);
+  expect(result.parsed?.decision).toBe("block");
+  expect(typeof result.parsed?.reason).toBe("string");
+}
+
+export function assertDevinStopBlock(result: HookRunResult): void {
+  // Stop deny/instruct: `{decision:"block", reason}` carrying the force-retry
+  // MANDATORY ACTION wording.
+  expect(result.exitCode).toBe(0);
+  expect(result.parsed?.decision).toBe("block");
+  expect(typeof result.parsed?.reason).toBe("string");
+  expect(result.parsed?.reason).toMatch(/MANDATORY ACTION REQUIRED/);
+}
+
+// ── Antigravity (agy) assertions ───────────────────────────────────────────
+// Antigravity has its OWN response shapes (NOT Claude's), verified live against
+// agy v1.1.2: tool/prompt deny → `{decision:"deny", reason}` on stdout (exit 0);
+// Stop deny/instruct → `{decision:"continue", reason}` (re-enters the loop);
+// UserPromptSubmit instruct → `{injectSteps:[{ephemeralMessage}]}`.
+
+export function assertAntigravityDeny(result: HookRunResult): void {
+  // Tool/prompt deny: exit 0, `{decision:"deny", reason}` on stdout.
+  expect(result.exitCode).toBe(0);
+  expect(result.parsed?.decision).toBe("deny");
+  expect(typeof result.parsed?.reason).toBe("string");
+  expect(result.parsed?.reason).toMatch(/Blocked/i);
+}
+
+export function assertAntigravityStopContinue(result: HookRunResult): void {
+  // Stop deny/instruct: `{decision:"continue", reason}` carrying the force-retry
+  // MANDATORY ACTION wording — "continue" re-enters the agent loop.
+  expect(result.exitCode).toBe(0);
+  expect(result.parsed?.decision).toBe("continue");
+  expect(typeof result.parsed?.reason).toBe("string");
+  expect(result.parsed?.reason).toMatch(/MANDATORY ACTION REQUIRED/);
+}
+
+export function assertAntigravityInjectSteps(result: HookRunResult): void {
+  // UserPromptSubmit (canonical for PreInvocation) instruct → injectSteps with
+  // an ephemeralMessage carrying the failproofai instruction.
+  expect(result.exitCode).toBe(0);
+  const steps = result.parsed?.injectSteps as Array<Record<string, unknown>> | undefined;
+  expect(Array.isArray(steps)).toBe(true);
+  expect(steps?.[0]?.ephemeralMessage).toMatch(/^Instruction from failproofai:/);
+}
+
+// ── Goose (codename goose, Block) assertions ───────────────────────────────
+// Goose honors `{decision:"block", reason}` on stdout at exit 0, on PreToolUse
+// ONLY (verified live against goose v1.43.0). It has no Stop event, and does not
+// honor deny on UserPromptSubmit/PostToolUse.
+export function assertGooseDeny(result: HookRunResult): void {
+  expect(result.exitCode).toBe(0);
+  expect(result.parsed?.decision).toBe("block");
+  expect(typeof result.parsed?.reason).toBe("string");
 }
 
 export function assertCopilotStopBlock(result: HookRunResult): void {
@@ -213,11 +273,4 @@ export function assertCopilotStopBlock(result: HookRunResult): void {
   expect(result.parsed?.decision).toBe("block");
   expect(typeof result.parsed?.reason).toBe("string");
   expect(result.parsed?.reason).toMatch(/MANDATORY ACTION REQUIRED/);
-}
-
-export function assertGeminiInstruct(result: HookRunResult, hookEventName: string): void {
-  expect(result.exitCode).toBe(0);
-  const output = result.parsed?.hookSpecificOutput as Record<string, unknown> | undefined;
-  expect(output?.hookEventName).toBe(hookEventName);
-  expect(output?.additionalContext).toMatch(/^Instruction from failproofai:/);
 }

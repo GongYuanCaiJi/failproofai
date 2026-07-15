@@ -14,9 +14,16 @@ import {
   OPENCODE_TOOL_INPUT_MAP,
   PI_TOOL_MAP,
   PI_TOOL_INPUT_MAP,
-  GEMINI_TOOL_MAP,
   HERMES_TOOL_MAP,
   HERMES_TOOL_INPUT_MAP,
+  OPENCLAW_TOOL_MAP,
+  OPENCLAW_TOOL_INPUT_MAP,
+  FACTORY_TOOL_MAP,
+  DEVIN_TOOL_MAP,
+  ANTIGRAVITY_TOOL_MAP,
+  ANTIGRAVITY_TOOL_INPUT_MAP,
+  GOOSE_TOOL_MAP,
+  GOOSE_TOOL_INPUT_MAP,
 } from "./types";
 
 /**
@@ -32,10 +39,22 @@ export function canonicalizeToolName(
   if (cli === "copilot") return COPILOT_TOOL_MAP[raw] ?? raw;
   if (cli === "cursor") return CURSOR_TOOL_MAP[raw] ?? raw;
   if (cli === "codex") return CODEX_TOOL_MAP[raw] ?? raw;
-  if (cli === "gemini") return GEMINI_TOOL_MAP[raw] ?? raw;
   if (cli === "opencode") return OPENCODE_TOOL_MAP[raw] ?? raw;
   if (cli === "pi") return PI_TOOL_MAP[raw] ?? raw;
   if (cli === "hermes") return HERMES_TOOL_MAP[raw] ?? raw;
+  if (cli === "openclaw") return OPENCLAW_TOOL_MAP[raw] ?? raw;
+  // Factory droid: Execute→Bash, Create→Write, FetchUrl→WebFetch, … (verified
+  // live against droid v0.171.0). tool_input keys are already canonical.
+  if (cli === "factory") return FACTORY_TOOL_MAP[raw] ?? raw;
+  // Devin CLI: exec→Bash (verified live against devin v3000.1.27).
+  // tool_input.command is already canonical.
+  if (cli === "devin") return DEVIN_TOOL_MAP[raw] ?? raw;
+  // Antigravity CLI: run_command→Bash (verified agy v1.1.2), view_file→Read, …
+  // (best-effort). tool_input keys are PascalCase → ANTIGRAVITY_TOOL_INPUT_MAP.
+  if (cli === "antigravity") return ANTIGRAVITY_TOOL_MAP[raw] ?? raw;
+  // Goose: shell→Bash, write/edit/view→file ops, todo__todo_write→TodoWrite, …
+  // (verified live against goose v1.43.0). Handles bare + `<ext>__<tool>` names.
+  if (cli === "goose") return GOOSE_TOOL_MAP[raw] ?? raw;
   return raw;
 }
 
@@ -62,6 +81,15 @@ export function canonicalizeToolInput(
   // Hermes read_file/write_file/patch deliver the file path as `path`; map it to
   // `file_path` so path/content builtins fire (verified against a live state.db).
   else if (cli === "hermes") perToolMap = HERMES_TOOL_INPUT_MAP[toolName];
+  // OpenClaw file tools (read/write/edit) deliver the path as `path`; exec
+  // already delivers `command`. Map path → file_path so path builtins fire.
+  else if (cli === "openclaw") perToolMap = OPENCLAW_TOOL_INPUT_MAP[toolName];
+  // Antigravity's run_command args are PascalCase (`CommandLine`, `Cwd`); map
+  // to `command`/`cwd` so Bash builtins fire (verified agy v1.1.2).
+  else if (cli === "antigravity") perToolMap = ANTIGRAVITY_TOOL_INPUT_MAP[toolName];
+  // Goose file tools (write/edit/view) deliver the path as `path`, read_image as
+  // `source`; map to `file_path` so path builtins fire (verified goose v1.43.0).
+  else if (cli === "goose") perToolMap = GOOSE_TOOL_INPUT_MAP[toolName];
   if (!perToolMap) return rawInput;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(rawInput as Record<string, unknown>)) {

@@ -1,11 +1,11 @@
 /**
- * Constants and interfaces for agent CLI hooks integrations (Claude Code, OpenAI Codex, GitHub Copilot, Cursor Agent, OpenCode, Pi, Gemini CLI, …).
+ * Constants and interfaces for agent CLI hooks integrations (Claude Code, OpenAI Codex, GitHub Copilot, Cursor Agent, OpenCode, Pi, …).
  */
 
 export const HOOK_SCOPES = ["user", "project", "local"] as const;
 export type HookScope = (typeof HOOK_SCOPES)[number];
 
-export const INTEGRATION_TYPES = ["claude", "codex", "copilot", "cursor", "opencode", "pi", "gemini", "hermes"] as const;
+export const INTEGRATION_TYPES = ["claude", "codex", "copilot", "cursor", "opencode", "pi", "hermes", "openclaw", "factory", "devin", "antigravity", "goose"] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];
 
 export const CODEX_HOOK_SCOPES = ["user", "project"] as const;
@@ -510,115 +510,435 @@ export const PI_TOOL_INPUT_MAP: Record<string, Record<string, string>> = {
   Edit: { path: "file_path" },
 };
 
-// ── Gemini CLI ─────────────────────────────────────────────────────────────
+// ── OpenClaw (openclaw gateway) ─────────────────────────────────────────────
 //
-// Gemini CLI's hook contract is the closest thing to a Claude Code clone we've
-// seen: same `{matcher, hooks: [{type, command, timeout}]}` settings shape,
-// PascalCase event names, snake_case stdin payload field names (session_id,
-// tool_name, tool_input, hook_event_name, cwd, transcript_path), subprocess
-// execution model, and a `$CLAUDE_PROJECT_DIR` env-var alias on top of its own
-// `$GEMINI_PROJECT_DIR` for back-compat. The integration is modeled on
-// claudeCode in integrations.ts; only three translation layers differ:
+// OpenClaw is a self-hosted assistant gateway (23+ chat channels). Like Hermes
+// it is a dual-pillar integration (live hooks + audit) and USER-scope only
+// (`~/.openclaw/openclaw.json`; workspace plugins are disabled by default).
 //
-//   1. Event names — Gemini uses BeforeTool/AfterTool/BeforeAgent/AfterAgent/
-//      PreCompress/Notification/SessionStart/SessionEnd/BeforeModel/AfterModel/
-//      BeforeToolSelection. We install all 11 events but only 8 have a Claude
-//      canonical equivalent; the other 3 (BeforeModel/AfterModel/
-//      BeforeToolSelection) pass through unchanged (no policy matches today,
-//      but the binary still records activity).
+// Enforcement is via OpenClaw's IN-PROCESS PLUGIN hooks (its file-based
+// "internal hooks" are observation-only and cannot block) — so failproofai
+// ships a plugin (`openclaw-plugin/`) that async-spawns the binary and maps a
+// flat `{permission, reason}` verdict back to each hook's native return shape.
+// The shim forwards a Claude-shaped stdin (params→tool_input, toolName→
+// tool_name, transcriptPath→transcript_path, stopHookActive→stop_hook_active),
+// so the handler + builtins work unchanged; canonicalization stays binary-side
+// via the maps below (no inline maps in the shim, unlike OpenCode/Pi).
 //
-//   2. Tool names — Gemini's tools are snake_case (run_shell_command, read_file,
-//      write_file, replace, glob, grep_search, list_directory, web_fetch,
-//      google_web_search, write_todos, save_memory, read_many_files, ask_user).
-//      The handler canonicalizes via GEMINI_TOOL_MAP (run_shell_command → Bash,
-//      read_file → Read, etc.) so existing builtin policies fire unchanged.
-//      Unknown tools (extensions, MCP `mcp_*` names) pass through.
-//
-//   3. Response shape — Gemini emits flat `{decision: "deny", reason}` for
-//      blocks (NOT Claude's `{hookSpecificOutput: {permissionDecision: "deny",
-//      permissionDecisionReason}}`), and `{hookSpecificOutput: {hookEventName,
-//      additionalContext}}` for context injection on BeforeAgent / AfterTool /
-//      SessionStart only. policy-evaluator.ts handles this via a `cli ===
-//      "gemini"` branch.
-//
-// Settings paths:
-//   user    → ~/.gemini/settings.json
-//   project → <cwd>/.gemini/settings.json
-// Gemini also documents a system scope (/etc/gemini-cli/settings.json) but we
-// don't expose it (matches Codex/Copilot/Cursor/OpenCode/Pi: user|project only).
-//
-// **Per-event capability** (from Gemini docs as of 2026-04-13):
-//   • BeforeTool          → PreToolUse        · CAN block via `{decision: "deny"}`
-//                                              · CAN rewrite via `hookSpecificOutput.tool_input`
-//   • AfterTool           → PostToolUse       · CAN observe; `additionalContext` injection
-//   • BeforeAgent         → UserPromptSubmit  · CAN block; `additionalContext` injection
-//   • AfterAgent          → Stop              · CAN force-retry via `{decision: "block"}`
-//                                                (closest to Claude's exit-2-from-Stop)
-//   • SessionStart        → SessionStart      · `additionalContext` injection
-//   • SessionEnd          → SessionEnd        · observation only
-//   • PreCompress         → PreCompact        · observation only
-//   • Notification        → Notification      · observation only
-//   • BeforeModel         → BeforeModel       · Gemini-only; no canonical, observation
-//   • AfterModel          → AfterModel        · Gemini-only; no canonical, observation
-//   • BeforeToolSelection → BeforeToolSelection · Gemini-only; no canonical, observation
-//
-// Ref: https://geminicli.com/docs/hooks/
+// Per-hook capability (verified live against openclaw v2026.7.1):
+//   before_tool_call    → PreToolUse       ✅ deny  ({block:true, blockReason})
+//   after_tool_call     → PostToolUse      observation
+//   before_agent_run    → UserPromptSubmit ✅ deny  ({outcome:"block", reason})
+//   before_agent_finalize → Stop           ✅ revise ({action:"revise", reason});
+//                           carries transcriptPath + stopHookActive (≈ Claude Stop)
+//   session_start/end   → SessionStart/End observation
+//   subagent_ended      → SubagentStop     observation only (cannot veto)
+//   before_compaction   → PreCompact       observation
+// Omitted: agent_end (would double-fire Stop); message_sending (outbound-msg
+// cancel gate — OpenClaw-only capability, deferred).
+export const OPENCLAW_HOOK_SCOPES = ["user"] as const;
+export type OpenClawHookScope = (typeof OPENCLAW_HOOK_SCOPES)[number];
 
-export const GEMINI_HOOK_SCOPES = ["user", "project"] as const;
-export type GeminiHookScope = (typeof GEMINI_HOOK_SCOPES)[number];
-
-export const GEMINI_HOOK_EVENT_TYPES = [
-  "SessionStart",
-  "SessionEnd",
-  "BeforeAgent",
-  "AfterAgent",
-  "BeforeModel",
-  "AfterModel",
-  "BeforeToolSelection",
-  "BeforeTool",
-  "AfterTool",
-  "PreCompress",
-  "Notification",
+export const OPENCLAW_HOOK_EVENT_TYPES = [
+  "before_tool_call",
+  "after_tool_call",
+  "before_agent_run",
+  "before_agent_finalize",
+  "session_start",
+  "session_end",
+  "subagent_ended",
+  "before_compaction",
 ] as const;
-export type GeminiHookEventType = (typeof GEMINI_HOOK_EVENT_TYPES)[number];
+export type OpenClawHookEventType = (typeof OPENCLAW_HOOK_EVENT_TYPES)[number];
 
-/** Gemini event → canonical PascalCase HookEventType. Three Gemini-only events
- *  (BeforeModel, AfterModel, BeforeToolSelection) have no Claude equivalent and
- *  pass through unchanged. */
-export const GEMINI_EVENT_MAP: Record<GeminiHookEventType, HookEventType> = {
-  SessionStart: "SessionStart",
-  SessionEnd: "SessionEnd",
-  BeforeAgent: "UserPromptSubmit",
-  AfterAgent: "Stop",
-  BeforeTool: "PreToolUse",
-  AfterTool: "PostToolUse",
-  PreCompress: "PreCompact",
-  Notification: "Notification",
-  // No canonical Claude equivalent — passthrough so the binary still records
-  // activity but `getPoliciesForEvent` returns [] (no-op fast path).
-  BeforeModel: "BeforeModel" as HookEventType,
-  AfterModel: "AfterModel" as HookEventType,
-  BeforeToolSelection: "BeforeToolSelection" as HookEventType,
+export const OPENCLAW_EVENT_MAP: Record<OpenClawHookEventType, HookEventType> = {
+  before_tool_call: "PreToolUse",
+  after_tool_call: "PostToolUse",
+  before_agent_run: "UserPromptSubmit",
+  before_agent_finalize: "Stop",
+  session_start: "SessionStart",
+  session_end: "SessionEnd",
+  subagent_ended: "SubagentStop",
+  before_compaction: "PreCompact",
 };
 
-/** Gemini's snake_case tool names → Claude PascalCase canonical names so existing
- *  builtin policies (which match `toolName === "Bash"`, etc.) fire unchanged on
- *  Gemini sessions. Unknown tools (MCP `mcp_*`, extensions, Skills) pass through
- *  unchanged. Per https://geminicli.com/docs/reference/tools/ as of 2026-04-13. */
-export const GEMINI_TOOL_MAP: Record<string, string> = {
-  run_shell_command: "Bash",
-  read_file: "Read",
-  read_many_files: "Read",
-  write_file: "Write",
-  replace: "Edit",
+// OpenClaw native tool ids (verified against source src/agents/tool-catalog.ts
+// and a live before_tool_call payload: tool `exec`, params `{command}`). Names
+// with a Claude canonical are mapped so builtin policies fire; OpenClaw-specific
+// tools (process, apply_patch, memory_*, sessions_*, browser, canvas, …) pass
+// through unchanged so they still appear in the audit, just unmatched.
+export const OPENCLAW_TOOL_MAP: Record<string, string> = {
+  exec: "Bash",
+  read: "Read",
+  write: "Write",
+  edit: "Edit",
+  grep: "Grep",
   glob: "Glob",
-  grep_search: "Grep",
-  list_directory: "LS",
+  web_search: "WebSearch",
   web_fetch: "WebFetch",
-  google_web_search: "WebSearch",
-  write_todos: "TodoWrite",
-  save_memory: "Memory",
-  ask_user: "AskUser",
+};
+
+// OpenClaw tool-INPUT key canonicalization, keyed by the *canonical* tool name
+// (the handler canonicalizes the name before calling canonicalizeToolInput).
+// `exec` already delivers `command` (matches Bash builtins), so no entry; the
+// file tools deliver the path as `path`, which Claude builtins read as
+// `file_path`. Mirrors HERMES_TOOL_INPUT_MAP / PI_TOOL_INPUT_MAP.
+export const OPENCLAW_TOOL_INPUT_MAP: Record<string, Record<string, string>> = {
+  Read: { path: "file_path" },
+  Write: { path: "file_path" },
+  Edit: { path: "file_path" },
+};
+
+// ── Factory Droid (droid) ───────────────────────────────────────────────────
+//
+// Factory's droid CLI ships a Claude-compatible external-command hook system,
+// but with two schema quirks verified LIVE against droid v0.171.0:
+//
+//   1. **Event names live at the TOP LEVEL of hooks.json — there is NO `"hooks"`
+//      wrapper.** The published docs are wrong; droid rejects a `{"hooks":{…}}`
+//      wrapper with `WARN Ignoring unknown hook event keys keys:["hooks"]`. The
+//      correct shape is:
+//        { "PreToolUse": [ { "matcher": "*", "hooks": [ { … } ] } ],
+//          "Stop":       [ { "hooks": [ { … } ] } ] }
+//      Tool events (PreToolUse / PostToolUse) MUST carry `"matcher": "*"`
+//      (matches all tools); non-tool events omit the matcher.
+//
+//   2. **Deny is driven by EXIT CODE 2 + stderr, NOT a JSON decision.** droid
+//      ignores a `{decision:…}` object on tool events and blocks purely on
+//      exit code 2 (verified live: `Hook returned exit code 2, throwing
+//      ToolExecutionControlError`). The one exception is the `Stop` event,
+//      where droid does NOT support exit-2 force-retry — there we emit
+//      `{decision:"block", reason}` JSON on stdout at exit 0 (docs: "if
+//      decision is block, Droid does not stop"). Both branches live in
+//      policy-evaluator.ts's `cli === "factory"` handling.
+//
+// Event names are already PascalCase (matching Claude's canonical set), so
+// there is NO FACTORY_EVENT_MAP and NO handler.ts canonicalization branch — the
+// binary sees the events verbatim. The stdin payload is Claude snake_case
+// (`session_id`, `transcript_path`, `cwd`, `permission_mode`, `hook_event_name`,
+// `tool_name`, `tool_input:{command,…}`), so no payload normalization is needed
+// either.
+//
+// Settings paths (verified against droid v0.171.0):
+//   user    → ~/.factory/hooks.json
+//   project → <cwd>/.factory/hooks.json
+//
+// Audit pillar: sessions at ~/.factory/sessions/<encoded-cwd>/<sessionId>.jsonl
+// (Claude-style encoded-cwd folders), one JSONL per session alongside a
+// `<sessionId>.settings.json` sibling we ignore. See lib/factory-sessions.ts.
+
+export const FACTORY_HOOK_SCOPES = ["user", "project"] as const;
+export type FactoryHookScope = (typeof FACTORY_HOOK_SCOPES)[number];
+
+export const FACTORY_HOOK_EVENT_TYPES = [
+  "SessionStart",
+  "UserPromptSubmit",
+  "PreToolUse",
+  "PostToolUse",
+  "Notification",
+  "Stop",
+  "SubagentStop",
+  "PreCompact",
+  "SessionEnd",
+] as const;
+export type FactoryHookEventType = (typeof FACTORY_HOOK_EVENT_TYPES)[number];
+
+/**
+ * Factory droid's tool names → Claude PascalCase canonical names so existing
+ * builtin policies (which match `toolName === "Bash"`, etc.) fire unchanged.
+ * Verified against droid v0.171.0: shell runs as `Execute`, file writes as
+ * `Create`, URL fetches as `FetchUrl`. `tool_input.command` is already the
+ * canonical Bash key, so there is NO FACTORY_TOOL_INPUT_MAP. Unknown tools
+ * (MCP, extensions) pass through unchanged via the `?? raw` fallback.
+ */
+export const FACTORY_TOOL_MAP: Record<string, string> = {
+  Execute: "Bash",
+  Read: "Read",
+  Edit: "Edit",
+  Create: "Write",
+  Grep: "Grep",
+  Glob: "Glob",
+  LS: "LS",
+  FetchUrl: "WebFetch",
+  WebSearch: "WebSearch",
+  TodoWrite: "TodoWrite",
+  Task: "Task",
+};
+
+// ── Devin CLI (devin) ───────────────────────────────────────────────────────
+//
+// Devin's CLI (Cognition) is a **pure Claude-clone** external-command hook
+// system — verified LIVE against devin v3000.1.27. Unlike Factory, it uses the
+// standard Claude `"hooks"`-wrapper schema (its config.json also holds
+// `org_id`, `theme_mode`, etc., so writes are merge-preserving via
+// readJsonFile/writeJsonFile). No quirks:
+//
+//   • Config lives under a `"hooks"` key exactly like Claude's settings.json:
+//       user    → ~/.config/devin/config.json  (the `"hooks"` key)
+//       project → <cwd>/.devin/config.json      (the `"hooks"` key)
+//   • Event names are already PascalCase (matching Claude's canonical set), so
+//     there is NO DEVIN_EVENT_MAP and NO handler.ts canonicalization branch.
+//   • The stdin payload is pure Claude snake_case (no normalization needed):
+//       PreToolUse  → {hook_event_name, tool_name:"exec", tool_input:{command}, tool_use_id}
+//       PostToolUse → adds tool_response:{success, output, error}
+//       Stop        → {stop_hook_active}
+//   • Deny contract = `{"decision":"block","reason"}` JSON on stdout at exit 0
+//     (VERIFIED live — it blocked and overrode `--permission-mode dangerous`).
+//     Both non-Stop and Stop use the same `{decision:"block"}` shape (Stop's
+//     reason carries the MANDATORY-ACTION force-retry wording). Devin is
+//     Claude-compatible, so instruct on context-injection events emits
+//     `{hookSpecificOutput:{hookEventName, additionalContext}}`. See
+//     policy-evaluator.ts's `cli === "devin"` branch.
+//
+// Audit pillar: sessions live in SQLite at
+// ~/.local/share/devin/cli/sessions.db (tables `sessions` — one row per
+// session WITH a `working_directory` — and `message_nodes`, whose
+// `chat_message` column is OpenAI-style JSON `{role, content, tool_calls?,
+// tool_call_id?}`). See lib/devin-sessions.ts. `DEVIN_HOME` overrides the home
+// dir for tests.
+
+export const DEVIN_HOOK_SCOPES = ["user", "project"] as const;
+export type DevinHookScope = (typeof DEVIN_HOOK_SCOPES)[number];
+
+export const DEVIN_HOOK_EVENT_TYPES = [
+  "SessionStart",
+  "UserPromptSubmit",
+  "PreToolUse",
+  "PostToolUse",
+  "PermissionRequest",
+  "Stop",
+  "SessionEnd",
+] as const;
+export type DevinHookEventType = (typeof DEVIN_HOOK_EVENT_TYPES)[number];
+
+/**
+ * Devin's tool names → Claude PascalCase canonical names so existing builtin
+ * policies (which match `toolName === "Bash"`, etc.) fire unchanged. Verified
+ * live against devin v3000.1.27: the shell tool runs as `exec` and its
+ * `tool_input.command` is already the canonical Bash key, so there is NO
+ * DEVIN_TOOL_INPUT_MAP. All other Devin tool names pass through unchanged via
+ * the `?? raw` fallback.
+ */
+export const DEVIN_TOOL_MAP: Record<string, string> = {
+  exec: "Bash",
+};
+
+// ── Antigravity CLI (antigravity) ────────────────────────────────────────────
+//
+// Antigravity's `agy` CLI has its OWN hook contract — it is NOT a Claude-clone.
+// Verified LIVE against agy v1.1.2 (shipped docs at
+// ~/.gemini/antigravity-cli/builtin/skills/agy-customizations/docs/hooks.md):
+//
+//   1. **hooks.json is a NAMED-hook schema.** Each top-level key is a hook
+//      *name* ("failproofai"), whose value is an event→handlers map. Tool events
+//      (PreToolUse / PostToolUse) use a `{matcher, hooks:[…]}` wrapper;
+//      non-tool events (PreInvocation / Stop) are FLAT arrays of handler
+//      objects:
+//        { "failproofai": {
+//            "PreToolUse":  [ { "matcher":"*", "hooks":[ {type,command,timeout} ] } ],
+//            "PreInvocation": [ { type, command, timeout } ],
+//            "Stop":          [ { type, command, timeout } ] } }
+//      Multiple named hooks merge; `"enabled": false` disables a named hook.
+//
+//   2. **camelCase (protojson) stdin payload.** Antigravity pipes camelCase
+//      fields (`toolCall:{name,args}`, `conversationId`, `workspacePaths`,
+//      `transcriptPath`, `stepIdx`, `modelName`) — handler.ts normalizes these
+//      to canonical snake_case (`tool_name`, `tool_input`, `session_id`, `cwd`,
+//      `transcript_path`) right after JSON.parse. Tool `args` are PascalCase
+//      (`CommandLine`, `Cwd`) — canonicalized via ANTIGRAVITY_TOOL_INPUT_MAP.
+//
+//   3. **Antigravity's OWN response shapes** (policy-evaluator.ts
+//      `cli === "antigravity"` branch):
+//        • Deny (tool events) → exit 0, `{decision:"deny", reason}` on stdout.
+//        • Deny on Stop        → exit 0, `{decision:"continue", reason}` —
+//          "continue" re-enters the loop (how require-*-before-stop enforces).
+//        • Instruct on UserPromptSubmit (canonical for PreInvocation) → exit 0,
+//          `{injectSteps:[{ephemeralMessage:"Instruction from failproofai: …"}]}`.
+//        • Instruct on Stop → `{decision:"continue", reason}`.
+//        • Other instruct events → stderr note only (degrade like Hermes).
+//
+//   4. **ANTIGRAVITY_EVENT_MAP** maps the `--hook` arg to a canonical event:
+//      PreToolUse→PreToolUse, PostToolUse→PostToolUse,
+//      PreInvocation→UserPromptSubmit, Stop→Stop.
+//
+// Settings paths (verified against agy v1.1.2):
+//   user    → ~/.gemini/config/hooks.json
+//   project → <cwd>/.agents/hooks.json
+//
+// Audit pillar: plain JSONL transcripts at
+// ~/.gemini/antigravity-cli/brain/<conversationId>/.system_generated/logs/
+// transcript_full.jsonl (one step per line); the conversation index lives in
+// SQLite at ~/.gemini/antigravity-cli/conversation_summaries.db. See
+// lib/antigravity-sessions.ts + lib/antigravity-projects.ts. `ANTIGRAVITY_HOME`
+// overrides the home dir for tests.
+
+export const ANTIGRAVITY_HOOK_SCOPES = ["user", "project"] as const;
+export type AntigravityHookScope = (typeof ANTIGRAVITY_HOOK_SCOPES)[number];
+
+/** The events failproofai installs into Antigravity's hooks.json. Tool events
+ *  use the `{matcher, hooks}` wrapper; PreInvocation / Stop are flat arrays. */
+export const ANTIGRAVITY_HOOK_EVENT_TYPES = [
+  "PreToolUse",
+  "PostToolUse",
+  "PreInvocation",
+  "Stop",
+] as const;
+export type AntigravityHookEventType = (typeof ANTIGRAVITY_HOOK_EVENT_TYPES)[number];
+
+/** Antigravity `--hook` arg → canonical HookEventType. PreInvocation is
+ *  Antigravity's before-model event → maps to UserPromptSubmit (where instruct
+ *  injects `injectSteps`). Verified against agy v1.1.2. */
+export const ANTIGRAVITY_EVENT_MAP: Record<AntigravityHookEventType, HookEventType> = {
+  PreToolUse: "PreToolUse",
+  PostToolUse: "PostToolUse",
+  PreInvocation: "UserPromptSubmit",
+  Stop: "Stop",
+};
+
+/**
+ * Antigravity's tool names → Claude PascalCase canonical names so existing
+ * builtin policies (which match `toolName === "Bash"`, etc.) fire unchanged.
+ * Tool names VERIFIED against the agy binary's tool registry + live transcripts:
+ * the file tool is `write_to_file` (NOT `write_file`), listing is `list_dir`
+ * (NOT `list_directory`), and glob is `find_by_name` (NOT `find_filepath`) — the
+ * earlier best-effort names were wrong, so `block-env-files`/`block-secrets-write`
+ * silently no-op'd on Antigravity file writes. Unknown tools pass through via the
+ * `?? raw` fallback.
+ */
+export const ANTIGRAVITY_TOOL_MAP: Record<string, string> = {
+  run_command: "Bash",
+  write_to_file: "Write",
+  read_file: "Read",
+  view_file: "Read",
+  edit_file: "Edit",
+  replace_file_content: "Edit",
+  list_dir: "LS",
+  find_by_name: "Glob",
+  grep_search: "Grep",
+  read_url_content: "WebFetch",
+  search_web: "WebSearch",
+};
+
+/**
+ * Antigravity tool args are PascalCase. Keyed by the CANONICAL tool name
+ * (canonicalizeToolInput runs after canonicalizeToolName). VERIFIED live:
+ * `run_command` delivers `CommandLine`/`Cwd`; `write_to_file` delivers the path
+ * as `TargetFile` and body as `CodeContent`. Without the Write/Edit/Read entries
+ * the path/content builtins (`block-env-files`, `block-secrets-write`,
+ * `block-read-outside-cwd`) never saw a `file_path` and silently no-op'd on
+ * Antigravity file operations. Read/Edit path keys are best-effort within the
+ * same tool family (all file tools operate on `TargetFile`); extra keys are
+ * harmless (only remapped when present).
+ */
+export const ANTIGRAVITY_TOOL_INPUT_MAP: Record<string, Record<string, string>> = {
+  Bash: { CommandLine: "command", Cwd: "cwd" },
+  Write: { TargetFile: "file_path", CodeContent: "content" },
+  Edit: { TargetFile: "file_path" },
+  Read: { TargetFile: "file_path", AbsolutePath: "file_path", File: "file_path" },
+};
+
+// ── Goose (codename goose, Block) ────────────────────────────────────────────
+//
+// Goose is Block's open-source Rust MCP agent — a LOCAL dev-agent CLI (like
+// Claude/Factory/Devin, NOT a gateway). Dual-pillar: external shell-hook
+// enforcement + SQLite audit. The entire contract below was verified LIVE
+// against goose v1.43.0.
+//
+// Enforcement is via Goose's "hooks" system (the cross-agent Open Plugins spec):
+// a plugin directory whose `hooks/hooks.json` `command` runs
+// `failproofai --hook <event> --cli goose`. Goose AUTO-DISCOVERS the dir at
+// startup (no config edit needed) and self-registers it into config.yaml.
+//
+//   1. **Deny contract = `PreToolUse` ONLY** (shipped in goose ≥ v1.37.0,
+//      PR block/goose#9304). A hook blocks a tool via `{"decision":"block",
+//      "reason"}` on stdout at exit 0 (exit 2 + stderr also works); ANY other
+//      error/timeout → fail-open (allow). Verified live: the reason reaches the
+//      model and "do not retry" is appended. Goose has NO `Stop` event, so the 5
+//      `require-*-before-stop` builtins never fire (inapplicable, like Hermes).
+//      `UserPromptSubmit` deny is NOT honored (observation only). `PreToolUse`
+//      fires for the shell tool AND inside delegated subagents, so it is the
+//      single sufficient deny point.
+//
+//   2. **Event names are already PascalCase** (matching Claude's canonical set),
+//      so there is NO `GOOSE_EVENT_MAP` and NO handler.ts event-canonicalization
+//      branch. The stdin payload, however, uses `event` (not `hook_event_name`)
+//      and `working_dir` (not `cwd`) — handler.ts normalizes `working_dir`→`cwd`
+//      for goose so `block-read-outside-cwd` keeps its cwd. `tool_name` /
+//      `tool_input` are already the canonical field names.
+//
+//   3. Tool names arrive BOTH bare (`shell`, `write`, `edit`, `view`,
+//      `read_image`, `tree`, `delegate`) AND `<ext>__<tool>` namespaced
+//      (`todo__todo_write`); GOOSE_TOOL_MAP covers both forms, unknown tools
+//      pass through via the `?? raw` fallback. Path-bearing tools deliver the
+//      path as `path` (or `source` for read_image), so GOOSE_TOOL_INPUT_MAP maps
+//      it to `file_path`. Shell's `command` is already canonical.
+//
+//   4. **Instruct has no channel** — a non-block PreToolUse decision injects
+//      nothing (verified live), so instruct() degrades to allow + stderr note
+//      (like Factory/Hermes on non-Stop events). policy-evaluator.ts's
+//      `cli === "goose"` branch: PreToolUse deny → `{"decision":"block",reason}`
+//      JSON at exit 0; no Stop branch.
+//
+// Settings paths (verified against goose v1.43.0):
+//   user    → ~/.agents/plugins/failproofai/hooks/hooks.json
+//   project → <cwd>/.agents/plugins/failproofai/hooks/hooks.json
+//
+// Audit pillar: sessions in SQLite at
+// ~/.local/share/goose/sessions/sessions.db (schema v15). `sessions` rows carry
+// a real `working_dir`, so `audit --project <cwd>` filters like Devin (NOT
+// grouped-by-source like Hermes); `messages` rows hold Claude-style typed-block
+// `content_json`. See lib/goose-sessions.ts. `GOOSE_HOME` overrides the data
+// dir for tests.
+
+export const GOOSE_HOOK_SCOPES = ["user", "project"] as const;
+export type GooseHookScope = (typeof GOOSE_HOOK_SCOPES)[number];
+
+export const GOOSE_HOOK_EVENT_TYPES = [
+  "SessionStart",
+  "UserPromptSubmit",
+  "PreToolUse",
+  "PostToolUse",
+  "SessionEnd",
+] as const;
+export type GooseHookEventType = (typeof GOOSE_HOOK_EVENT_TYPES)[number];
+
+/**
+ * Goose's tool names → Claude PascalCase canonical names so existing builtin
+ * policies (which match `toolName === "Bash"`, etc.) fire unchanged. Verified
+ * live against goose v1.43.0: the developer extension exposes `shell` (Bash),
+ * `write`/`edit`/`view` (file ops), `read_image`, `glob`/`grep`, plus
+ * `tree`/`delegate`; other extensions namespace their tools (`todo__todo_write`).
+ * Unknown tools (MCP, other extensions) pass through unchanged via the `?? raw`
+ * fallback in handler.ts:canonicalizeToolName.
+ */
+export const GOOSE_TOOL_MAP: Record<string, string> = {
+  shell: "Bash",
+  write: "Write",
+  edit: "Edit",
+  view: "Read",
+  read_image: "Read",
+  glob: "Glob",
+  grep: "Grep",
+  tree: "LS",
+  delegate: "Task",
+  todo__todo_write: "TodoWrite",
+};
+
+/**
+ * Per-tool input-key translation, keyed by the *canonical* tool name (the
+ * handler canonicalizes the name before calling canonicalizeToolInput).
+ * Verified live: goose's file tools deliver the path as `path` (`read_image`
+ * uses `source`), but Claude builtins read `file_path` (block-env-files,
+ * block-secrets-write, block-read-outside-cwd) — so map it. `shell` already
+ * delivers `command` (canonical), so Bash needs no entry. `edit` delivers
+ * `before`/`after` (not `old_string`/`new_string`); only the top-level `path`
+ * is mapped (no builtin inspects the edit body), mirroring PI_TOOL_INPUT_MAP.
+ */
+export const GOOSE_TOOL_INPUT_MAP: Record<string, Record<string, string>> = {
+  Read: { path: "file_path", source: "file_path" },
+  Write: { path: "file_path" },
+  Edit: { path: "file_path" },
+  LS: { path: "file_path" },
 };
 
 export const HOOK_EVENT_TYPES = [
@@ -685,15 +1005,15 @@ export interface SessionMetadata {
   cwd?: string;
   permissionMode?: string;
   /** Read from the stdin payload's `hook_event_name` field. Carries the raw
-   *  agent-emitted event name (e.g. Gemini's `BeforeTool`, Cursor's
-   *  `preToolUse`, Pi's `tool_call`). May be undefined when stdin omits it. */
+   *  agent-emitted event name (e.g. Cursor's `preToolUse`, Pi's `tool_call`).
+   *  May be undefined when stdin omits it. */
   hookEventName?: string;
   /** The raw event name passed on the CLI's `--hook` flag, BEFORE any
-   *  per-CLI canonicalization to PascalCase (e.g. `BeforeTool` for Gemini,
-   *  `preToolUse` for Cursor). Use this for round-tripping the agent-side
-   *  event name in response shapes when stdin doesn't include `hook_event_name`. */
+   *  per-CLI canonicalization to PascalCase (e.g. `preToolUse` for Cursor).
+   *  Use this for round-tripping the agent-side event name in response shapes
+   *  when stdin doesn't include `hook_event_name`. */
   rawHookEventName?: string;
-  /** Which agent CLI fired this hook (claude | codex | copilot | cursor | opencode | pi | gemini). Set by handler.ts from --cli. */
+  /** Which agent CLI fired this hook (claude | codex | copilot | cursor | opencode | pi | hermes | openclaw | factory | devin | antigravity | goose). Set by handler.ts from --cli. */
   cli?: IntegrationType;
 }
 

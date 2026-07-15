@@ -29,61 +29,90 @@ before they become incidents. Zero latency. Runs locally.
   <a href="https://claude.com/claude-code" title="Claude Code">
     <img src="assets/logos/claude.svg" alt="Claude Code" width="64" height="64" />
   </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://developers.openai.com/codex" title="OpenAI Codex">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://learn.chatgpt.com" title="OpenAI Codex">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/logos/openai-dark.svg" />
       <img src="assets/logos/openai-light.svg" alt="OpenAI Codex" width="64" height="64" />
     </picture>
   </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-hooks" title="GitHub Copilot CLI">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/features/copilot/cli" title="GitHub Copilot CLI">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/logos/copilot-dark.svg" />
       <img src="assets/logos/copilot-light.svg" alt="GitHub Copilot" width="64" height="64" />
     </picture>
   </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://cursor.com/docs/hooks" title="Cursor Agent CLI">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://cursor.com" title="Cursor Agent CLI">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/logos/cursor-dark.svg" />
       <img src="assets/logos/cursor-light.svg" alt="Cursor Agent" width="64" height="64" />
     </picture>
   </a>
-</p>
-<p align="center">
-  <a href="https://opencode.ai/docs/plugins/" title="OpenCode">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://opencode.ai/" title="OpenCode">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/logos/opencode-dark.svg" />
       <img src="assets/logos/opencode-light.svg" alt="OpenCode" width="64" height="64" />
     </picture>
   </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://pi.dev" title="Pi (pi-coding-agent)">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://pi.dev/" title="Pi (pi-coding-agent)">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/logos/pi-dark.svg" />
       <img src="assets/logos/pi-light.svg" alt="Pi" width="64" height="64" />
     </picture>
   </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://geminicli.com/" title="Gemini CLI">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/gemini-dark.svg" />
-      <img src="assets/logos/gemini-light.svg" alt="Gemini CLI" width="64" height="64" />
-    </picture>
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/FailproofAI/failproofai/blob/main/docs/configuration.mdx" title="Hermes (hermes-agent)">
+</p>
+<p align="center">
+  <a href="https://hermes-agent.nousresearch.com/" title="Hermes (hermes-agent)">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/logos/hermes-dark.svg" />
       <img src="assets/logos/hermes-light.svg" alt="Hermes" width="64" height="64" />
     </picture>
   </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://openclaw.ai/" title="OpenClaw (openclaw gateway)">
+    <img src="assets/logos/openclaw.svg" alt="OpenClaw" width="64" height="64" />
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://factory.ai/" title="Factory Droid (droid)">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/factory-dark.png" />
+      <img src="assets/logos/factory-light.png" alt="Factory Droid" width="64" height="64" />
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://devin.ai" title="Devin CLI (Cognition)">
+    <img src="assets/logos/devin.svg" alt="Devin CLI" width="64" height="64" />
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://antigravity.google" title="Antigravity CLI (agy)">
+    <img src="assets/logos/antigravity.svg" alt="Antigravity CLI" width="64" height="64" />
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://goose-docs.ai/" title="Goose (codename goose)">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/goose-dark.svg" />
+      <img src="assets/logos/goose-light.svg" alt="Goose" width="64" height="64" />
+    </picture>
+  </a>
 </p>
 
-> Install hooks for one or any combination: `failproofai policies --install --cli opencode pi gemini` (or `--cli claude codex copilot cursor opencode pi gemini hermes`). Omit `--cli` to auto-detect installed CLIs and prompt.
+> Install hooks for one or any combination: `failproofai policies --install --cli opencode pi` (or `--cli claude codex copilot cursor opencode pi hermes openclaw factory devin antigravity goose`). Omit `--cli` to auto-detect installed CLIs and prompt.
 >
 > **Hermes** (hermes-agent, a Slack/Telegram gateway) is supported for both **live-hook enforcement** (`--cli hermes` — one install intercepts tool calls from every platform and subagent) and offline **audit** replay of its gateway sessions from the single `~/.hermes/state.db`.
+>
+> **OpenClaw** (openclaw gateway, a self-hosted multi-channel assistant) is supported for both **live-hook enforcement** (`--cli openclaw`, user-scope) and offline **audit** replay of its JSONL sessions (`~/.openclaw/agents/<id>/sessions/*.jsonl`). Enforcement uses OpenClaw's **in-process plugin hooks** (a shipped `openclaw-plugin/` that async-spawns failproofai — its file-based internal hooks are observation-only and can't block): `before_tool_call` blocks a tool, and `before_agent_finalize` is a real turn-end gate, so the `require-*-before-stop` builtins enforce.
+>
+> **Factory Droid** (`droid`) is supported for both **live-hook enforcement** (`--cli factory`, user + project scope) and offline **audit** replay of its on-disk JSONL sessions. droid blocks tool calls off hook **exit code 2** (not a JSON decision) and honors `{decision:"block"}` only on the turn-end `Stop` event — failproofai emits the right shape per event automatically.
+>
+> **Devin CLI** (`devin`, Cognition) is supported for both **live-hook enforcement** (`--cli devin`, user + project scope) and offline **audit** replay of its SQLite sessions (`~/.local/share/devin/cli/sessions.db`). Devin is a **pure Claude-clone** — same event names, same snake_case payload, same `"hooks"`-wrapper config (`~/.config/devin/config.json` / `<cwd>/.devin/config.json`) — blocking via `{decision:"block"}` JSON on every event.
+>
+> **Antigravity CLI** (`agy`) is supported for both **live-hook enforcement** (`--cli antigravity`, user + project scope) and offline **audit** replay of its plain-JSONL sessions (`~/.gemini/antigravity-cli/brain/<id>/…/transcript_full.jsonl`). Antigravity has its **own** contract (not a Claude-clone): a **named-hook** `hooks.json` schema (`~/.gemini/config/hooks.json` / `<cwd>/.agents/hooks.json`), a camelCase stdin payload that failproofai normalizes, and its own response shapes — `{decision:"deny"}` to block a tool, `{decision:"continue"}` to force another turn at `Stop`, `{injectSteps}` to inject a reminder before the model runs.
+>
+> **Goose** (codename goose, Block) is supported for both **live-hook enforcement** (`--cli goose`, user + project scope) and offline **audit** replay of its SQLite sessions (`~/.local/share/goose/sessions/sessions.db`). Enforcement uses Goose's **hooks** system (the cross-agent **Open Plugins** spec) — the installer just drops a plugin dir at `~/.agents/plugins/failproofai/` and Goose auto-discovers it. Blocking is `{"decision":"block"}` JSON on the `PreToolUse` event (which fires for the shell tool and inside delegated subagents), verified live against goose v1.43.0; Goose has no turn-end `Stop` event, so the `require-*-before-stop` builtins don't apply (as with Hermes).
 
 ---
 

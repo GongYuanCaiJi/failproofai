@@ -20,6 +20,18 @@ export const OPENCODE_SESSION_RE = /^ses_[A-Za-z0-9]+$/;
  *  its download with `RangeError("Invalid session ID")`. */
 export const HERMES_SESSION_RE = /^[A-Za-z0-9_-]+$/;
 
+/** OpenClaw sessions are UUID-named files. Kept in sync with
+ *  OPENCLAW_SESSION_ID_RE in lib/openclaw-sessions.ts. */
+export const OPENCLAW_SESSION_RE = /^[0-9a-fA-F-]{36}$/;
+
+/** Devin session IDs are word-slug style (e.g. `estimated-seeker`). Kept in
+ *  sync with DEVIN_SESSION_ID_RE in lib/devin-sessions.ts. */
+export const DEVIN_SESSION_RE = /^[A-Za-z0-9_-]+$/;
+
+/** Goose session IDs are date-prefixed counters (e.g. `20260714_3`). Kept in
+ *  sync with GOOSE_SESSION_ID_RE in lib/goose-sessions.ts. */
+export const GOOSE_SESSION_RE = /^\d{8}_\d+$/;
+
 export type DownloadSource =
   | { kind: "file"; path: string }
   | { kind: "synthesized"; body: string; contentType: string; extension: string };
@@ -29,6 +41,9 @@ export type DownloadSource =
 export function isValidSessionId(cli: CliId, sessionId: string): boolean {
   if (cli === "opencode") return OPENCODE_SESSION_RE.test(sessionId);
   if (cli === "hermes") return HERMES_SESSION_RE.test(sessionId);
+  if (cli === "openclaw") return OPENCLAW_SESSION_RE.test(sessionId);
+  if (cli === "devin") return DEVIN_SESSION_RE.test(sessionId);
+  if (cli === "goose") return GOOSE_SESSION_RE.test(sessionId);
   return UUID_RE.test(sessionId);
 }
 
@@ -74,11 +89,6 @@ export async function resolveDownloadSource(
     const path = findPiTranscript(sessionId);
     return path ? { kind: "file", path } : null;
   }
-  if (cli === "gemini") {
-    const { findGeminiTranscript } = await import("./gemini-sessions");
-    const path = findGeminiTranscript(sessionId);
-    return path ? { kind: "file", path } : null;
-  }
   if (cli === "opencode") {
     // OpenCode keeps sessions in SQLite (~/.local/share/opencode/opencode.db)
     // across three tables: session / message / part. Export all three so
@@ -96,6 +106,47 @@ export async function resolveDownloadSource(
     // export of the session's raw `messages` rows.
     const { getHermesSessionLog } = await import("./hermes-sessions");
     const result = await getHermesSessionLog(sessionId);
+    if (!result) return null;
+    const body = result.rawLines.map((r) => JSON.stringify(r)).join("\n") + "\n";
+    return { kind: "synthesized", body, contentType: "application/x-ndjson", extension: "jsonl" };
+  }
+
+  if (cli === "openclaw") {
+    // OpenClaw writes real JSONL transcripts on disk — stream the file verbatim.
+    const { findOpenClawTranscript } = await import("./openclaw-sessions");
+    const path = findOpenClawTranscript(sessionId);
+    return path ? { kind: "file", path } : null;
+  }
+
+  if (cli === "factory") {
+    // Factory (droid) writes real JSONL transcripts on disk — stream verbatim.
+    const { findFactoryTranscript } = await import("./factory-sessions");
+    const path = findFactoryTranscript(sessionId);
+    return path ? { kind: "file", path } : null;
+  }
+
+  if (cli === "devin") {
+    // Devin keeps sessions in SQLite (~/.local/share/devin/cli/sessions.db).
+    // Synthesize a JSONL export of the session's raw chat_message rows.
+    const { getDevinSessionLog } = await import("./devin-sessions");
+    const result = await getDevinSessionLog(sessionId);
+    if (!result) return null;
+    const body = result.rawLines.map((r) => JSON.stringify(r)).join("\n") + "\n";
+    return { kind: "synthesized", body, contentType: "application/x-ndjson", extension: "jsonl" };
+  }
+
+  if (cli === "antigravity") {
+    // Antigravity (agy) writes real JSONL transcripts on disk — stream verbatim.
+    const { findAntigravityTranscript } = await import("./antigravity-sessions");
+    const path = findAntigravityTranscript(sessionId);
+    return path ? { kind: "file", path } : null;
+  }
+
+  if (cli === "goose") {
+    // Goose keeps sessions in SQLite (~/.local/share/goose/sessions/sessions.db).
+    // Synthesize a JSONL export of the session's raw `messages` rows.
+    const { getGooseSessionLog } = await import("./goose-sessions");
+    const result = await getGooseSessionLog(sessionId);
     if (!result) return null;
     const body = result.rawLines.map((r) => JSON.stringify(r)).join("\n") + "\n";
     return { kind: "synthesized", body, contentType: "application/x-ndjson", extension: "jsonl" };
