@@ -4,6 +4,7 @@ import {
   rewriteInternalLinks,
   sanitizeJsxAttributes,
   stripStrayTrailingFence,
+  convertHtmlComments,
   getEnglishMdxPages,
 } from "@/scripts/translate-docs/mdx-translator";
 
@@ -185,5 +186,75 @@ describe("stripStrayTrailingFence", () => {
     // 4-tick lines are real markers and should not be counted by the helper.
     const input = "````\ninner ``` content\n````\n";
     expect(stripStrayTrailingFence(input)).toBe(input);
+  });
+});
+
+describe("convertHtmlComments", () => {
+  it("converts a single-line HTML comment to an MDX comment", () => {
+    expect(convertHtmlComments("<!-- hello -->")).toBe("{/* hello */}");
+  });
+
+  it("converts a multi-line HTML comment, preserving inner content", () => {
+    const input =
+      "## Heading\n\n<!-- A note about the\n     table layout below. -->\n<table></table>\n";
+    const expected =
+      "## Heading\n\n{/* A note about the\n     table layout below. */}\n<table></table>\n";
+    expect(convertHtmlComments(input)).toBe(expected);
+  });
+
+  it("keeps HTML that only looks like a comment inside inline text intact", () => {
+    // Regression guard for the real README note that mentions `<img>`.
+    const input = "<!-- prefer a table over inline <img> runs -->";
+    expect(convertHtmlComments(input)).toBe(
+      "{/* prefer a table over inline <img> runs */}",
+    );
+  });
+
+  it("leaves HTML comments inside fenced code blocks untouched", () => {
+    // A plist sample in a ```xml fence must stay literal — MDX does not parse
+    // fenced content, so the collector-installation docs are already valid.
+    const input =
+      "```xml\n<!-- ~/Library/LaunchAgents/foo.plist -->\n<plist></plist>\n```\n";
+    expect(convertHtmlComments(input)).toBe(input);
+  });
+
+  it("converts a top-level comment but not one nested in a later fence", () => {
+    const input =
+      "<!-- top note -->\n\n```html\n<!-- literal sample -->\n```\n";
+    const expected =
+      "{/* top note */}\n\n```html\n<!-- literal sample -->\n```\n";
+    expect(convertHtmlComments(input)).toBe(expected);
+  });
+
+  it("neutralizes a `*/` inside the body so the MDX comment can't close early", () => {
+    expect(convertHtmlComments("<!-- a */ b -->")).toBe("{/* a * / b */}");
+  });
+
+  it("returns content with no comments unchanged", () => {
+    const input = "# Title\n\nJust prose, no comments here.\n";
+    expect(convertHtmlComments(input)).toBe(input);
+  });
+
+  it("converts a top-level comment after a ```` block that embeds ```", () => {
+    // A generic fence toggle would count the inner ``` as a boundary and leave
+    // this comment mis-flagged as inside a fence, breaking the deploy.
+    const input = "````\ninner ``` fence\n````\n\n<!-- note -->\n";
+    const expected = "````\ninner ``` fence\n````\n\n{/* note */}\n";
+    expect(convertHtmlComments(input)).toBe(expected);
+  });
+
+  it("does not treat a ~~~ line inside a ``` block as a fence boundary", () => {
+    // The tilde line is inner content of the backtick fence, so the comment on
+    // the next line stays literal; only the comment after the fence converts.
+    const input =
+      "```\n~~~ still inside\n<!-- inside -->\n```\n\n<!-- outside -->\n";
+    const expected =
+      "```\n~~~ still inside\n<!-- inside -->\n```\n\n{/* outside */}\n";
+    expect(convertHtmlComments(input)).toBe(expected);
+  });
+
+  it("treats an unterminated fence as running to end of document", () => {
+    const input = "```\n<!-- inside an unclosed fence -->\n";
+    expect(convertHtmlComments(input)).toBe(input);
   });
 });

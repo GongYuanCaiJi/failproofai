@@ -95,6 +95,60 @@ export function stripStrayTrailingFence(content: string): string {
 }
 
 /**
+ * Convert HTML comments (`<!-- ... -->`) into MDX brace-slash-star comments.
+ *
+ * Mintlify parses every page as MDX, where a top-level HTML comment is a hard
+ * syntax error ("Unexpected character `!` (U+0021) before name …") that fails
+ * the whole deployment — the remedy Mintlify itself suggests is switching to
+ * MDX's own comment form. The root README keeps HTML-comment syntax (GitHub
+ * renders it invisibly), so its translated copies under docs/i18n/ have to be
+ * rewritten to the MDX form or the docs deploy breaks.
+ *
+ * Comments inside fenced code blocks are left untouched — there `<!-- -->` is
+ * literal sample text (e.g. the plist snippet in the AgentEye collector docs),
+ * not a comment to convert. Any `*`+`/` sequence inside a body is broken up so
+ * the generated JS block comment can't be terminated early.
+ */
+export function convertHtmlComments(content: string): string {
+  // Map out fenced-code ranges so comments inside them stay literal. Per
+  // CommonMark, a fence opens with ≥3 backticks or tildes and closes only on a
+  // later line using the SAME character and at least the same length. A naive
+  // "any ``` toggles" counter misfires on a ```` block that embeds ``` or on
+  // mixed ```/~~~ fences — the toggle desyncs and a real top-level comment
+  // after the block would be left unconverted (breaking the deploy we fix here).
+  const fenceRanges: Array<[number, number]> = [];
+  const fenceRe = /^[ \t]*(`{3,}|~{3,})/gm;
+  let fenceMatch: RegExpExecArray | null;
+  let open: { char: string; length: number; start: number } | null = null;
+  while ((fenceMatch = fenceRe.exec(content)) !== null) {
+    const marker = fenceMatch[1];
+    if (!open) {
+      open = { char: marker[0], length: marker.length, start: fenceMatch.index };
+    } else if (marker[0] === open.char && marker.length >= open.length) {
+      const lineEnd = content.indexOf("\n", fenceRe.lastIndex);
+      fenceRanges.push([open.start, lineEnd === -1 ? content.length : lineEnd]);
+      open = null;
+    }
+    // A different char or shorter marker while a fence is open is inner content.
+  }
+  // An unterminated fence runs to the end of the document.
+  if (open) fenceRanges.push([open.start, content.length]);
+
+  const isInsideFence = (offset: number): boolean =>
+    fenceRanges.some(([start, end]) => offset >= start && offset < end);
+
+  return content.replace(
+    /<!--([\s\S]*?)-->/g,
+    (match: string, body: string, offset: number) => {
+      if (isInsideFence(offset)) return match;
+      // Neutralize any `*/` so it can't close the JS block comment early.
+      const safeBody = body.replace(/\*\//g, "* /");
+      return `{/*${safeBody}*/}`;
+    },
+  );
+}
+
+/**
  * Rewrite internal doc links to include the language prefix.
  * e.g. href="/built-in-policies" -> href="/es/built-in-policies"
  *      [Getting started](/getting-started) -> [Getting started](/es/getting-started)
@@ -175,9 +229,11 @@ export async function translateMdxPage(
   );
 
   // Strip stray quote artifacts from JSX attribute values, drop any
-  // unmatched trailing code fence the model sometimes hallucinates, then
-  // rewrite links.
-  const sanitized = stripStrayTrailingFence(sanitizeJsxAttributes(translated));
+  // unmatched trailing code fence the model sometimes hallucinates, convert
+  // any HTML comments to MDX comments, then rewrite links.
+  const sanitized = convertHtmlComments(
+    stripStrayTrailingFence(sanitizeJsxAttributes(translated)),
+  );
   const withLinks = rewriteInternalLinks(sanitized, lang);
 
   // Write output
