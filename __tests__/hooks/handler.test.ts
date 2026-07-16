@@ -36,6 +36,7 @@ vi.mock("../../src/hooks/hook-activity-store", () => ({
 
 vi.mock("../../src/hooks/hook-telemetry", () => ({
   trackHookEvent: vi.fn(() => Promise.resolve()),
+  flushHookTelemetry: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("../../lib/telemetry-id", () => ({
@@ -145,6 +146,60 @@ describe("hooks/handler", () => {
         policyName: null,
       }),
     );
+  });
+
+  it("normalizes Copilot's camelCase permissionRequest payload (verified 1.0.71 capture)", async () => {
+    // Copilot's snake_case events are Claude-shaped, but permissionRequest
+    // alone pipes camelCase with a lowercase tool name. Without normalization
+    // the handler sees a null tool name and PermissionRequest policies no-op.
+    mockStdin(
+      JSON.stringify({
+        hookName: "permissionRequest",
+        sessionId: "e5740815-966c-4c4e-8c51-153a8f1fa466",
+        timestamp: 1784186747245,
+        cwd: "/home/user/project",
+        toolName: "bash",
+        toolInput: { command: "sudo whoami" },
+        permissionSuggestions: [],
+      }),
+    );
+    const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+    await handleHookEvent("PermissionRequest", "copilot");
+
+    expect(persistHookActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "PermissionRequest",
+        integration: "copilot",
+        toolName: "Bash",
+        sessionId: "e5740815-966c-4c4e-8c51-153a8f1fa466",
+      }),
+    );
+  });
+
+  it("flushes pending telemetry before returning, even on the allow path", async () => {
+    // The allow path fires no awaited event, so without an explicit flush the
+    // caller's process.exit() would drop un-awaited (`void`) load/error events.
+    mockStdin();
+    const { flushHookTelemetry } = await import("../../src/hooks/hook-telemetry");
+
+    await handleHookEvent("PreToolUse");
+
+    expect(flushHookTelemetry).toHaveBeenCalled();
+  });
+
+  it("flushes pending telemetry even when policy evaluation throws (finally path)", async () => {
+    // A throw before the happy-path flush (e.g. policy eval / custom-hook load)
+    // must still drain pending error telemetry — the handler's try/finally
+    // guarantees it, so the caller's process.exit() can't drop in-flight POSTs.
+    mockStdin();
+    const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+    vi.mocked(evaluatePolicies).mockRejectedValueOnce(new Error("policy eval boom"));
+    const { flushHookTelemetry } = await import("../../src/hooks/hook-telemetry");
+
+    await expect(handleHookEvent("PreToolUse")).rejects.toThrow("policy eval boom");
+
+    expect(flushHookTelemetry).toHaveBeenCalled();
   });
 
   it("persists deny decision when evaluator returns deny", async () => {
