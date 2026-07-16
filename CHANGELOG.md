@@ -39,6 +39,9 @@
 - Document that **VS Code Copilot agent mode** (Preview) is already covered by the `copilot` / `claude` integrations: its agent hooks load from `.github/hooks/*.json`, `~/.copilot/hooks/*.json`, and `~/.claude/settings.json` — the exact paths failproofai already writes — so `--cli copilot` (or `--cli claude`) enforces in VS Code agent-mode sessions with no dedicated `vscode` id. (#508)
 - Add a per-page contextual menu to the docs site (`contextual` in `docs.json`): readers can copy the page as Markdown, view the raw Markdown, hand the page off to ChatGPT / Claude / Perplexity, open it in an MCP client / Cursor / VS Code, or ask the AI assistant a question about it. The `assistant` ("Ask a question") option additionally requires enabling the assistant in the Mintlify dashboard. (#540)
 
+### Dependencies
+- Pin `typescript` to the 6.x line by telling Dependabot to ignore `typescript` major-version bumps. TypeScript 7.0 is the native (Go) port, whose npm package drops the classic compiler API from its main entry (`exports["."]` → a version stub; the API moves to experimental `typescript/unstable/*`). Next.js's build-time TS config validation and `typescript-eslint` (peer `typescript >=4.8.4 <6.1.0`) both require the classic API, so the bump reddened every CI job (the `prepare`→`next build` step runs on every install). Revisit when Next.js and typescript-eslint support the native port; the incremental path is `@typescript/native-preview` (`tsgo`) as a separate type-check tool. (#536)
+
 ## 0.0.13 — 2026-07-14
 
 ### Release
