@@ -15,6 +15,9 @@
 - Delete translated pages whose English source no longer exists, and stop them coming back: `translate-docs` gained a `--prune` mode that runs by default on every translation pass (`--no-prune` opts out) and as an explicit step in the `consolidate` job — that job re-checks-out `main` and *overlays* the artifacts, so a prune done only in the per-language jobs would be undone. Translation only ever moved forward, so the 11 pages the AgentEye syncs removed upstream left 154 orphans (11 × 14 locales) that `--update-nav` dropped from the sidebar but Mintlify still served and indexed — non-English readers could land on docs for a deleted feature with no way out. A repo invariant test now fails if any translation outlives its English source. (#556)
 - Move the docs auto-translation daily cron from 06:00 UTC to 11:05 AM IST (05:35 UTC, encoded as `35 5 * * *` since GitHub Actions cron is always UTC). (#553)
 
+### Features
+- Add a daily **CLI integration-test** workflow (`.github/workflows/cli-integration.yml`): it installs all 12 supported agent CLIs @latest into an isolated Docker sandbox, drives each against failproofai's own policies (built from this repo's HEAD), and asserts the hook log shows a DENY — a silent-allow (a blocked action that ran with no deny) means enforcement broke against that CLI (e.g. a vendor changed their hook schema), turning the run red. Catches drift the unit/e2e suites can't, since it exercises real vendor CLIs against real gateway models. Runs on schedule/dispatch only (never on PRs) with credentials scoped to the `cli-integration` Environment, and posts broke/recovered changes to Slack. Harness under `ci/cli-integration/`. (#566)
+
 ## 0.0.14-beta.1 — 2026-07-14
 
 ### Docs
