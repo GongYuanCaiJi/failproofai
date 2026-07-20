@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.14-beta.3 — 2026-07-20
+
+### Fixes
+- Fix the npm `publish` workflow's post-publish version bump being rejected with `GH013` when it pushed to `main`. The "Bump version for next development cycle" step pushed with the default `GITHUB_TOKEN`, which is not a bypass actor on the org-level `failproofai-rules` ruleset (pull request + 1 review required on `main`), so the automated `chore: bump version` commit was declined ("Changes must be made through a pull request") and every release left `package.json` un-bumped. The step now mints a token for the version-bot GitHub App — the same bypass actor the `bump-platform-submodule` workflow already uses — via `actions/create-github-app-token`, persists it through `actions/checkout`, and pushes as it. (#577)
+- Reconcile `main`'s `package.json` version to `0.0.14-beta.3`. The post-publish auto-bump had been failing to push for several releases (the fix above), so `main` drifted to `0.0.14-beta.1` while npm published through `0.0.14-beta.2`; this sets it to the next development version the now-fixed automation carries forward. (#577)
+
 ## 0.0.14-beta.1 — 2026-07-17
 
 ### Docs
