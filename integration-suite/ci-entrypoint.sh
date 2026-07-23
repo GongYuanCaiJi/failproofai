@@ -27,6 +27,7 @@
 #   CANARY_LLM_MODEL       (default deepseek-v4-pro)
 #   CANARY_CLAUDE_MODEL    (default claude-haiku-4-5)
 #   CANARY_PI_MODEL        (default claude-haiku-4-5)
+#   CANARY_CODEX_MODEL     (default gpt-5.1-codex-mini)
 #   COPILOT_GITHUB_TOKEN   copilot PAT
 #   CURSOR_TOKEN_TGZ_B64   } base64 gzip-tars of each OAuth credential tree,
 #   DEVIN_TOKEN_TGZ_B64    } rooted at $HOME (see capture-tokens.sh)
@@ -43,11 +44,20 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="${GITHUB_WORKSPACE:-$(dirname "$HERE")}"
 
-VOL="${CANARY_VOL:-integration-suite}"
+# Each channel gets its OWN volume: installing a pre-release into the same $HOME
+# overwrites the stable binary (npm -g, and the vendor installers all rewrite
+# their own shims), so the two refs cannot coexist in one volume.
+CHANNEL="${CANARY_CHANNEL:-stable}"
+SUFFIX=""; [ "$CHANNEL" != stable ] && SUFFIX="-$CHANNEL"
+VOL="${CANARY_VOL:-integration-suite$SUFFIX}"
 IMAGE="${CANARY_IMAGE:-failproofai-integration-suite:base}"
-ENVFILE="${CANARY_ENVFILE:-$REPO/canary.env}"
-TOKENS_DIR="${CANARY_TOKENS_DIR:-$REPO/tokens}"
-STATE="${CANARY_STATE:-$REPO/integration-suite-state.json}"
+ENVFILE="${CANARY_ENVFILE:-$REPO/canary$SUFFIX.env}"
+TOKENS_DIR="${CANARY_TOKENS_DIR:-$REPO/tokens$SUFFIX}"
+STATE="${CANARY_STATE:-$REPO/integration-suite-state$SUFFIX.json}"
+# The stable leg's state, so the beta leg can tell "about to break" from
+# "already broken" (see report.js). Unset on the stable leg.
+PEER_STATE="${CANARY_PEER_STATE:-}"
+[ "$CHANNEL" != stable ] && [ -z "$PEER_STATE" ] && PEER_STATE="$REPO/integration-suite-state.json"
 
 step() { echo "── $* ──" >&2; }
 
@@ -123,8 +133,8 @@ docker volume rm "$VOL" -f >/dev/null 2>&1 || true
 docker volume create "$VOL" >/dev/null || { echo "✗ volume create failed" >&2; exit 1; }
 
 # ── 4. install CLIs @latest, then inject tokens ─────────────────────────────
-step "installing 12 CLIs @latest into the fresh volume"
-docker run --rm -v "$VOL:/home/canary" -v "$HERE:/opt/canary:ro" \
+step "installing CLIs (channel=$CHANNEL) into the fresh volume"
+docker run --rm -e CANARY_CHANNEL="$CHANNEL" -v "$VOL:/home/canary" -v "$HERE:/opt/canary:ro" \
   "$IMAGE" bash /opt/canary/install-clis.sh \
   || { echo "✗ CLI install failed" >&2; exit 1; }
 
@@ -145,6 +155,9 @@ step "assembling gateway env-file"
     echo "CANARY_LLM_MODEL=${CANARY_LLM_MODEL:-deepseek-v4-pro}"
     echo "CANARY_CLAUDE_MODEL=${CANARY_CLAUDE_MODEL:-claude-haiku-4-5}"
     echo "CANARY_PI_MODEL=${CANARY_PI_MODEL:-claude-haiku-4-5}"
+    # Without this line probe-cli.sh's CANARY_CODEX_MODEL override was dead plumbing:
+    # the var is read inside the container, and only what is written here crosses into it.
+    echo "CANARY_CODEX_MODEL=${CANARY_CODEX_MODEL:-gpt-5.1-codex-mini}"
     echo "COPILOT_GITHUB_TOKEN=${COPILOT_GITHUB_TOKEN:-}"
   } > "$ENVFILE"
 )
@@ -161,4 +174,6 @@ CANARY_VOL="$VOL" \
 CANARY_IMAGE="$IMAGE" \
 CANARY_STATE="$STATE" \
 CANARY_ENVFILE="$ENVFILE" \
+CANARY_CHANNEL="$CHANNEL" \
+CANARY_PEER_STATE="$PEER_STATE" \
   bash "$HERE/run.sh" ${CANARY_CLIS:-}

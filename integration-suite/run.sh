@@ -30,7 +30,29 @@ ENVFILE="${CANARY_ENVFILE:?CANARY_ENVFILE (docker --env-file with gateway creds)
 MODEL="${CANARY_LLM_MODEL:-deepseek-v4-pro}"
 GATED="${CANARY_VERSION_GATED-all}"
 
-CLIS=("$@"); [ ${#CLIS[@]} -eq 0 ] && CLIS=(claude codex copilot cursor factory devin antigravity goose opencode pi hermes openclaw)
+CHANNEL="${CANARY_CHANNEL:-stable}"
+# Sibling leg's state file, for the cross-leg comparison (see report.js). The beta
+# leg needs to know whether a CLI is green on stable: "stable green + beta not
+# green" is the incoming-breakage signal, and it is the ONLY way to distinguish
+# "the vendor is about to break us" from "this CLI is broken for everyone already".
+PEER_STATE="${CANARY_PEER_STATE:-}"
+
+# The CLIs with a public pre-release ref — kept in sync with the beta refs in
+# install-clis.sh (__tests__/integration-suite/channel-refs.test.ts asserts the two
+# lists agree, since a silent drift here would look like coverage while probing
+# nothing). Its LENGTH is also the honest denominator for the beta report: a
+# targeted run (`run.sh cursor`) must not imply the CLIs it skipped have no
+# pre-release ref.
+BETA_CLIS=(claude codex copilot cursor goose openclaw)
+
+CLIS=("$@")
+if [ ${#CLIS[@]} -eq 0 ]; then
+  if [ "$CHANNEL" = stable ]; then
+    CLIS=(claude codex copilot cursor factory devin antigravity goose opencode pi hermes openclaw)
+  else
+    CLIS=("${BETA_CLIS[@]}")
+  fi
+fi
 
 # failproofai main HEAD — the second gate dimension. Prefer the value the workflow
 # computed; fall back to git in the checkout.
@@ -72,14 +94,33 @@ for cli in "${CLIS[@]}"; do
     vj="$(node -e 'const st=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const p=st.clis[process.argv[2]];process.stdout.write(JSON.stringify({cli:process.argv[2],probes:p.probes||p,version:p.version,fpSha:p.fpSha,gated:true}))' "$STATE" "$cli")"
   else
     echo ">> probing $cli ..." >&2
-    vj="$(run_probe "$cli" | sed -n 's/^VERDICT_JSON //p' | tail -1)"
+    # Spool to a file rather than a shell variable: a probe's output is a full agent
+    # transcript from up to 6 CLI invocations, and a stuck or noisy client could make it
+    # arbitrarily large. Only the verdict line and a 20-line tail are ever needed.
+    out_file="$(mktemp)"
+    run_probe "$cli" > "$out_file"
+    vj="$(sed -n 's/^VERDICT_JSON //p' "$out_file" | tail -1)"
+    # Echo the probe tail whenever the verdict is not a clean pass. Without this the
+    # ONLY thing that survived a probe was its VERDICT_JSON line, so a yellow/red run
+    # said WHAT broke and never WHY — and re-running told you no more, because the
+    # cause (a vendor error message) was discarded both times. Diagnosing codex's
+    # 0.145.0 regression needed a full local reproduction purely for want of these
+    # lines. Safe in a public log: every credential here is a registered Actions
+    # secret, so GitHub masks it on the way out.
+    case "$vj" in
+      *FAIL*|*INCONCLUSIVE*|*ERROR*|"")
+        echo "── $cli probe output (tail) ──" >&2
+        tail -20 "$out_file" >&2
+        echo "── end $cli ──" >&2 ;;
+    esac
+    rm -f "$out_file"
     [ -z "$vj" ] && vj="{\"cli\":\"$cli\",\"probes\":{}}"
     vj="$(node -e 'const v=JSON.parse(process.argv[1]);v.version=process.argv[2]||null;v.fpSha=process.argv[3]||null;process.stdout.write(JSON.stringify(v))' "$vj" "$cur_ver" "$FP_SHA")"
   fi
   results="$(node -e 'const a=JSON.parse(process.argv[1]);a.push(JSON.parse(process.argv[2]));process.stdout.write(JSON.stringify(a))' "$results" "$vj")"
 done
 
-report="$(node "$HERE/report.js" "$results" "$STATE" "$MODEL")"
+report="$(node "$HERE/report.js" "$results" "$STATE" "$MODEL" "$CHANNEL" "$PEER_STATE" "${#BETA_CLIS[@]}")"
 echo "════ report ════" >&2; printf '%s\n' "$report" >&2; echo "════════════════" >&2
 printf '%s\n' "$report"   # also to stdout for the workflow log / artifact
 
@@ -92,6 +133,17 @@ if [ -n "${CANARY_SLACK_WEBHOOK:-}" ]; then
   else echo "⚠️  Slack webhook POST returned HTTP $code" >&2; fi
 else
   echo "(no CANARY_SLACK_WEBHOOK set — report not posted)" >&2
+fi
+
+# The beta leg is ADVISORY and must never fail the job. It probes vendor
+# pre-release builds, which are broken-by-nature often enough that gating CI on
+# them would train everyone to ignore a red run — and the thing it reports is
+# "this WILL break on release", not "this IS broken", which is not a reason to
+# stop the world. The report is emitted and posted either way, so the signal is
+# never lost; escalation is the report's job, not the exit code's.
+if [ "$CHANNEL" != stable ]; then
+  echo "(channel=$CHANNEL — advisory only, not failing the job)" >&2
+  exit 0
 fi
 
 # Fail the job when any probe reported a hard FAIL (broken enforcement) so this
